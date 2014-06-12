@@ -1,0 +1,28 @@
+FFLAGS=-c -O3 -QaxS -no-prec-dev -Iinclude /MT
+LDFLAGS=/static winlib/netcdf_f90.lib winlib/netcdfs.lib /link /nodefaultlib:libc
+#FFLAGS= /check:all /traceback -c -I./ -Iinclude /MT
+#LDFLAGS=-g -static /usr/local/intel/lib/libnetcdf.a
+
+FC=ifort
+EXE=ercore
+
+MOD= rnkpar.f90 griddata.f90 shoreline.f90 release.f90 output.f90
+
+.SUFFIXES: .f90 .obj
+
+OBJ=    $(MOD:.f90=.obj)
+
+%.obj: %.f90
+	$(FC) $(FFLAGS) -c $<
+
+all: $(EXE)
+
+$(EXE): $(OBJ) ercore.obj
+	$(FC) -o $@ $(LDFLAGS) $(OBJ) ercore.obj
+
+test: $(OBJ) test.obj
+	$(FC) $(LDFLAGS) -o $@ $(OBJ) test.obj
+
+clean:
+	del /F $(OBJ) *.mod $(EXE) ercore.obj test.obj
+

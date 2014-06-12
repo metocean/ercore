@@ -1,0 +1,44 @@
+$files
+windfile='' !netcdf file with wind data
+curfile='gsb_bl2000.nc' !netcdf file with current data
+bndfile='shoreline.bnd' !boundary file
+outfile='ercore_test2.txt' !output file
+$end
+$time
+tstart='2000-01-01 00:00:00' !model start time yyyy-mm-dd HH:MM:SS
+tend='2000-01-03 12:00:00' !model end time yyyy-mm-dd HH:MM:SS
+dt=3600 !model time step in seconds
+itout= 1 !output time steps in model time steps
+$end
+$movers
+! windspd=0 !if not 0,this disables input file and use constant instead
+! winddir=270 !degrees from
+! curspd=0 !if not 0,this disables input file and use constant instead
+! curdir=180 !degrees from
+difftype=1 !diffusion distrib. 1 for uniform. 2 planned for ?
+diffval=0.0 !diffusion coefficient in m2/s
+windvar=0. !uncertainty in wind? not coded yet
+curvar=0. !uncertainty in current? not coded yet
+$end
+$releases
+nr=1 !number of releases
+np=1 !number of elements in release (for each release, separated by coma)
+lon=170.30091 !longitude of release location (for each release, separated by coma)
+lat=-45.98127 !latitude of release location (for each release, separated by coma)
+rstart=0 !start time of release in seconds (for each release, separated by coma)
+rend=0 !end time of release in seconds (for each release, separated by coma)
+dw_min=0.01 !along-windage start of range (for each release, separated by coma)
+dw_max=0.04 !along-windage end of range (for each release, separated by coma)
+cw_min=0 !across-windage start of range (for each release, separated by coma)
+cw_max=0 !across-windage end of range (for each release, separated by coma)
+sticky=1 !sticky coast 1=yes (for each release, separated by coma)
+refloat=0. !not used (for each release, separated by coma)
+halflife=0. !not used (for each release, separated by coma)
+$end
+$ncout
+ncoutfile='ercore_test2.nc' !output netcdf file
+incout=1 !output time steps in model time steps
+xlims=170,171.2 !netcdf long bounds
+ylims=-46.50,-44.50 !netcdf lat bounds
+dims=201,201 !lat long dimensions
+$end

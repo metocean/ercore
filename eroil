@@ -1,0 +1,23 @@
+#!/usr/bin/env python
+#This is a driver script for EROil
+
+import optparse
+from ercore import ERcore
+from ercore.materials.hydrocarbons import *
+
+parser=optparse.OptionParser
+usage = "Usage: %prog [options] yaml_file tstart tend"
+parser = OptionParser(usage)
+
+parser.add_option("-d", "--dt", dest="dt",help="Time step (seconds)",default=10)
+
+(options, args) = parser.parse_args()
+
+if len(args)<3:
+  print usage
+  sys.exit(-1)
+
+    
+ercore=ERcore()
+ercore.readYAML(args[0])
+ercore.run(args[1],args[2],options.dt/86400.)

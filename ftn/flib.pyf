@@ -1,0 +1,116 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module _flib_ercore ! in 
+    interface  ! in :_flib_ercore
+        module outgrid
+            integer ognx,ogny
+            real*8 ogdx,ogdy,gmfy
+            real*8,allocatable,dimension(:) :: xlon,ylat,gmfx
+            real,allocatable,dimension(:,:) :: cconc,mask
+            subroutine init_outgrid(x1,x2,y1,y2,nx,ny)
+                real*8 :: x1,x2,y1,y2
+                integer :: nx,ny
+            end subroutine init_outgrid
+            subroutine calc_dens(px,py,mass,np)
+                real*8, dimension(np) :: px,py,mass
+                integer,intent(hide),depend(px) :: np=len(px)
+            end subroutine calc_dens
+        end module outgrid
+        module plume
+            real :: ES,EF
+            subroutine entrainmentF(u,ua,b,h,ddens,np,Q,np1)
+                integer intent(in) :: np
+                real dimension(np1,3),intent(in) :: u
+                real dimension(np,3),intent(in) :: ua
+                real dimension(np1),intent(in) :: b,h,ddens
+                integer,intent(hide),depend(b) :: np1=len(b)
+                real dimension(np),intent(out) :: Q
+            end subroutine entrainmentF
+            subroutine entrainmentJ(u,ua,b,h,ddens,np,Q,np1)
+                integer intent(in) :: np
+                real dimension(np1,3),intent(in) :: u
+                real dimension(np,3),intent(in) :: ua
+                real dimension(np1),intent(in) :: b,h,ddens
+                integer,intent(hide),depend(b) :: np1=len(b)
+                real dimension(np),intent(out) :: Q
+            end subroutine entrainmentJ
+        end module plume
+        module slipvel ! in :temp:slipvel.f90
+            subroutine bubble_slip(db,dens,ddens,temp,visco,ift,slip,np) ! in :temp:slipvel.f90:slipvel
+                real dimension(np),intent(in) :: db
+                real dimension(np),intent(in) :: dens
+                real dimension(np),intent(in) :: ddens
+                real dimension(np),intent(in) :: temp
+                real :: ift,visco
+                integer,intent(hide),depend(db) :: np=len(db)
+                real dimension(np),intent(out) :: slip
+            end subroutine bubble_slip
+        end module slipvel
+        module shoreline ! in :_flib_ercore:shoreline.f90
+            real*8,allocatable,dimension(:) :: slx,sly 
+            real,allocatable,dimension(:,:) :: slbnd
+            integer,allocatable,dimension(:) :: sli,slt,polyi,polyn
+            integer nt
+            real mapbndx(4),mapbndy(4),maxbndx,maxbndy,minbndx,minbndy
+            subroutine read_shoreline(file) ! in :_flib_ercore:shoreline.f90:shoreline
+                character*120 :: file
+            end subroutine read_shoreline
+            subroutine sl_intersect_wrap(pos,post,poso,psc,refloat,np) ! in :_flib_ercore:shoreline.f90:shoreline
+                real*8, dimension(np,2), intent(in) :: pos,post
+                real*8, dimension(np,2), intent(out) :: poso
+                integer, dimension(np), intent(inplace) :: psc
+                real :: refloat
+                integer,intent(hide),depend(psc) :: np=len(psc)
+            end subroutine sl_intersect
+        end module shoreline
+        subroutine interph(var,px,py,x0,y0,dx,dy,vout,np,nx0,ny0) ! in :_flib_ercore:interp.f90
+            real dimension(ny0,nx0) :: var
+            real dimension(np) :: px, py
+            integer,intent(hide),depend(var) :: nx0=shape(var,1), ny0=shape(var,0)
+            integer,intent(hide),depend(px) :: np=len(px)
+            real :: x0, y0
+            real :: dx, dy
+            real dimension(np),intent(out) :: vout
+        end function interph
+        subroutine interp3d(var,px,py,pz,x0,y0,dx,dy,z,vout,np,nx0,ny0,nz0) ! in :_flib_ercore:interp.f90
+            real dimension(nz0,ny0,nx0) :: var
+            real*8 dimension(np) :: px
+            real*8 dimension(np),depend(np) :: py
+            real*8 dimension(np),depend(np) :: pz
+            integer,intent(hide),depend(var) :: nx0=shape(var,2), ny0=shape(var,1), nz0=shape(var,0)
+            integer,intent(hide),depend(px) :: np=len(px)
+            real :: x0, y0, dx, dy
+            real dimension(nz0),depend(z),check(len(z)==nz0) :: z
+            real dimension(np),intent(out) :: vout
+        end function interp3d
+        subroutine interpz(var,pz,z,vout,np,nz0) ! in :_flib_ercore:interp.f90
+            real dimension(nz0,np) :: var
+            real*8 dimension(np) :: pz
+            integer,intent(hide),depend(var) :: nz0=shape(var,0)
+            integer,intent(hide),depend(pz) :: np=len(pz)
+            real dimension(nz0),depend(z) :: z
+            real dimension(np),intent(out) :: vout
+        end function interpz
+        module m_rnkpar ! in :_flib_ercore:rnkpar.f90
+            subroutine d_rnkpar(xdont,irngt,nord) ! in :_flib_ercore:rnkpar.f90:m_rnkpar
+                real*8 dimension(:),intent(in) :: xdont
+                integer dimension(:),intent(out) :: irngt
+                integer intent(in) :: nord
+            end subroutine d_rnkpar
+            subroutine r_rnkpar(xdont,irngt,nord) ! in :_flib_ercore:rnkpar.f90:m_rnkpar
+                real dimension(:),intent(in) :: xdont
+                integer dimension(:),intent(out) :: irngt
+                integer intent(in) :: nord
+            end subroutine r_rnkpar
+            subroutine i_rnkpar(xdont,irngt,nord) ! in :_flib_ercore:rnkpar.f90:m_rnkpar
+                integer dimension(:),intent(in) :: xdont
+                integer dimension(:),intent(out) :: irngt
+                integer intent(in) :: nord
+            end subroutine i_rnkpar
+        end module m_rnkpar
+    end interface 
+end python module _flib_ercore
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/

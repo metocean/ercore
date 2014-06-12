@@ -1,0 +1,16 @@
+mover:
+  class: ConstantMover
+  id: vel
+  vars: ['u','v','w']
+  u: 1
+  v: 0
+  w: 0
+  
+material:
+  class: Plume
+  id: plume
+  nbuff: 10000
+  is3d: 1
+  movers: ['vel']
+  V0: [0,0,3]
+  
