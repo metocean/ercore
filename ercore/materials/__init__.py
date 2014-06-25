@@ -42,6 +42,7 @@ class _Material:
   is3d=True
   geod=False
   default_props={}
+  status_codes={0:'Not released',1:'Released and active',-1:'Stuck to shoreline or bottom'}
   def __init__(self,id,nbuff,movers=[],reactors=[],stickers=[],diffusers=[],tstart=None,tend=None,tstep=0.,outfile=None,P0=[0,0,0],spwn=1,reln=0,R0=1.,Q0=1.,unstick=0.,**prop):
     self.id=id
     self.np=0
@@ -50,7 +51,7 @@ class _Material:
     self.npmax=nbuff
     self.tstart=parsetime(tstart) if tstart else None
     self.tend=parsetime(tend) if tend else None
-    self.state=numpy.zeros((nbuff+1),'i')
+    self.state=numpy.zeros((nbuff+1),'i') #State of particle
     self.age=numpy.zeros((nbuff+1))
     self.mass=numpy.ones((nbuff+1)) #Mass is used for particle weighting - could also represent volume or counts
     self.nid=numpy.zeros((nbuff+1)) #Array for unique numbering
@@ -204,7 +205,7 @@ class _Material:
       if np==0:return 0
     np1=self.np+np
     self.mass[self.np:np1]=self.Q*abs(dt)/np
-    self.mass0=mass[self.np]
+    self.mass0=self.mass[self.np]
     self.state[self.np:np1]=1 #Released
     self.age[self.np:np1]=0.
     self.nid[self.np:np1]=range(self.ninc,self.ninc+np)
@@ -315,7 +316,7 @@ class BuoyantTracer(PassiveTracer):
   __doc__=PassiveTracer.__doc__+"""
     w0: Rise velocity (m/s) [-ve for sinking]
   """
-    
+  
   default_props={'w0':0.0}
   
   def initialize(self,t1,t2):

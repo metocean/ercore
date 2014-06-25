@@ -2,16 +2,30 @@
 import numpy
 from ercore import ERCoreException,ERConfigException,copydoc,ncep2dt
 from scipy.io.netcdf import netcdf_file
-from _flib_ercore import interph,interp3d,interpz
+from _flib_ercore import interph,interp3d,interpz,inpoly
 
 R2D=180./numpy.pi
 D2R=1/R2D
 ARAD=R2D/6367456.
 DMIN=1.e-10
+
+class DataException(ERCoreException):
+  pass
  
 class RectInterpolator(object):
   """Interpolation class for regular grids"""
   def __init__(self,x0,y0,x1,y1,dx,dy,lev=None,lat=None):
+    """Constructor for interpolator
+    Arguments:
+      x0: Bottom left x-coordinate
+      y0: Bottom left y-coordinate
+      x1: Top right x-coordinate
+      y1: Top right y-coordinate
+      dx: Grid spacing x
+      dy: Grid spacing y
+      lev: Levels for 3D grid
+      lat: Latitude values for geodetic grid
+    """
     self.x0=x0
     self.y0=y0
     self.x1=x1
@@ -30,7 +44,7 @@ class RectInterpolator(object):
       return interph(dat,p[:,0],p[:,1],self.x0,self.y0,self.idx,self.idy)
     
   def ingrid(self,p):
-    inbbox=(p[:,0]>=self.x0) and (p[:,0]<=self.x1) and (p[:,1]>=self.y0) and (p[:,1]<=self.y1)
+    inbbox=(p[:,0]>=self.x0) & (p[:,0]<=self.x1) & (p[:,1]>=self.y0) & (p[:,1]<=self.y1)
     return inbbox
     
   def grad(self,dat):
@@ -45,7 +59,7 @@ class RectInterpolator(object):
       
 class FEInterpolator(object):
   """Interpolation class for Finite element grids"""
-  def __init__(self,lon,lat,lev=None,geod=True):
+  def __init__(self,lon,lat,lev=None,geod=True,mask=None):
     """Constructor for interpolator
     Arguments:
       lon: Array of longitudes for each node
@@ -54,17 +68,20 @@ class FEInterpolator(object):
       lev: Levels for 3D grid
     """
     from scipy.spatial import cKDTree
-    self.lon=lon
-    self.lat=lat
+    self.lon=lon[~mask] if mask else lon
+    self.lat=lat[~mask] if mask else lat
+    self.mask=~mask if mask else None
     self.x0=min(lon)
     self.x1=max(lon)
     self.y0=min(lat)
     self.y1=max(lat)
     self.geod=geod
     self.lev=lev
-    self.tree=cKDTree(numpy.vstack((lon,lat)).T)
+    self.tree=cKDTree(numpy.vstack((self.lon,self.lat)).T)
     
   def __call__(self,dat,p):
+    if self.mask:
+      dat=dat[self.mask]
     dist,i=self.tree.query(p[:,:2],3)
     dist[dist<DMIN]=DMIN
     if dat.ndim==2:
@@ -74,19 +91,19 @@ class FEInterpolator(object):
       return dist.sum(-1)*((1./dist)*dat.take(i)).sum(-1)
     
   def ingrid(self,p):
-    inbbox=(p[:,0]>=self.x0) and (p[:,0]<=self.x1) and (p[:,1]>=self.y0) and (p[:,1]<=self.y1)
+    inbbox=(p[:,0]>=self.x0) & (p[:,0]<=self.x1) & (p[:,1]>=self.y0) & (p[:,1]<=self.y1)
+    #inmesh=inpoly(p[inbbox,0],p[inbbox,1],self.bndx,self.bndy)
+    #inbbox[inbbox]=inmesh
     return inbbox
     
   def grad(self,dat):
-    return 0.*dat,0.*dat #!!!Not correct - just for testing
+    return 0.*dat,0.*dat ##!!!!Not correct - just for testing - but this needs to be implemented
 
-
-class DataException(ERCoreException):
-  pass
 
 class FieldData:
   """Base class for fields"""
   is3d=False
+  res=1.0
   def __init__(self,id,vars,**options):
     """Constructor for field data
   Arguments:
@@ -166,7 +183,7 @@ class GridData(FieldData):
     filetmpl=re.sub('%Y|%m|%d|%H','*',self.filename)
     self.filelist=glob.glob(filetmpl)
     if len(self.filelist)==0:
-      raise ConfigException('No files found that match template %s' % (filetmpl))
+      raise ERConfigException('No files found that match template %s' % (filetmpl))
     self.filelist.sort()
     self.buf0={}
     self.vars=vars if isinstance(vars,list) else [vars]
@@ -200,11 +217,12 @@ class GridData(FieldData):
     if nv:
       lon=cfile['lon'][:] if cfile['lon'] else cfile['longitude'][:]
       lat=cfile['lat'][:] if cfile['lat'] else cfile['latitude'][:]
-      self.interpolator=FEInterpolator(lon.asma(),lat.asma(),self.lev,self.geod)
+      self.interpolator=FEInterpolator(lon.asma(),lat.asma(),self.lev,self.geod,cfile['mask'])
     elif lon:
       self.interpolator=RectInterpolator(lon[0],lat[0],lon[-1],lat[-1],(lon[1]-lon[0]) if len(lon)>1 else 0,(lat[1]-lat[0]) if len(lat)>1 else 0,self.lev,lat if self.geod else None)
     else:
       raise DataException('Gridded file %s structure not understood' % (self.filename))
+    self.res=min(self.interpolator.x1-self.interpolator.x0,self.interpolator.y1-self.interpolator.y0)
     self.__dict__.update(options)
     cfile.close()
     if self.time is None:
@@ -212,14 +230,16 @@ class GridData(FieldData):
     else:
       self.timeindex=[0]
       self.files=[]
+      self.flen=[]
       for cfile in self.filelist:
         self.files.append(cdms2.open(cfile)) #Open all the files
         time0=[t.torelative('days since 1-1-1').value for t in self.files[-1]['time'].asRelativeTime()]
         if (len(self.time)>0) and (time0[0]<self.time[-1]):raise DataException('For templated time files times must be increasing - time in file %s less than preceeding file' % (cfile))
         self.time.extend(time0) #Add times in file to time list
-        self.timeindex.append(len(self.time)) #Add start time index of next file 
-      self.reset()   
-    
+        self.flen.append(len(time0))
+        self.timeindex.append(len(self.time)) #Add start time index of next file
+      self.flen.append(self.flen[-1])
+      self.reset()
       
     
   def reset(self):
@@ -227,14 +247,12 @@ class GridData(FieldData):
     self.buftime=-1
     self.tind=0
     self.t0=self.time[0]
-    self.t1=self.time[1] if len(self.time)>1 else self.t0
+    self.t1=self.time[0]
     self.fileind0=0
     self.fileind1=0
     self.file0=self.files[0]
     self.file1=self.files[0]
     self.buftime=0
-    
-    
     
 
   def get(self,time): #Time is current model time
@@ -252,20 +270,20 @@ class GridData(FieldData):
       self.t0=self.t1
       self.t1=self.time[self.tind]
       self.fileind0=self.fileind1
-      if self.tind>=self.timeindex[self.fileind0+1]-1:
+      if (self.tind>=self.timeindex[self.fileind0+1]):
         self.fileind1+=1
       readfile=True
     if readfile:
       for v in self.vars:
         ind0=self.tind-self.timeindex[self.fileind0]
-        ind1=self.tind-self.timeindex[self.fileind1]+1
+        ind1=min(self.tind-self.timeindex[self.fileind1]+1,self.flen[self.fileind1]-1)
         #print '%s %d %d %d %d' % (v,self.fileind0,self.fileind1,ind0,ind1)
         self.buf0[v]=self.files[self.fileind0][v][ind0]
         self.buf1[v]=self.files[self.fileind1][v][ind1]
     if (self.tind==0) and (time<self.time[0]):
-      print 'Warning: model time before start time of mover %s' % self.id
+      print 'Warning: model time before start time of data %s' % self.id
     elif (self.tind==len(self.time)-1) and (time>self.time[-1]):
-      print 'Warning: model time after end time of mover %s' % self.id
+      print 'Warning: model time after end time of data %s' % self.id
     tfac=min(max(0,(time-self.t0)/(self.t1-self.t0)),1)
     out=[]
     for v in self.vars:
@@ -292,7 +310,7 @@ class GridData(FieldData):
   Variables:%s
   Time:%s
   Levels:%s""" % (self.id,self.file,','.join(self.vars),timestr,self.lev if self.is3d else 'None')
-  
+
 
 class ConstantTide(ConstantData):
   def __init__(self,id,vars,**options):
@@ -496,6 +514,43 @@ class GriddedDiffuser(GridData):
 
 class GriddedSticker(GridData):
   pass
+
+class GriddedDataGroup(FieldData):
+  def __init__(self,id,vars,members,**options):
+    FieldData.__init__(self,id,vars,**options)
+    self.members=members if isinstance(members,list) else [members]
+  
+  def interp(self,p,time=None,imax=1):
+    if len(self.members)==1:#Trivial case of only one member
+      return self.members[0].interp(p,time,imax)
+    datout=numpy.zeros((len(p),imax))
+    pmask=self.members[0].interpolator.ingrid(p)
+    if pmask.any():
+      datout[pmask,:]=self.members[0].interp(p[pmask,:],time,imax)
+    for member in self.members[1:]:
+      nmask=member.interpolator.ingrid(p)
+      nmask=nmask&~pmask
+      if not nmask.any():continue
+      datout[nmask,:]=member.interp(p[nmask,:],time,imax)
+      pmask=pmask|nmask
+    return datout
+  
+  def intersect(self,pos,post,state):
+    if len(self.members)==1:#Trivial case of only one member
+      return self.members[0].intersect(pos,post,state)
+    pout=post[:,:]
+    pmask=self.members[0].interpolator.ingrid(post)
+    if pmask.any():
+      pout[pmask,:]=self.members[0].intersect(pos[pmask,:],post[pmask,:],state[pmask])
+    for member in self.members[1:]:
+      nmask=member.interpolator.ingrid(post)
+      nmask=nmask&~pmask
+      if not nmask.any():continue
+      pout[nmask,:]=member.intersect(pos[nmask,:],post[nmask,:],state[nmask])
+      pmask=pmask|nmask
+    return pout
+    
+  
     
    
 if __name__=="__main__":

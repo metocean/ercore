@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 import datetime,sys,os
-sys.path.append(os.path.join(os.path.dirname(__file__),'..','..'))
+sys.path.insert(0,os.path.join(os.path.dirname(__file__),'..','..'))
 from pylab import *
 from ercore._flib_ercore import interp3d,interph,slipvel
 from ercore import ERcore
 from ercore.materials import PassiveTracer,BuoyantTracer
-from ercore.fields import GriddedMover,ConstantDiffuser,VariableDiffuser,GriddedTopo,ConstantMover
+from ercore.fields import GriddedMover,ConstantDiffuser,VariableDiffuser,GriddedTopo,ConstantMover,GridDataGroup
 from ercore.shoreline import Shoreline
 
 P0=[170.5,-46,-10]
@@ -18,8 +18,9 @@ constant3D=ConstantMover('constant3D',['u','v'],is3d=True,levels=[0,-10,-30,-40]
 constant3Dsub=ConstantMover('constant3Dsub',['u','v'],is3d=True,levels=[0,-10,-30,-40],u=[0.0,-0.5,-1.0,-1.5],v=[0,0,0,0],surfsub=True,topo=dep)
 diff=VariableDiffuser('diff',['diffx','diffy','diffz'],diffz=0.001,P0=P0)
 shoreline=Shoreline('shoreline','shoreline2.bnd')
+movergroup=GridDataGroup('group',['uo','vo'],[currents])
 
-particles=BuoyantTracer('particlesA',10000,movers=[constant3D],stickers=[shoreline,dep],reln=10,P0=P0,w0=0.0)
+particles=BuoyantTracer('particlesA',10000,movers=[movergroup],stickers=[shoreline,dep],reln=10,P0=P0,w0=0.0)
 particles3=BuoyantTracer('particlesC',10000,movers=[constant3D],stickers=[shoreline,dep],reln=10,P0=P0,w0=0.0)
 particles2=BuoyantTracer('particlesB',10000,movers=[constantsurf,constant3Dsub],stickers=[shoreline,dep],reln=10,P0=P0,w0=0.0)
 

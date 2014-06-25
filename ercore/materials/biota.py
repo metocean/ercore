@@ -35,7 +35,7 @@ class Plankton(BuoyantTracer):
     saltmax: Maximum salinity tolerated (PSU)
     salttaxis: Salinity taxis rate (m/s per PSU/m)
   """
-  
+  status_codes=BuoyantTracer.status_codes.update({-2:'Transition to next life stage'})
   def __init__(self,id,nbuff,**k):
     BuoyantTracer.__init__(self,id,nbuff,**k)
     self.props['vposday']=-abs(self.props['vposday'])
@@ -71,13 +71,11 @@ class Plankton(BuoyantTracer):
       sun=Sun(self.pos[:np,0],self.pos[:np,1])
       stimes=sun.getTimes(t1)
       #Go down if day time
-      if (t1>=stimes['Dawn']) and ((stime['Dawn']>stime['SunsetStart']) or (t1<=stime['SunsetStart'])):
-        self.pos[:np,2]-=(t2-t1)*self.props['vspeed']
-        self.pos[:np,2][self.pos[:np,2]<self.props['vposday']]=self.props['vposday']
+      day=(t1>=stimes['Dawn']) & ((stimes['Dawn']>stimes['SunsetStart']) | (t1<=stimes['SunsetStart']))
+      self.pos[:np,2]=numpy.where(day,numpy.maximum(self.pos[:np,2]-(t2-t1)*self.props['vspeed'],self.props['vposday']),self.pos[:np,2])
       #Go up if night time
-      if (t1>=stimes['Sunset Start']) and ((stime['SunsetStart']>stime['Dawn']) or (t1<=stime['Dawn'])):
-        self.pos[:np,2]+=(t2-t1)*self.props['vspeed']
-        self.pos[:np,2][self.pos[:np,2]>self.props['vposnight']]=self.props['vposnight']
+      night=(t1>=stimes['SunsetStart']) & ((stimes['SunsetStart']>stimes['Dawn']) | (t1<=stimes['Dawn']))
+      self.pos[:np,2]=numpy.where(night,numpy.minimum(self.pos[:np,2]+(t2-t1)*self.props['vspeed'],self.props['vposnight']),self.pos[:np,2])
     #Thermotaxis
     #Halotaxis
     

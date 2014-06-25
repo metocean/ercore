@@ -1,4 +1,21 @@
 ! -*- f90 -*-
+      subroutine inpoly(x,y,xp,yp,inp,n,np)
+      integer i,j,k,n,np
+      logical inp(n)
+      real x(n),y(n)
+      real xp(np),yp(np)
+      
+      do k=1,n
+      j=np
+      inp=.false.
+      do i=1,np
+       if ( ((yp(i).gt.y(k)).neqv.(yp(j).gt.y(k))).and.(x(k).lt.(xp(j)-xp(i))*(y(k)-yp(i))/(yp(j)-yp(i))+xp(i))) inp=.not.inp
+      j=i+1
+      enddo
+      enddo
+    
+      end subroutine
+
       subroutine interph(var,px,py,x0,y0,idx,idy,vout,np,nx0,ny0)
       integer np,ip,ii,jj,nx0,ny0
       real var(ny0,nx0),vout(np)

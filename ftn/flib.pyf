@@ -64,6 +64,13 @@ python module _flib_ercore ! in
                 integer,intent(hide),depend(psc) :: np=len(psc)
             end subroutine sl_intersect
         end module shoreline
+        subroutine inpoly(px,py,vx,vy,inp,np,nv) ! in :_flib_ercore:interp.f90
+            real, dimension(np) :: px,py
+            real, dimension(nv) :: vx,vy
+            logical, dimension(np),intent(out) :: inp
+            integer,intent(hide),depend(px) :: np=len(px)
+            integer,intent(hide),depend(vx) :: nv=len(vx)
+        end subroutine inpoly
         subroutine interph(var,px,py,x0,y0,dx,dy,vout,np,nx0,ny0) ! in :_flib_ercore:interp.f90
             real dimension(ny0,nx0) :: var
             real dimension(np) :: px, py

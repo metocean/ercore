@@ -103,10 +103,12 @@ class ERcore(object):
           raise ERConfigException('Configuration file error for object %s\n%s' % (c['id'],traceback.format_exc()))
     for obj in objects:
         for prop in dir(obj):
-            if prop in ['movers','reactors','diffusers','stickers','topo']:
+            if prop in ['movers','reactors','diffusers','stickers','topo','members']:
                 val=getattr(obj,prop)
                 if isinstance(val,list):
                     val=[objects[v] if isinstance(v,str) and objects[v] else v for v in val]
+                    for v in val:
+                        if isinstance(v,str):raise ERConfigException('Cannot find one of %s with id(s) %s specifed for %s' % (prop,v,obj.id))
                 elif isinstance(val,str) and objects[val]:
                     val=objects[val]
                 else:
@@ -151,9 +153,7 @@ class ERcore(object):
             e.diffuse(t,t2)
             e.stick(t,t2)
           e.spawn(t,t2)
-          #print str((e.post[e.np-1,:]-e.pos[e.np-1,:])/e.mfx[e.np-1,:]/(86400*dt))
-          #print e.post[0,:]
-        e.pos[:e.np,:]=e.post[:e.np,:]
+        e.pos[:e.np,:]=numpy.where(e.state[:e.np,numpy.newaxis]>0,e.post[:e.np,:],e.pos[:e.np,:])
         print '%s: %s %d particles' % (t if t<700000 else ncep2dt(t).strftime('%Y%m%d %H:%M:%S'),e.id,e.np)
         e.age[:e.np]+=abs(dt)*(e.state[:e.np]>0)
         e.tcum+=86400.*abs(dt)
