@@ -180,7 +180,7 @@ class GridData(FieldData):
     if 'file' not in options.keys():
       raise ConfigException('Grid data source must specify filename')
     self.filename=options.pop('file')
-    filetmpl=re.sub('%Y|%m|%d|%H','*',self.filename)
+    filetmpl=re.sub('%Y|%m|%d|%H|%M','*',self.filename)
     self.filelist=glob.glob(filetmpl)
     if len(self.filelist)==0:
       raise ERConfigException('No files found that match template %s' % (filetmpl))
