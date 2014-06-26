@@ -2,7 +2,7 @@
 #Classes and functions to calculate tidal elevations and flows from constituents
 
 import datetime,numpy
-from pymo.core.basetype import *
+from basetype import *
 
 DEFAULT_CONS=['Z0','M2','S2','N2','K2','K1','O1','P1','Q1']
 ##omg=2*math.pi*array([0,1.93227361,2.0,1.89598197,2.00547582,1.00273791,0.929535715,0.99726209,0.89324406])
