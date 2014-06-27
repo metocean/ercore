@@ -68,9 +68,9 @@ class FEInterpolator(object):
       lev: Levels for 3D grid
     """
     from scipy.spatial import cKDTree
-    self.lon=lon[~mask] if mask else lon
-    self.lat=lat[~mask] if mask else lat
-    self.mask=~mask if mask else None
+    self.lon=lon[~mask] if mask is not None else lon
+    self.lat=lat[~mask] if mask is not None else lat
+    self.mask=numpy.where(mask!=1) if mask is not None else None
     self.x0=min(lon)
     self.x1=max(lon)
     self.y0=min(lat)
@@ -80,8 +80,8 @@ class FEInterpolator(object):
     self.tree=cKDTree(numpy.vstack((self.lon,self.lat)).T)
     
   def __call__(self,dat,p):
-    if self.mask:
-      dat=dat[self.mask]
+    if self.mask is not None:
+      dat=dat.take(self.mask,-1)
     dist,i=self.tree.query(p[:,:2],3)
     dist[dist<DMIN]=DMIN
     if dat.ndim==2:
@@ -217,7 +217,7 @@ class GridData(FieldData):
     if nv:
       lon=cfile['lon'][:] if cfile['lon'] else cfile['longitude'][:]
       lat=cfile['lat'][:] if cfile['lat'] else cfile['latitude'][:]
-      self.interpolator=FEInterpolator(lon.asma(),lat.asma(),self.lev,self.geod,cfile['mask'])
+      self.interpolator=FEInterpolator(lon.asma(),lat.asma(),self.lev,self.geod,cfile['mask'][:].asma() if cfile['mask'] else None)
     elif lon:
       self.interpolator=RectInterpolator(lon[0],lat[0],lon[-1],lat[-1],(lon[1]-lon[0]) if len(lon)>1 else 0,(lat[1]-lat[0]) if len(lat)>1 else 0,self.lev,lat if self.geod else None)
     else:
@@ -278,8 +278,8 @@ class GridData(FieldData):
         ind0=self.tind-self.timeindex[self.fileind0]
         ind1=min(self.tind-self.timeindex[self.fileind1]+1,self.flen[self.fileind1]-1)
         #print '%s %d %d %d %d' % (v,self.fileind0,self.fileind1,ind0,ind1)
-        self.buf0[v]=self.files[self.fileind0][v][ind0]
-        self.buf1[v]=self.files[self.fileind1][v][ind1]
+        self.buf0[v]=self.files[self.fileind0][v][ind0].asma()
+        self.buf1[v]=self.files[self.fileind1][v][ind1].asma()
     if (self.tind==0) and (time<self.time[0]):
       print 'Warning: model time before start time of data %s' % self.id
     elif (self.tind==len(self.time)-1) and (time>self.time[-1]):

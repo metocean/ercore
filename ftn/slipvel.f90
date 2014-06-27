@@ -1,7 +1,6 @@
       module slipvel
       
       parameter(g=9.81,mu20=0.001002)
-      real, private :: visco_water,ellip_slip
       
       contains
       
