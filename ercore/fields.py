@@ -59,7 +59,7 @@ class RectInterpolator(object):
       
 class FEInterpolator(object):
   """Interpolation class for Finite element grids"""
-  def __init__(self,lon,lat,lev=None,geod=True,mask=None):
+  def __init__(self,lon,lat,lev=None,geod=True):
     """Constructor for interpolator
     Arguments:
       lon: Array of longitudes for each node
@@ -68,9 +68,8 @@ class FEInterpolator(object):
       lev: Levels for 3D grid
     """
     from scipy.spatial import cKDTree
-    self.lon=lon[~mask] if mask is not None else lon
-    self.lat=lat[~mask] if mask is not None else lat
-    self.mask=numpy.where(mask!=1) if mask is not None else None
+    self.lon=lon
+    self.lat=lat
     self.x0=min(lon)
     self.x1=max(lon)
     self.y0=min(lat)
@@ -80,15 +79,16 @@ class FEInterpolator(object):
     self.tree=cKDTree(numpy.vstack((self.lon,self.lat)).T)
     
   def __call__(self,dat,p):
-    if self.mask is not None:
-      dat=dat.take(self.mask,-1)
     dist,i=self.tree.query(p[:,:2],3)
+    if i.max()>=dat.shape[-1]:
+      raise DataException('Finite element interpolation out of range')
     dist[dist<DMIN]=DMIN
+    fac=(1./dist)
     if dat.ndim==2:
-      tmp=dist.sum(-1)*((1./dist)*dat.take(i,1)).sum(-1)
-      return interpz(tmp.filled().astype('f'),p[:,2],self.lev)
+      tmp=(fac*dat.take(i,1)).sum(-1)/fac.sum(-1)
+      return interpz(tmp.astype('f'),p[:,2],self.lev)
     else:
-      return dist.sum(-1)*((1./dist)*dat.take(i)).sum(-1)
+      return (fac*dat.take(i)).sum(-1)/fac.sum(-1)
     
   def ingrid(self,p):
     inbbox=(p[:,0]>=self.x0) & (p[:,0]<=self.x1) & (p[:,1]>=self.y0) & (p[:,1]<=self.y1)
@@ -215,9 +215,15 @@ class GridData(FieldData):
       if self.is3d:self.lev=-self.lev
       self.zinvert=True
     if nv:
-      lon=cfile['lon'][:] if cfile['lon'] else cfile['longitude'][:]
-      lat=cfile['lat'][:] if cfile['lat'] else cfile['latitude'][:]
-      self.interpolator=FEInterpolator(lon.asma(),lat.asma(),self.lev,self.geod,cfile['mask'][:].asma() if cfile['mask'] else None)
+      lon=cfile['lon'][:].filled() if cfile['lon'] else cfile['longitude'][:].filled()
+      lat=cfile['lat'][:].filled() if cfile['lat'] else cfile['latitude'][:].filled()
+      if cfile['mask']:
+        self.mask=numpy.where(cfile['mask'][:].filled()!=1)[0]
+        lon=lon.take(self.mask)
+        lat=lat.take(self.mask)
+      else:
+        self.mask=None
+      self.interpolator=FEInterpolator(lon,lat,self.lev,self.geod)
     elif lon:
       self.interpolator=RectInterpolator(lon[0],lat[0],lon[-1],lat[-1],(lon[1]-lon[0]) if len(lon)>1 else 0,(lat[1]-lat[0]) if len(lat)>1 else 0,self.lev,lat if self.geod else None)
     else:
@@ -278,8 +284,11 @@ class GridData(FieldData):
         ind0=self.tind-self.timeindex[self.fileind0]
         ind1=min(self.tind-self.timeindex[self.fileind1]+1,self.flen[self.fileind1]-1)
         #print '%s %d %d %d %d' % (v,self.fileind0,self.fileind1,ind0,ind1)
-        self.buf0[v]=self.files[self.fileind0][v][ind0].asma()
-        self.buf1[v]=self.files[self.fileind1][v][ind1].asma()
+        self.buf0[v]=self.files[self.fileind0][v][ind0].filled()
+        self.buf1[v]=self.files[self.fileind1][v][ind1].filled()
+        if self.mask is not None:
+          self.buf0[v]=self.buf0[v].take(self.mask,-1)
+          self.buf1[v]=self.buf1[v].take(self.mask,-1)
     if (self.tind==0) and (time<self.time[0]):
       print 'Warning: model time before start time of data %s' % self.id
     elif (self.tind==len(self.time)-1) and (time>self.time[-1]):
@@ -483,10 +492,11 @@ class GriddedMover(GridData):
     #Correct for vertical motion
     if self.topo:
       topo=self.topo.interp(p,None,3)
+      dz=numpy.maximum(p[:,2]-topo[:,0],self.z0)
       if (not self.is3d) and (self.z0>0):#Log profile for 2D case
-        uu[:,:2]=uu[:,:2]*(numpy.log(dz/self.z0))/(numpy.log(topo/self.z0)-1)
+        uu[:,:2]=uu[:,:2]*(numpy.log(dz[:,numpy.newaxis]/self.z0))/(numpy.log(abs(topo[:,0:1])/self.z0)-1)
       if (imax==3):  #Vertical velocity correction for slope
-        w1=(p[:,2]/topo[:,0])*(uu[:,0]*topo[:,1]+uu[:,1]*topo[:,2])
+        w1=numpy.minimum(p[:,2]/topo[:,0],1)*(uu[:,0]*topo[:,1]+uu[:,1]*topo[:,2])
         uu[:,2]+=w1
     return uu
 
@@ -499,11 +509,12 @@ class TidalMover(GriddedTide):
     #Correct for vertical motion
     if self.topo:
       topo=self.topo.interp(p,None,3)
-      dz=p[:,2]-topo[:,0]
+      dz=numpy.maximum(p[:,2]-topo[:,0],self.z0)
       if (not self.is3d) and (self.z0>0):#Log profile for 2D case
         uu[:,:2]=uu[:,:2]*(numpy.log(dz[:,numpy.newaxis]/self.z0))/(numpy.log(abs(topo[:,0:1])/self.z0)-1)
       if (imax==3): #Vertical velocity correction for slope
-        uu[:,2]+=(1.-dz/topo[:,0])*(uu[:,0]*topo[:,1]+uu[:,1]*topo[:,2])
+        w1=numpy.minimum(p[:,2]/topo[:,0],1)*(uu[:,0]*topo[:,1]+uu[:,1]*topo[:,2])
+        uu[:,2]+=w1
     return uu
 
 class GriddedReactor(GridData):
