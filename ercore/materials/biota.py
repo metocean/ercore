@@ -7,7 +7,7 @@ from ercore.lib import Sun
 class Plankton(BuoyantTracer):
   default_props={'spwn':1,
                  'spawnclass':None,
-                 'spawnage':0,
+                 'spawnage':1,
                  'spawnratio':1,
                  'mortality':0,
                  'vposday':0,
@@ -22,9 +22,10 @@ class Plankton(BuoyantTracer):
                  'salttol':1,
                  'salttaxis':0}
   __doc__=BuoyantTracer.__doc__+"""
-    spwn: Number of offspring
+    spawnage: Age at which spwaning occurs (days)
     spawnclass: Class of offspring
-    mortality: Mortality rate
+    spawnratio: Ratio of offspring numbers/mass to parent
+    mortality: Mortality rate (per day)
     vposday: Day time vertical position (m)
     vposnight: Night time vertical position (m)
     vspeed: Vertical migration rate (m/s)
@@ -53,17 +54,21 @@ class Plankton(BuoyantTracer):
       temp=self.reactors[0].interp(self.pos[:np,:],t1)[:,0]
       if (self.props['tempmax'] is not None):
         m=(temp-self.props['tempmax']+self.props['temptol'])/self.props['temptol']
+        if (m>0).any():print 'Temperature maximum reached for some %s' % (self.id)
         self.mass[:np]-=numpy.maximum(numpy.minimum(m,1),0)*self.mass[:np]
       if (self.props['tempmin'] is not None):
         m=(self.props['tempmin']+self.props['temptol']-temp)/self.props['temptol']
         self.mass[:np]-=numpy.maximum(numpy.minimum(m,1),0)*self.mass[:np]
+        if (m>0).any():print 'Temperature minimum reached for some %s' % (self.id)
     if (self.props['saltmin'] is not None) or (self.props['saltmax'] is not None):
       salt=self.reactors[1].interp(self.pos[:np,:],t1)[:,0]
       if (self.props['saltmax'] is not None):
         m=(salt-self.props['saltmax']+self.props['salttol'])/self.props['salttol']
+        if (m>0).any():print 'Salinity maximum reached for some %s' % (self.id)
         self.mass[:np]-=numpy.maximum(numpy.minimum(m,1),0)*self.mass[:np]
       if (self.props['saltmin'] is not None):
         m=(self.props['saltmin']+self.props['salttol']-salt)/self.props['salttol']
+        if (m>0).any():print 'Salinity minimum reached for some %s' % (self.id)
         self.mass[:np]-=numpy.maximum(numpy.minimum(m,1),0)*self.mass[:np]  
     
     #Vertical migration
@@ -82,12 +87,14 @@ class Plankton(BuoyantTracer):
   
   def spawn(self,t1,t2):#Become something else or spawn
     if self.props['spawnclass']:
-      ind=(self.age>=self.props['spawnage'])
+      ind=(self.state) & (self.age>=self.props['spawnage'])
       nind=ind.sum()
       if nind:
-        self.children[self.props['spawnclass']]={'pos':self.post[ind,:],'mass':self.props['spawnratio']*self.mass[ind],'nprel':nind*self.props['spawnratio']}
-        if self.props['maxage']<=self.props['spawnage']:
-          self.state[ind]=-2 #Has become next life stage
+        if self.props['maxage']<=self.props['spawnage']:#Has become next life stage
+          self.children[self.props['spawnclass']]={'pos':self.post[ind,:],'mass':self.props['spawnratio']*self.mass[ind],'nprel':nind}
+          self.state[ind]=-2 
+        else:#Has spawned offspring
+          self.children[self.props['spawnclass']]={'pos':self.post[ind,:],'mass':self.props['spawnratio']*self.mass[ind],'nprel':nind}
         return True
       else:
         self.children={}

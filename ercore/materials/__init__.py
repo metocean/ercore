@@ -31,7 +31,7 @@ class _Material:
       tstep: Timestep of release
       outfile: Filename of output file
       P0: Initial position of release
-      spwn: Number of spawned particles (per day)
+      spawn: Number of spawned particles (per day)
       reln: Number of particles release (per day)
       R0: Total release of material
       Q0: Flux of material (per day) 
@@ -43,21 +43,21 @@ class _Material:
   geod=False
   default_props={}
   status_codes={0:'Not released',1:'Released and active',-1:'Stuck to shoreline or bottom'}
-  def __init__(self,id,nbuff,movers=[],reactors=[],stickers=[],diffusers=[],tstart=None,tend=None,tstep=0.,outfile=None,P0=[0,0,0],spwn=1,reln=0,R0=1.,Q0=1.,unstick=0.,**prop):
+  def __init__(self,id,nbuff,movers=[],reactors=[],stickers=[],diffusers=[],tstart=None,tend=None,tstep=0.,outfile=None,P0=[0,0,0],spawn=1,reln=0,R0=1.,Q0=1.,unstick=0.,**prop):
     self.id=id
     self.np=0
     self.ninc=1 #Counter for unique numbering
     self.tstep=prop.get('tstep',0.)
     self.npmax=nbuff
-    self.tstart=parsetime(tstart) if tstart else None
-    self.tend=parsetime(tend) if tend else None
+    self.tstart=parsetime(tstart) if tstart else 0.
+    self.tend=parsetime(tend) if tend else 1.e10
     self.state=numpy.zeros((nbuff+1),'i') #State of particle
     self.age=numpy.zeros((nbuff+1))
     self.mass=numpy.ones((nbuff+1)) #Mass is used for particle weighting - could also represent volume or counts
     self.nid=numpy.zeros((nbuff+1)) #Array for unique numbering
     self.props=copy.copy(self.default_props)
     self.props['P0']=P0
-    self.props['spwn']=spwn
+    self.props['spawn']=spawn
     self.props.update(prop)
     self.pos=numpy.array(P0)*numpy.ones((nbuff+1,3))
     self.post=numpy.array(P0)*numpy.ones((nbuff+1,3))
@@ -99,7 +99,7 @@ class _Material:
   #Initial position of release
   P0:[0,0,0]
   #Spawning rate
-  spwn:1
+  spawn:1
   #Release rate (particles per day or per release if tend==tstart)
   reln:0
   #Total release mass
@@ -198,6 +198,7 @@ class _Material:
       np=k.get('nprel',abs(int(self.relsumt*self.reln)))
       if np>0:self.relsumt-=1.0*np/self.reln
     if np==0:return
+    np=int(np)
     nmax=self.npmax-self.np   
     if np>nmax:
       print 'Warning: particles exhausted for '+self.id
@@ -267,41 +268,46 @@ class PassiveTracer(_Material):
       self.post[:np,:imax]=self.pos[:np,:imax]
       return
     dt=86400.*(t2-t1)
+    try:
 #4th order RungeKutta advection
-    kx1=self.movers[0].interp(self.pos[:np,:],t1,imax=imax)
-    for mover in self.movers[1:]:
-      kx1+=mover.interp(self.pos[:np,:],t1,imax=imax)
-    kx1*=dt*self.mfx[:np,:imax]
-    if order==1:
-      self.post[:np,:imax]=self.pos[:np,:imax]+kx1
-      return
-    pxt=self.pos[:np,:imax]+0.5*kx1
-    t12=t1+0.5*(t2-t1)
-    kx2=self.movers[0].interp(pxt,t1,imax=imax)+self.movers[0].interp(pxt,t12,imax=imax)
-    for mover in self.movers[1:]:
-      kx2+=mover.interp(pxt,t1,imax=imax)+mover.interp(pxt,t12,imax=imax)
-    kx2*=dt*self.mfx[:np,:imax]
-    if order==2:
-      self.post=self.pos[:np,:imax]+kx2
-      return
-    if order==3:
-      pxt=self.pos[:np,:imax]+2*kx2-kx1
-    elif order==4:
-      pxt=self.pos[:np,:imax]+0.5*kx2
-    kx3=self.movers[0].interp(pxt,t1,imax=imax)+self.movers[0].interp(pxt,t12,imax=imax)
-    for mover in self.movers[1:]:
-      kx3+=mover.interp(pxt,t1,imax=imax)+mover.interp(pxt,t12,imax=imax)
-    kx3*=dt*self.mfx[:np,:imax]
-    if order==3:
-      self.post[:np,:imax]=self.pos[:np,:imax]+(1/6.)*(kx1+2*kx2+kx3)
-    elif order==4:
-      pxt=self.pos[:np,:imax]+kx3
-      kx4=self.movers[0].interp(pxt,t2,imax=imax)
+      kx1=self.movers[0].interp(self.pos[:np,:],t1,imax=imax)
       for mover in self.movers[1:]:
-        kx4+=mover.interp(pxt,t2,imax=imax)
-      kx4*=dt*self.mfx[:np,:imax]
-      self.post[:np,:imax]=self.pos[:np,:imax]+(1/6.)*(kx1+2*(kx2+kx3)+kx4)
-  
+        kx1+=mover.interp(self.pos[:np,:],t1,imax=imax)
+      kx1*=dt*self.mfx[:np,:imax]
+      if order==1:
+        self.post[:np,:imax]=self.pos[:np,:imax]+kx1
+        return
+      pxt=self.pos[:np,:imax]+0.5*kx1
+      t12=t1+0.5*(t2-t1)
+      kx2=self.movers[0].interp(pxt,t1,imax=imax)+self.movers[0].interp(pxt,t12,imax=imax)
+      for mover in self.movers[1:]:
+        kx2+=mover.interp(pxt,t1,imax=imax)+mover.interp(pxt,t12,imax=imax)
+      kx2*=dt*self.mfx[:np,:imax]
+      if order==2:
+        self.post=self.pos[:np,:imax]+kx2
+        return
+      if order==3:
+        pxt=self.pos[:np,:imax]+2*kx2-kx1
+      elif order==4:
+        pxt=self.pos[:np,:imax]+0.5*kx2
+      kx3=self.movers[0].interp(pxt,t1,imax=imax)+self.movers[0].interp(pxt,t12,imax=imax)
+      for mover in self.movers[1:]:
+        kx3+=mover.interp(pxt,t1,imax=imax)+mover.interp(pxt,t12,imax=imax)
+      kx3*=dt*self.mfx[:np,:imax]
+      if order==3:
+        self.post[:np,:imax]=self.pos[:np,:imax]+(1/6.)*(kx1+2*kx2+kx3)
+      elif order==4:
+        pxt=self.pos[:np,:imax]+kx3
+        kx4=self.movers[0].interp(pxt,t2,imax=imax)
+        for mover in self.movers[1:]:
+          kx4+=mover.interp(pxt,t2,imax=imax)
+        kx4*=dt*self.mfx[:np,:imax]
+        self.post[:np,:imax]=self.pos[:np,:imax]+(1/6.)*(kx1+2*(kx2+kx3)+kx4)
+    except:
+      kx1=self.movers[0].interp(self.pos[:np,:],t1,imax=imax)
+      for mover in self.movers[1:]:
+        kx1+=mover.interp(self.pos[:np,:],t1,imax=imax)
+      
   def diffuse(self,t1,t2):
     if (len(self.diffusers)==0) or self.np==0:return
     dt=86400.*abs(t2-t1)

@@ -130,7 +130,7 @@ class ERcore(object):
     iprint=int(self.tout/dt) if self.tout>0 else 1
     print iprint
     dt/=86400.
-    etypes=[e.__class__.__name__ for e in self.materials]
+    etypes=[e.id for e in self.materials]
     i=0
     for e in self.materials:
       self.fout[e.id]=open(os.path.join(self.outpath,e.outfile),'w')

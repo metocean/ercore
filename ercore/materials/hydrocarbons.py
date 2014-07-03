@@ -80,7 +80,7 @@ class HCPlume(BuoyantPlume,HydroCarbon):
   def spawn(self,t1,t2):
     out={}
     nsplit=10
-    npar=nsplit*(max(int((t2-t1)*self.props['spwn'])/nsplit,1))
+    npar=nsplit*(max(int((t2-t1)*self.props['spawn'])/nsplit,1))
     np=self.np
     #Initialize oil droplets
     pos0=self.randcyl(slice(np,np+1),npar)
