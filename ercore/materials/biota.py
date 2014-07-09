@@ -36,7 +36,7 @@ class Plankton(BuoyantTracer):
     saltmax: Maximum salinity tolerated (PSU)
     salttaxis: Salinity taxis rate (m/s per PSU/m)
   """
-  status_codes=BuoyantTracer.status_codes.update({-2:'Transition to next life stage'})
+  status_codes=BuoyantTracer.status_codes.update({-3:'Transition to next life stage'})
   def __init__(self,id,nbuff,**k):
     BuoyantTracer.__init__(self,id,nbuff,**k)
     self.props['vposday']=-abs(self.props['vposday'])
