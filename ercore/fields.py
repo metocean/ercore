@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import numpy
 from ercore import ERCoreException,ERConfigException,copydoc,ncep2dt
-from scipy.io.netcdf import netcdf_file
 from _flib_ercore import interph,interp3d,interpz,inpoly
 
 R2D=180./numpy.pi

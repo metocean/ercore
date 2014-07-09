@@ -156,11 +156,14 @@ class ERcore(object):
         e.pos[:e.np,:]=numpy.where(e.state[:e.np,numpy.newaxis]>0,e.post[:e.np,:],e.pos[:e.np,:])
         print '%s: %s %d particles' % (t if t<700000 else ncep2dt(t).strftime('%Y%m%d %H:%M:%S'),e.id,e.np)
         e.age[:e.np]+=abs(dt)*(e.state[:e.np]>0)
+        e.die(t,t2)
         e.tcum+=86400.*abs(dt)
         if i%iprint==0:
           self.fout[e.id].write(e.sfprint(t2))
-          n=e.die(t,t2)
-          if n>0:print '%d %s particles removed' % (n,e.id)
+          ind=(e.state<0) 
+          nind=ind.sum()
+          if nind:e._reset(ind) #Recycle particles
+          if nind>0:print '%d %s particles removed' % (nind,e.id)
       for e in self.materials:
         if dt>0:
           for spw in e.children:

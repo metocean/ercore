@@ -130,7 +130,7 @@ class HCPlume(BuoyantPlume,HydroCarbon):
   
 class HCGas(BDTracer):
   __doc__=BDTracer.__doc__
-  status_codes=BDTracer.status_code.update({-3:'Gas at surface'})
+  status_code=BDTracer.status_code.update({-3:'Gas at surface'})
   def stick(self,t1,t2):
     if self.np==0:return
     ind=(self.post[:,2]>=0.)

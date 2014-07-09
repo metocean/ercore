@@ -32,7 +32,7 @@ class _Material:
       outfile: Filename of output file
       P0: Initial position of release
       spawn: Number of spawned particles (per day)
-      reln: Number of particles release (per day)
+      reln: Number of particles per release
       R0: Total release of material
       Q0: Flux of material (per day) 
       **properties: Optional keyword arguments specifying additional properties
@@ -61,9 +61,9 @@ class _Material:
     self.props.update(prop)
     self.pos=numpy.array(P0)*numpy.ones((nbuff+1,3))
     self.post=numpy.array(P0)*numpy.ones((nbuff+1,3))
-    self.reln=reln #Particles per day
+    self.reln=reln #Particles per release
     self.R=R0 #Total release of material
-    self.Q=Q0 # Flux of metrial per day
+    self.Q=Q0 # Flux of material per day
     self.unstick=unstick # Can become unstuck - number is halflife
     self.movers=movers
     self.reactors=reactors
@@ -74,6 +74,7 @@ class _Material:
     self.children={}
     self.outfile=outfile if outfile else 'ercore.'+self.id+'.out'
     self.relsumt=0.
+    self._npt=1.*self.reln/(self.tend-self.tstart)
     
   def yamlstr(self):
     str="""
@@ -100,7 +101,7 @@ class _Material:
   P0:[0,0,0]
   #Spawning rate
   spawn:1
-  #Release rate (particles per day or per release if tend==tstart)
+  #Release number of particles (for complete release)
   reln:0
   #Total release mass
   R0:1.
@@ -195,8 +196,8 @@ class _Material:
       dt=1.
     else: #Incremental release
       self.relsumt+=abs(dt)
-      np=k.get('nprel',abs(int(self.relsumt*self.reln)))
-      if np>0:self.relsumt-=1.0*np/self.reln
+      np=k.get('nprel',abs(int(self.relsumt*self._npt)))
+      if np>0:self.relsumt-=1.0*np/self._npt
     if np==0:return
     np=int(np)
     nmax=self.npmax-self.np   
@@ -250,11 +251,9 @@ class _Material:
   def die(self,t1,t2):
     """Kill particles between times t1 and t2 and remove from simulation"""
     if self.np==0:return
-    ind=(self.state<0) | (self.age>self.props.get('maxage',1.e20)) | (self.mass<=0.0001*self.mass0)
-    nind=ind.sum()
-    if nind:
-      self._reset(ind)
-    return nind
+    dead=(self.age>self.props.get('maxage',1.e20)) | (self.mass<=0.0001*self.mass0)
+    self.state[dead]=-3
+    
   
 class PassiveTracer(_Material):
   __doc__=_Material.__doc__
