@@ -42,7 +42,7 @@ class _Material:
   is3d=True
   geod=False
   default_props={}
-  status_codes={0:'Not released',1:'Released and active',-1:'Stuck to shoreline or bottom'}
+  status_codes={0:'Not released',1:'Released and active',-1:'Stuck to shoreline or bottom',-2:'Dead'}
   def __init__(self,id,nbuff,movers=[],reactors=[],stickers=[],diffusers=[],tstart=None,tend=None,tstep=0.,outfile=None,P0=[0,0,0],spawn=1,reln=0,R0=1.,Q0=1.,unstick=0.,**prop):
     self.id=id
     self.np=0
@@ -252,7 +252,7 @@ class _Material:
     """Kill particles between times t1 and t2 and remove from simulation"""
     if self.np==0:return
     dead=(self.age>self.props.get('maxage',1.e20)) | (self.mass<=0.0001*self.mass0)
-    self.state[dead]=-3
+    self.state[dead]=-2
     
   
 class PassiveTracer(_Material):

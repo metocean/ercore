@@ -165,6 +165,7 @@ class HCDroplets(BDTracer):
   
 class HCSlick(Drifter):
   __doc__=Drifter.__doc__
+  status_code=Drifter.status_code.update({-2:'Fully weathered'})
   #reactors:wind,sst,hs
   def react(self,t1,t2):
     pass #Weathering processes here
