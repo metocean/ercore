@@ -41,12 +41,13 @@ class Shoreline:
     
 class Boundary:
   """Class to define simulation boundary"""
-  def __init__(self,id,bnd):
+  def __init__(self,id,bnd,**options):
     """Constructor for Boundary class
     Arguments:
       id: Object id
       bnd: Boundary array as [minx,maxx,miny,maxy]
     """
+    self.id = id
     self.x1=bnd[0]
     self.x2=bnd[1]
     self.y1=bnd[2]
