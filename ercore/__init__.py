@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import datetime,os,numpy
+import datetime,os,numpy,re
 
 _DT0_=datetime.datetime(2000,1,1)
 _NCEPT0_=730120.99999
@@ -44,11 +44,11 @@ class ObjectList(list):
         if key is None:return None
         if isinstance(key,str):
             idlist=self.idList()
-            return self[idlist.index(key)] if key in idlist else None
+            for idl in idlist:
+                if key in idl:return self[idlist.index(idl)]
         elif isinstance(key,int):
-            return list.__getitem__(self,key) if key<len(self) else None
-        else:
-            return None
+            if key<len(self):return list.__getitem__(self,key)
+        return None
             
     def __str__(self):
         return "\n".join([str(n) for n in self])
@@ -107,7 +107,7 @@ class ERcore(object):
             if prop in ['movers','reactors','diffusers','stickers','topo','members']:
                 val=getattr(obj,prop)
                 if isinstance(val,list):
-                    val=[objects[v] if isinstance(v,str) and objects[v] else v for v in val]
+                    val=ObjectList([objects[v] if isinstance(v,str) and objects[v] else v for v in val])
                     for v in val:
                         if isinstance(v,str):raise ERConfigException('Cannot find one of %s with id(s) %s specifed for %s' % (prop,v,obj.id))
                 elif isinstance(val,str) and objects[val]:

@@ -35,6 +35,9 @@ class Plankton(BuoyantTracer):
     saltmin: Minimum salinity tolerated (PSU)
     saltmax: Maximum salinity tolerated (PSU)
     salttaxis: Salinity taxis rate (m/s per PSU/m)
+    
+    If tempmin/tempmax is specified a reactor with id starting with 'temp' must be provided
+    If saltmin/saltmax is specified a reactor with id starting with 'salt' must be provided
   """
   status_codes=BuoyantTracer.status_codes.update({-3:'Transition to next life stage'})
   def __init__(self,id,nbuff,**k):
@@ -51,7 +54,7 @@ class Plankton(BuoyantTracer):
     if self.props['mortality']>0:self.mass[:np]-=self.props['mortality']*(t2-t1)*self.mass[:np]
     
     if (self.props['tempmin'] is not None) or (self.props['tempmax'] is not None):
-      temp=self.reactors[0].interp(self.pos[:np,:],t1)[:,0]
+      temp=self.reactors['temp'].interp(self.pos[:np,:],t1)[:,0]
       if (self.props['tempmax'] is not None):
         m=(temp-self.props['tempmax']+self.props['temptol'])/self.props['temptol']
         if (m>0).any():print 'Temperature maximum reached for some %s' % (self.id)
@@ -61,7 +64,7 @@ class Plankton(BuoyantTracer):
         self.mass[:np]-=numpy.maximum(numpy.minimum(m,1),0)*self.mass[:np]
         if (m>0).any():print 'Temperature minimum reached for some %s' % (self.id)
     if (self.props['saltmin'] is not None) or (self.props['saltmax'] is not None):
-      salt=self.reactors[1].interp(self.pos[:np,:],t1)[:,0]
+      salt=self.reactors['salt'].interp(self.pos[:np,:],t1)[:,0]
       if (self.props['saltmax'] is not None):
         m=(salt-self.props['saltmax']+self.props['salttol'])/self.props['salttol']
         if (m>0).any():print 'Salinity maximum reached for some %s' % (self.id)

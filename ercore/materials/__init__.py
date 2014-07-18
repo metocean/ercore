@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import numpy
 import copy
-from ercore import dt2ncep,parsetime
+from ercore import dt2ncep,parsetime,ObjectList
 from ercore.lib import pres,temppot,dens
 from ercore._flib_ercore import slipvel
 
@@ -366,7 +366,7 @@ class Drifter(PassiveTracer):
     
   
 class BDTracer(BuoyantTracer):
-   #Reactors:temp,salt
+   #Reactors:temp,salt - note that reactor ids must start with salt or temp
    #Default: air in water
   default_props={'IFT':0.0728,'temp':20,'visco':0,'Mg':0.02897,'nmol':0,'db':0.005}
   __doc__=BuoyantTracer.__doc__+"""
@@ -381,8 +381,8 @@ class BDTracer(BuoyantTracer):
   def initialize(self,t1,t2):
     BuoyantTracer.initialize(self,t1,t2)
     if self.props['nmol']==0:
-      temp=self.reactors[0].interp(self.pos[:1,:],t1)[:,0]
-      salt=self.reactors[1].interp(self.pos[:1,:],t1)[:,0]
+      temp=self.reactors['temp'].interp(self.pos[:1,:],t1)[:,0]
+      salt=self.reactors['salt'].interp(self.pos[:1,:],t1)[:,0]
       Pw=-pres(self.pos[0,2],self.pos[0,1])
       T=temppot(salt, temp, 0, Pw)
       gdens=self.eqnstate(101300+9.81*Pw*dens(salt,temp,Pw),T)
@@ -396,8 +396,8 @@ class BDTracer(BuoyantTracer):
   def react(self,t1,t2):
     np=self.np
     if np==0:return
-    temp=self.reactors[0].interp(self.pos[:np,:],t1)[:,0]
-    salt=self.reactors[1].interp(self.pos[:np,:],t1)[:,0]
+    temp=self.reactors['temp'].interp(self.pos[:np,:],t1)[:,0]
+    salt=self.reactors['salt'].interp(self.pos[:np,:],t1)[:,0]
     Pw=-pres(self.pos[:np,2],self.pos[:np,1] if self.geod else 0.)
     temp=temppot(salt, temp, 0, Pw) #Convert to absolute temperature
     adens=dens(salt, temp, Pw)
