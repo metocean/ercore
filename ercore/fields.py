@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 import numpy
-from ercore import ERCoreException,ERConfigException,copydoc,ncep2dt
+from ercore import ERCoreException,ERConfigException,copydoc,ncep2dt,dt2ncep
 from _flib_ercore import interph,interp3d,interpz,inpoly
+import datetime
+import netCDF4 as nc
+import glob
+import re
 
 R2D=180./numpy.pi
 D2R=1/R2D
@@ -174,10 +178,11 @@ class GridData(FieldData):
     file: filename of gridded data file
     zcoord: direction of z-coordinate [up/down] (optional)
 """
-    import cdms2,re,glob
+    #import cdms2,re,glob
     FieldData.__init__(self,id,vars,**options)
     if 'file' not in options.keys():
       raise ConfigException('Grid data source must specify filename')
+
     self.filename=options.pop('file')
     filetmpl=re.sub('%Y|%m|%d|%H|%M','*',self.filename)
     self.filelist=glob.glob(filetmpl)
@@ -187,58 +192,98 @@ class GridData(FieldData):
     self.buf0={}
     self.vars=vars if isinstance(vars,list) else [vars]
     self.time=[]
-    cfile=cdms2.open(self.filelist[0])
-    if cfile['time']:
+    ncfile = nc.Dataset(self.filelist[0])
+    cfile=ncfile.variables
+
+    if cfile.has_key('time'):
       self.time=[]
       self.buf1={}
       self.bufstore={}
     else:
       self.time=None
+
     for v in self.vars:
       if not cfile[v]:raise DataException('Variable %s not found in grid file %s' % (v,self.filename))
-      if cfile[v].getTime():
+      if self.time is not None and cfile[v].shape[0] == cfile['time'].shape[0]:
         self.buf0[v]=None
         self.buf1[v]=None    
       else:
-        self.buf0[v]=cfile[v][:].asma()
-    lon=cfile[v].getLongitude()
-    lat=cfile[v].getLatitude()
-    nv=cfile['nv']
-    self.lev=None
-    self.is3d=((lon and (len(cfile[v].shape)==4)) or (nv and (len(cfile[v].shape)==3)))
-    if self.is3d:
-      self.lev=cfile[v].getAxis(1)[:]
-      if self.lev is None:
-        raise DataException('3D data file must specify levels')
+        self.buf0[v]=cfile[v][:]
+
+    try:
+      try:
+        lon = cfile['lon']
+        lat = cfile['lat']
+      except KeyError:
+        lon = cfile['longitude']
+        lat = cfile['latitude']
+    except KeyError:
+      raise DataException('Dataset needs lon, lat, and nv variables')
+
+    try:
+      nv = cfile['nv']
+    except KeyError:
+      nv = None
+
+    try:
+      try:
+        self.lev = cfile['zlevels'][:]
+        self.is3d = True
+      except KeyError:
+        self.lev = cfile['lev'][:]
+        self.is3d = True
+    except KeyError:
+      self.lev = None
+      self.is3d = False
+
+    # if self.is3d:
+    #   self.lev=cfile[v].getAxis(1)[:]
+    #   if self.lev is None:
+    #     raise DataException('3D data file must specify levels')
+
     if options.pop('zcoord','up')=='down':
-      if self.is3d:self.lev=-self.lev
+      if self.is3d: self.lev=-self.lev
       self.zinvert=True
+
     if nv:
-      lon=cfile['lon'][:].filled() if cfile['lon'] else cfile['longitude'][:].filled()
-      lat=cfile['lat'][:].filled() if cfile['lat'] else cfile['latitude'][:].filled()
+      lon=lon[:]
+      lat=lat[:]
       if cfile['mask']:
-        self.mask=numpy.where(cfile['mask'][:].filled()!=1)[0]
+        self.mask=numpy.where(cfile['mask'][:] !=1 )[0]
         lon=lon.take(self.mask)
         lat=lat.take(self.mask)
       else:
         self.mask=None
+
       self.interpolator=FEInterpolator(lon,lat,self.lev,self.geod)
     elif lon:
-      self.interpolator=RectInterpolator(lon[0],lat[0],lon[-1],lat[-1],(lon[1]-lon[0]) if len(lon)>1 else 0,(lat[1]-lat[0]) if len(lat)>1 else 0,self.lev,lat if self.geod else None)
+      self.interpolator=RectInterpolator(lon[0],lat[0],lon[-1],lat[-1],
+                                        (lon[1]-lon[0]) if len(lon)>1 else 0,
+                                        (lat[1]-lat[0]) if len(lat)>1 else 0,
+                                        self.lev, lat if self.geod else None)
     else:
       raise DataException('Gridded file %s structure not understood' % (self.filename))
+
     self.res=min(self.interpolator.x1-self.interpolator.x0,self.interpolator.y1-self.interpolator.y0)
+
     self.__dict__.update(options)
-    cfile.close()
+
+    ncfile.close()
+    
     if self.time is None:
-      self.files=[cdms2.open(self.filelist[0])]
+      self.files=[nc.Dataset(self.filelist[0]).variables]
     else:
       self.timeindex=[0]
       self.files=[]
       self.flen=[]
-      for cfile in self.filelist:
-        self.files.append(cdms2.open(cfile)) #Open all the files
-        time0=[t.torelative('days since 1-1-1').value for t in self.files[-1]['time'].asRelativeTime()]
+      for filepath in self.filelist:
+        cfile = nc.Dataset(filepath).variables
+        self.files.append(cfile) #Open all the files
+        start_time_str = re.search('(?<=\s)\d.+$', cfile['time'].units).group()
+        start_time = datetime.datetime.strptime(start_time_str, 
+                                                '%Y-%m-%d %H:%M:%S')
+        deltas = [datetime.timedelta(seconds=float(t)) for t in cfile['time'][:]]
+        time0 = [ dt2ncep(start_time+delta) for delta in deltas ]
         if (len(self.time)>0) and (time0[0]<self.time[-1]):raise DataException('For templated time files times must be increasing - time in file %s less than preceeding file' % (cfile))
         self.time.extend(time0) #Add times in file to time list
         self.flen.append(len(time0))
@@ -283,8 +328,8 @@ class GridData(FieldData):
         ind0=self.tind-self.timeindex[self.fileind0]
         ind1=min(self.tind-self.timeindex[self.fileind1]+1,self.flen[self.fileind1]-1)
         #print '%s %d %d %d %d' % (v,self.fileind0,self.fileind1,ind0,ind1)
-        self.buf0[v]=self.files[self.fileind0][v][ind0].filled()
-        self.buf1[v]=self.files[self.fileind1][v][ind1].filled()
+        self.buf0[v]=self.files[self.fileind0][v][ind0][:]
+        self.buf1[v]=self.files[self.fileind1][v][ind1][:]
         if self.mask is not None:
           self.buf0[v]=self.buf0[v].take(self.mask,-1)
           self.buf1[v]=self.buf1[v].take(self.mask,-1)
@@ -377,9 +422,9 @@ class GriddedTide(GridData):
         raise ConfigException('Amplitude data for variable %s missing' % (v))
       if not self.files[0][vpha]:
         raise ConfigException('Phase data for variable %s missing' % (v))
-      self.amp[v]=self.files[0][vamp][:].asma()[consindex]
-      self.phac[v]=numpy.cos(self.files[0][vpha][:].asma()[consindex])
-      self.phas[v]=numpy.sin(self.files[0][vpha][:].asma()[consindex])
+      self.amp[v]=self.files[0][vamp][:][consindex]
+      self.phac[v]=numpy.cos(self.files[0][vpha][:][consindex])
+      self.phas[v]=numpy.sin(self.files[0][vpha][:][consindex])
       if (self.amp[v].shape[0]<>self.ncons) or (self.phac[v].shape[0]<>self.ncons):
         raise ConfigException('First dimension of amplitudes and phases must match number of constituents')
   
