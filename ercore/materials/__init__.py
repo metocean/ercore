@@ -74,7 +74,7 @@ class _Material:
     self.children={}
     self.outfile=outfile if outfile else 'ercore.'+self.id+'.out'
     self.relsumt=0.
-    self._npt=1.*self.reln/(self.tend-self.tstart)
+    if self.tstart!=self.tend:self._npt=1.*self.reln/abs(self.tend-self.tstart)
     
   def yamlstr(self):
     str="""
@@ -278,9 +278,9 @@ class PassiveTracer(_Material):
         return
       pxt=self.pos[:np,:imax]+0.5*kx1
       t12=t1+0.5*(t2-t1)
-      kx2=self.movers[0].interp(pxt,t1,imax=imax)+self.movers[0].interp(pxt,t12,imax=imax)
+      kx2=0.5*(self.movers[0].interp(pxt,t1,imax=imax)+self.movers[0].interp(pxt,t12,imax=imax))
       for mover in self.movers[1:]:
-        kx2+=mover.interp(pxt,t1,imax=imax)+mover.interp(pxt,t12,imax=imax)
+        kx2+=0.5*(mover.interp(pxt,t1,imax=imax)+mover.interp(pxt,t12,imax=imax))
       kx2*=dt*self.mfx[:np,:imax]
       if order==2:
         self.post=self.pos[:np,:imax]+kx2
@@ -289,12 +289,12 @@ class PassiveTracer(_Material):
         pxt=self.pos[:np,:imax]+2*kx2-kx1
       elif order==4:
         pxt=self.pos[:np,:imax]+0.5*kx2
-      kx3=self.movers[0].interp(pxt,t1,imax=imax)+self.movers[0].interp(pxt,t12,imax=imax)
+      kx3=0.5*(self.movers[0].interp(pxt,t1,imax=imax)+self.movers[0].interp(pxt,t12,imax=imax))
       for mover in self.movers[1:]:
-        kx3+=mover.interp(pxt,t1,imax=imax)+mover.interp(pxt,t12,imax=imax)
+        kx3+=0.5*(mover.interp(pxt,t1,imax=imax)+mover.interp(pxt,t12,imax=imax))
       kx3*=dt*self.mfx[:np,:imax]
       if order==3:
-        self.post[:np,:imax]=self.pos[:np,:imax]+(1/6.)*(kx1+2*kx2+kx3)
+        self.post[:np,:imax]=self.pos[:np,:imax]+(1/6.)*(kx1+4*kx2+kx3)
       elif order==4:
         pxt=self.pos[:np,:imax]+kx3
         kx4=self.movers[0].interp(pxt,t2,imax=imax)
@@ -303,9 +303,7 @@ class PassiveTracer(_Material):
         kx4*=dt*self.mfx[:np,:imax]
         self.post[:np,:imax]=self.pos[:np,:imax]+(1/6.)*(kx1+2*(kx2+kx3)+kx4)
     except:
-      kx1=self.movers[0].interp(self.pos[:np,:],t1,imax=imax)
-      for mover in self.movers[1:]:
-        kx1+=mover.interp(self.pos[:np,:],t1,imax=imax)
+      raise ERRuntimeException
       
   def diffuse(self,t1,t2):
     if (len(self.diffusers)==0) or self.np==0:return
