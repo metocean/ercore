@@ -224,6 +224,7 @@ class GridData(FieldData):
         self.mask=None
       self.interpolator=FEInterpolator(lon,lat,self.lev,self.geod)
     elif lon:
+      self.mask=None # Mask not implemented for standard grids yet
       self.interpolator=RectInterpolator(lon[0],lat[0],lon[-1],lat[-1],(lon[1]-lon[0]) if len(lon)>1 else 0,(lat[1]-lat[0]) if len(lat)>1 else 0,self.lev,lat if self.geod else None)
     else:
       raise DataException('Gridded file %s structure not understood' % (self.filename))
@@ -285,7 +286,7 @@ class GridData(FieldData):
         #print '%s %d %d %d %d' % (v,self.fileind0,self.fileind1,ind0,ind1)
         self.buf0[v]=self.files[self.fileind0][v][ind0].filled()
         self.buf1[v]=self.files[self.fileind1][v][ind1].filled()
-        if self.mask is not None:
+        if (self.mask is not None):
           self.buf0[v]=self.buf0[v].take(self.mask,-1)
           self.buf1[v]=self.buf1[v].take(self.mask,-1)
     if (self.tind==0) and (time<self.time[0]):

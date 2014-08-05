@@ -303,7 +303,8 @@ class PassiveTracer(_Material):
         kx4*=dt*self.mfx[:np,:imax]
         self.post[:np,:imax]=self.pos[:np,:imax]+(1/6.)*(kx1+2*(kx2+kx3)+kx4)
     except:
-      raise ERRuntimeException
+      import traceback
+      raise ERRuntimeException(traceback.format_exc())
       
   def diffuse(self,t1,t2):
     if (len(self.diffusers)==0) or self.np==0:return
