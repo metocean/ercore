@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import numpy
 import copy
-from ercore import dt2ncep,parsetime,ObjectList
+from ercore import dt2ncep,parsetime,ObjectList,ERRuntimeException
 from ercore.lib import pres,temppot,dens
 from ercore._flib_ercore import slipvel
 
