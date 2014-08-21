@@ -280,8 +280,8 @@ class GridData(FieldData):
       readfile=True
     if readfile:
       for v in self.vars:
-        ind0=self.tind-self.timeindex[self.fileind0]
-        ind1=min(self.tind-self.timeindex[self.fileind1]+1,self.flen[self.fileind1]-1)
+        ind0=max(0,self.tind-self.timeindex[self.fileind0]-1)
+        ind1=min(self.tind-self.timeindex[self.fileind1],self.flen[self.fileind1]-1)
         #print '%s %d %d %d %d' % (v,self.fileind0,self.fileind1,ind0,ind1)
         self.buf0[v]=self.files[self.fileind0][v][ind0].filled()
         self.buf1[v]=self.files[self.fileind1][v][ind1].filled()
