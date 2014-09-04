@@ -15,7 +15,7 @@ PI2=2*numpy.pi
 def eqnstate(P,T,Mg,Z=1.0):
   return R1*P*Mg/Z/(T+273)
 
-#Base class for all materials - must inherit from this class 
+#Base class for all materials - all materials must inherit from this class 
 class _Material:
   """Initialization:
     <MaterialClass>(id,nbuff,movers,reactors,stickers,diffusers,tstart,tend,outfile,**properties)

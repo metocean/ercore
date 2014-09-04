@@ -3,9 +3,11 @@ from plumes import BuoyantPlume
 from ercore.materials import *
 import numpy
 
+#Hydrocarbon class to hold all chemical processes
 class HydroCarbon(object):
   pass
   
+#Subsurface hydrocarbon plume
 class HCPlume(BuoyantPlume,HydroCarbon):
   __doc__=BuoyantPlume.__doc__+"""
     db: Bubble size <float>
@@ -77,6 +79,7 @@ class HCPlume(BuoyantPlume,HydroCarbon):
           self.acf[np]=0.
     return vstar
   
+  #Become free floating oil droplets and gas bubbles
   def spawn(self,t1,t2):
     out={}
     nsplit=10
@@ -128,6 +131,7 @@ class HCPlume(BuoyantPlume,HydroCarbon):
     if self.hasgas:self.children['HCGas']={'pos':gas.pos,'mass':numpy.repeat(self.Jg*86400.*(t2-t1)/ngas,gas.np),'nprel':gas.np}
     return True
   
+#Subsurface hydrocarbon gas 
 class HCGas(BDTracer):
   __doc__=BDTracer.__doc__
   status_code=BDTracer.status_codes.update({-3:'Gas at surface'})
@@ -137,6 +141,7 @@ class HCGas(BDTracer):
     self.state[ind]=-3 #Gas reaches surface
     self.post[ind,2]=0.
   
+#Subsurface hydrocarbon droplets
 class HCDroplets(BDTracer):
   __doc__=BDTracer.__doc__+"""
     IFT: Interfacial tension of droplets <float>
@@ -162,7 +167,7 @@ class HCDroplets(BDTracer):
   def eqnstate(self,P,T):
     return self.props['D0']
   
-  
+#Surface hydrocarbon slick
 class HCSlick(Drifter):
   __doc__=Drifter.__doc__
   status_code=Drifter.status_codes.update({-2:'Fully weathered'})
