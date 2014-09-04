@@ -270,7 +270,7 @@ class GridData(FieldData):
       return [self.buf0[v] for v in self.vars]
     if time==self.buftime:
       return [self.bufstore[v] for v in self.vars]
-    readfile=False
+    readfile=(time<=self.time[0])
     while (time>self.t1) and (self.tind+1)<len(self.time):
       self.tind+=1
       self.t0=self.t1
@@ -293,7 +293,10 @@ class GridData(FieldData):
       print 'Warning: model time before start time of data %s' % self.id
     elif (self.tind==len(self.time)-1) and (time>self.time[-1]):
       print 'Warning: model time after end time of data %s' % self.id
-    tfac=min(max(0,(time-self.t0)/(self.t1-self.t0)),1)
+    if self.t0==self.t1:
+      tfac=0.
+    else:
+      tfac=min(max(0,(time-self.t0)/(self.t1-self.t0)),1)
     out=[]
     for v in self.vars:
       dat=(1.-tfac)*self.buf0[v]+tfac*self.buf1[v]

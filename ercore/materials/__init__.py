@@ -320,7 +320,6 @@ class BuoyantTracer(PassiveTracer):
   __doc__=PassiveTracer.__doc__+"""
     w0: Rise velocity (m/s) [-ve for sinking]
   """
-  
   default_props={'w0':0.0}
   
   def initialize(self,t1,t2):
