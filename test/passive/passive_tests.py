@@ -23,9 +23,9 @@ for rk in range(4,0,-1):
   ercore.materials=[part]
   if not os.path.isdir('rk'+str(rk)):os.mkdir('rk'+str(rk))
   ercore.rkorder=rk
-  ercore.outdir='rk'+str(rk)
+  ercore.outpath='rk'+str(rk)
   ercore.run(datetime.datetime(2009,1,1),datetime.datetime(2009,1,2),900)
-  plot(part.pos[:,0],part.pos[:,2],colors[rk-1])
+  plot(part.pos[:,0],part.pos[:,2],colors[rk-1], marker='o')
 
 show()
   
