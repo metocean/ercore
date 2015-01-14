@@ -53,26 +53,28 @@ class Plankton(BuoyantTracer):
     #Mortality - note killing after maxage already handled in material base class
     if self.props['mortality']>0:self.mass[:np]-=self.props['mortality']*(t2-t1)*self.mass[:np]
     
-    if (self.props['tempmin'] is not None) or (self.props['tempmax'] is not None):
-      temp=self.reactors['temp'].interp(self.pos[:np,:],t1)[:,0]
-      if (self.props['tempmax'] is not None):
-        m=(temp-self.props['tempmax']+self.props['temptol'])/self.props['temptol']
-        if (m>0).any():print 'Temperature maximum reached for some %s' % (self.id)
-        self.mass[:np]-=numpy.maximum(numpy.minimum(m,1),0)*self.mass[:np]
-      if (self.props['tempmin'] is not None):
-        m=(self.props['tempmin']+self.props['temptol']-temp)/self.props['temptol']
-        self.mass[:np]-=numpy.maximum(numpy.minimum(m,1),0)*self.mass[:np]
-        if (m>0).any():print 'Temperature minimum reached for some %s' % (self.id)
-    if (self.props['saltmin'] is not None) or (self.props['saltmax'] is not None):
-      salt=self.reactors['salt'].interp(self.pos[:np,:],t1)[:,0]
-      if (self.props['saltmax'] is not None):
-        m=(salt-self.props['saltmax']+self.props['salttol'])/self.props['salttol']
-        if (m>0).any():print 'Salinity maximum reached for some %s' % (self.id)
-        self.mass[:np]-=numpy.maximum(numpy.minimum(m,1),0)*self.mass[:np]
-      if (self.props['saltmin'] is not None):
-        m=(self.props['saltmin']+self.props['salttol']-salt)/self.props['salttol']
-        if (m>0).any():print 'Salinity minimum reached for some %s' % (self.id)
-        self.mass[:np]-=numpy.maximum(numpy.minimum(m,1),0)*self.mass[:np]  
+    if 'temp' in self.reactors:
+      if (self.props['tempmin'] is not None) or (self.props['tempmax'] is not None):
+        temp=self.reactors['temp'].interp(self.pos[:np,:],t1)[:,0]
+        if (self.props['tempmax'] is not None):
+          m=(temp-self.props['tempmax']+self.props['temptol'])/self.props['temptol']
+          if (m>0).any():print 'Temperature maximum reached for some %s' % (self.id)
+          self.mass[:np]-=numpy.maximum(numpy.minimum(m,1),0)*self.mass[:np]
+        if (self.props['tempmin'] is not None):
+          m=(self.props['tempmin']+self.props['temptol']-temp)/self.props['temptol']
+          self.mass[:np]-=numpy.maximum(numpy.minimum(m,1),0)*self.mass[:np]
+          if (m>0).any():print 'Temperature minimum reached for some %s' % (self.id)
+    if 'salt' in self.reactors:
+      if (self.props['saltmin'] is not None) or (self.props['saltmax'] is not None):
+        salt=self.reactors['salt'].interp(self.pos[:np,:],t1)[:,0]
+        if (self.props['saltmax'] is not None):
+          m=(salt-self.props['saltmax']+self.props['salttol'])/self.props['salttol']
+          if (m>0).any():print 'Salinity maximum reached for some %s' % (self.id)
+          self.mass[:np]-=numpy.maximum(numpy.minimum(m,1),0)*self.mass[:np]
+        if (self.props['saltmin'] is not None):
+          m=(self.props['saltmin']+self.props['salttol']-salt)/self.props['salttol']
+          if (m>0).any():print 'Salinity minimum reached for some %s' % (self.id)
+          self.mass[:np]-=numpy.maximum(numpy.minimum(m,1),0)*self.mass[:np]  
     
     #Vertical migration
     if self.props['vspeed']>0:

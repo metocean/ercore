@@ -183,18 +183,17 @@ class GridData(FieldData):
     if 'file' not in options.keys():
       raise ConfigException('Grid data source must specify filename')
 
-    self.filename=options.pop('file')
-    filetmpl=re.sub('%Y|%m|%d|%H|%M','*',self.filename)
-    self.filelist=glob.glob(filetmpl)
-    if len(self.filelist)==0:
-      raise ERConfigException('No files found that match template %s' % (filetmpl))
+    self.filename = options.pop('file')
+    self.filelist = self.load_files(self.filename)
+    if len(self.filelist) == 0:
+      raise ERConfigException('No files found at %s' % str(self.filename))
+
     self.filelist.sort()
     self.buf0={}
     self.vars=vars if isinstance(vars,list) else [vars]
     self.time=[]
     ncfile = nc.Dataset(self.filelist[0])
     cfile=ncfile.variables
-
     if cfile.has_key('time'):
       self.time=[]
       self.buf1={}
@@ -204,11 +203,9 @@ class GridData(FieldData):
 
     for v in self.vars:
       if not cfile[v]:raise DataException('Variable %s not found in grid file %s' % (v,self.filename))
-      if self.time is not None and cfile[v].shape[0] != cfile['time'].shape[0]:
+      if self.time is not None and cfile[v].shape[0] == cfile['time'].shape[0]:
         self.buf0[v]=None
         self.buf1[v]=None    
-        if v in ['dep', 'depth']:
-          self.buf0[v]=cfile[v][:]  
       else:
         self.buf0[v]=cfile[v][:]
 
@@ -282,16 +279,9 @@ class GridData(FieldData):
         cfile = nc.Dataset(filepath).variables
         self.files.append(cfile) #Open all the files
         start_time_str = re.search('(?<=\s)\d.+$', cfile['time'].units).group()
-        delta_scale = re.search('^\w+', cfile['time'].units).group()
         start_time = datetime.datetime.strptime(start_time_str, 
                                                 '%Y-%m-%d %H:%M:%S')
-        if 'seconds' in delta_scale:
-          deltas = [datetime.timedelta(seconds=float(t)) for t in cfile['time'][:]]
-        elif 'days' in delta_scale:
-          if cfile['time'][1] - cfile['time'][0] <= 1:
-            deltas = [datetime.timedelta(hours=int(round(t*24))) for t in cfile['time'][:]]
-          else:
-            deltas = [datetime.timedelta(days=int(round(t))) for t in cfile['time'][:]]
+        deltas = [datetime.timedelta(seconds=float(t)) for t in cfile['time'][:]]
         time0 = [ dt2ncep(start_time+delta) for delta in deltas ]
         if (len(self.time)>0) and (time0[0]<self.time[-1]):raise DataException('For templated time files times must be increasing - time in file %s less than preceeding file' % (cfile))
         self.time.extend(time0) #Add times in file to time list
@@ -300,6 +290,16 @@ class GridData(FieldData):
       self.flen.append(self.flen[-1])
       self.reset()
       
+  def load_files(self, cfile):
+    files = []
+    if isinstance(cfile, list):
+      for filename in cfile:
+        filetmpl = re.sub('%Y|%m|%d|%H|%M','*', filename)
+        files.extend(glob.glob(filetmpl))
+    elif isinstance(cfile, (str,unicode)):
+      filetmpl = re.sub('%Y|%m|%d|%H|%M','*', cfile)
+      files.extend(glob.glob(filetmpl))
+    return files
     
   def reset(self):
     """Reset time counter in file"""
@@ -345,14 +345,11 @@ class GridData(FieldData):
     if (self.tind==0) and (time<self.time[0]):
       print 'Warning: model time before start time of data %s' % self.id
     elif (self.tind==len(self.time)-1) and (time>self.time[-1]):
-      print 'Warning: model time after end time of data %s' % self.id
+      print 'Warning: model time (%s) after end time (%s) of data %s' % (time,self.time[-1],self.id)
     tfac=min(max(0,(time-self.t0)/(self.t1-self.t0)),1)
     out=[]
     for v in self.vars:
-      if readfile:
-        dat=(1.-tfac)*self.buf0[v]+tfac*self.buf1[v]
-      else:
-        dat=(1.-tfac)*self.buf0[v]
+      dat=(1.-tfac)*self.buf0[v]+tfac*self.buf1[v]
       if self.is3d and self.surfsub:
         dat=dat[:,:,:]-dat[0,:,:]
       out.append(dat)
