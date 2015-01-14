@@ -10,6 +10,8 @@ plume.EF=0.0
 PI=numpy.pi
 PI2=2*PI
 
+#Core plume class
+#This contains an internal lagrangian plume model (a la CorMix)
 class Plume(_Material):
   default_props={
     'B0':1.0,
@@ -176,6 +178,7 @@ class Plume(_Material):
     z=z0*cos[:,None]-x0*sin[:,None]
     return numpy.tile(self.pos[ind,:],(np,1))+numpy.vstack((x.T.flatten()*self.mfx[0,0],y.T.flatten()*self.mfx[0,0],z.T.flatten())).T
       
+#Generic buoyant plume class
 class BuoyantPlume(Plume):
   __doc__=Plume.__doc__+"""
     T0: Initial temperature (C) <float>
@@ -208,7 +211,6 @@ class BuoyantPlume(Plume):
   def _densfunc(self,np):
     return numpy.tile(self.props['D0'])
     
-      
   def _mix(self,dt):
     np=self.np
     V,T,S,D=self.ambients

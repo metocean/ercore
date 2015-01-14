@@ -256,10 +256,8 @@ class GridData(FieldData):
 
       self.interpolator=FEInterpolator(lon,lat,self.lev,self.geod)
     elif lon:
-      self.interpolator=RectInterpolator(lon[0],lat[0],lon[-1],lat[-1],
-                                        (lon[1]-lon[0]) if len(lon)>1 else 0,
-                                        (lat[1]-lat[0]) if len(lat)>1 else 0,
-                                        self.lev, lat if self.geod else None)
+      self.mask=None # Mask not implemented for standard grids yet
+      self.interpolator=RectInterpolator(lon[0],lat[0],lon[-1],lat[-1],(lon[1]-lon[0]) if len(lon)>1 else 0,(lat[1]-lat[0]) if len(lat)>1 else 0,self.lev,lat if self.geod else None)
     else:
       raise DataException('Gridded file %s structure not understood' % (self.filename))
 
@@ -323,7 +321,7 @@ class GridData(FieldData):
       return [self.buf0[v] for v in self.vars]
     if time==self.buftime:
       return [self.bufstore[v] for v in self.vars]
-    readfile=False
+    readfile=(time<=self.time[0])
     while (time>self.t1) and (self.tind+1)<len(self.time):
       self.tind+=1
       self.t0=self.t1
@@ -334,8 +332,8 @@ class GridData(FieldData):
       readfile=True
     if readfile:
       for v in self.vars:
-        ind0=self.tind-self.timeindex[self.fileind0]
-        ind1=min(self.tind-self.timeindex[self.fileind1]+1,self.flen[self.fileind1]-1)
+        ind0=max(0,self.tind-self.timeindex[self.fileind0]-1)
+        ind1=min(self.tind-self.timeindex[self.fileind1],self.flen[self.fileind1]-1)
         #print '%s %d %d %d %d' % (v,self.fileind0,self.fileind1,ind0,ind1)
         self.buf0[v]=self.files[self.fileind0][v][ind0][:]
         self.buf1[v]=self.files[self.fileind1][v][ind1][:]
@@ -345,8 +343,11 @@ class GridData(FieldData):
     if (self.tind==0) and (time<self.time[0]):
       print 'Warning: model time before start time of data %s' % self.id
     elif (self.tind==len(self.time)-1) and (time>self.time[-1]):
-      print 'Warning: model time (%s) after end time (%s) of data %s' % (time,self.time[-1],self.id)
-    tfac=min(max(0,(time-self.t0)/(self.t1-self.t0)),1)
+      print 'Warning: model time after end time of data %s' % self.id
+    if self.t0==self.t1:
+      tfac=0.
+    else:
+      tfac=min(max(0,(time-self.t0)/(self.t1-self.t0)),1)
     out=[]
     for v in self.vars:
       dat=(1.-tfac)*self.buf0[v]+tfac*self.buf1[v]

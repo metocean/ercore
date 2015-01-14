@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 import numpy,datetime
+#sys.path.insert(1,os.path.join(os.path.dirname(__file__),'..','..'))
 #import ercore._flib_ercore as flib
 from pylab import *
-from _flib_ercore import interp3d,interph,slipvel
+from ercore._flib_ercore import interp3d,interph,slipvel
 from ercore import ERcore
 
 if True:
@@ -37,11 +38,11 @@ if False:#Test - bubble/droplet rise velocity  ZHeng and Yapa (2000)
 if False:
   from ercore.materials.hydrocarbons import HCSlick
   from ercore.fields import GriddedMover,GriddedReactor,ConstantDiffuser
-  from ercore.shoreline import ShorelineData
+  from ercore.shoreline import Shoreline
   currents=GriddedMover('cur',['water_u','water_v'],is3d=False,file='../test/slick/uds_out.gnome')
   winds=GriddedReactor('wind',['air_u','air_v'],is3d=False,file='../test/slick/uds_out.gnome')
   diff=ConstantDiffuser('diff',['diffx','diffy','diffz'],diffx=1,diffy=1,diffz=1)
-  shoreline=ShorelineData('shoreline','../test/slick/shoreline.bnd')
+  shoreline=Shoreline('shoreline','../test/slick/shoreline.bnd')
   slick=HCSlick('slick',10000,movers=[currents],reactors=[winds],diffusers=[diff],stickers=[shoreline],reln=1000,P0=[173.9,-39.1,0],dw_min=0.1,dw_max=0.2)
   
   ercore=ERcore()
@@ -57,18 +58,19 @@ if False:
   #Checks out OK against GNOME
   
 #Test 3 - 3D drifter advection
-if True:
+if False:
   from ercore.materials import PassiveTracer
-  from ercore.fields import GriddedMover,ConstantDiffuser,GriddedTopo
-  from ercore.shoreline import ShorelineData
-  dep=GriddedTopo('depth',['dep'],file='../test/passive/uds_gsb_test.nc')
+  from ercore.fields import GriddedMover,ConstantDiffuser,GriddedTopo,VariableDiffuser
+  from ercore.shoreline import Shoreline
+  dep=GriddedTopo('depth',['dep'],file='../test/passive/uds_gsb_test.nc',zinvert=True)
   currents=GriddedMover('cur',['uo','vo'],is3d=False,file='../test/passive/uds_gsb_test.nc',topo=dep)
   tide=GriddedMover('tide',['ut','vt'],is3d=False,file='../test/passive/uds_gsb_test.nc')
-  #diff=ConstantDiffuser('diff',['diffx','diffy','diffz'],diffx=1,diffy=1,diffz=0.001)
-  diff=VariableDiffuser('diff',['diffx','diffy','diffz'],diffz=0.001)
-  shoreline=ShorelineData('shoreline','../test/passive/shoreline2.bnd')
+  diff=ConstantDiffuser('diff',['diffx','diffy','diffz'],diffx=1,diffy=1,diffz=0.001)
+  #diff=VariableDiffuser('diff',['diffx','diffy','diffz'],diffz=0.001)
+  shoreline=Shoreline('shoreline','../test/passive/shoreline2.bnd')
   
-  cloud=PassiveTracer('cloud',10000,movers=[currents,tide],diffusers=[diff],stickers=[shoreline,dep],reln=1000,P0=[170.5,-46,0],dw_min=0.1,dw_max=0.2)
+  #cloud=PassiveTracer('cloud',10000,movers=[currents,tide],diffusers=[diff],stickers=[shoreline,dep],reln=1000,P0=[170.5,-46,0],dw_min=0.1,dw_max=0.2)
+  cloud=PassiveTracer('cloud',10000,movers=[currents,tide],diffusers=[diff],stickers=[shoreline,dep],reln=1000,P0=[170.5,-46,0],dw_min=0.1,dw_max=0.2, tstart=datetime.datetime(2009,1,1),tend=datetime.datetime(2009,1,2))
   
   ercore=ERcore()
   ercore.materials=[cloud]
@@ -76,7 +78,7 @@ if True:
   
   figure()
   plot(cloud.props['P0'][0],cloud.props['P0'][1],'r+')
-  plot(cloud.pos[:,0],cloud.pos[:,1],'.')
+  plot(cloud.pos[:,0],cloud.pos[:,1],'o')
   for i,j in enumerate(shoreline.polyi):
     n=shoreline.polyn[i]
     plot(shoreline.slx[j:j+n-1],shoreline.sly[j:j+n-1],'k')

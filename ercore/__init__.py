@@ -71,6 +71,10 @@ class ERCoreException(Exception):
 class ERConfigException(ERCoreException):
   pass
 
+class ERRuntimeException(ERCoreException):
+  pass
+
+
 #Main class for ERcore simulation
 class ERcore(object):
   geod=True

@@ -1,0 +1,141 @@
+diffusers:
+- class: ConstantDiffuser
+  diffx: 0.1
+  diffy: 0.1
+  diffz: 0.001
+  id: diff
+  vars: [diffx, diffy, diffz]
+materials:
+- P0: [177.717, -39.1372, 0.0]
+  Q: 1
+  class: Plankton
+  diffusers: [diff]
+  id: example1
+  maxage: 30
+  mortality: 0.1
+  movers: [3D, tide_data]
+  nbuff: 10000
+  outfile: Plankton_specie1.txt
+  reactors: [temp, salt]
+  reln: 1000 # number of particles per day released
+  saltmax: 40
+  saltmin: 0
+  salttaxis: 0.0
+  spawnclass: 0
+  spawn: 0
+  spawnage: 0
+  stickers: [shoreline, boundary]
+  tempmax: 40
+  tempmin: 0
+  temptaxis: 0.0
+  tend: '2004-01-07 04:00:00'
+  tstart: '2004-01-07 01:00:00'
+  vposday: 0.0
+  vposnight: 0
+  vspeed: 0
+movers:
+- class: GriddedMover
+  file: 'nz%Y%m.nc'
+  id: 3D
+  surfsub: false
+  topo: depth
+  vars: [uo, vo]
+- class: TidalMover
+  cons: [M2, S2]
+  file: tide_cons_avg_nz.nc
+  id: tide_nz
+  topo: depth_nz
+  vars: [u, v]
+  z0: 0.001
+- class: TidalMover
+  cons: [M2, S2]
+  file: tide_cons_avg_taur.nc
+  id: tide_tauranga
+  topo: depth_tauranga
+  vars: [u, v]
+  z0: 0.001
+- class: TidalMover
+  cons: [M2, S2]
+  file: tide_cons_avg_bluf.nc
+  id: tide_bluf
+  topo: depth_bluf
+  vars: [u, v]
+  z0: 0.001
+- class: TidalMover
+  cons: [M2, S2]
+  file: tide_cons_avg_auck.nc
+  id: tide_auckland
+  topo: depth_auckland
+  vars: [u, v]
+  z0: 0.001
+- class: TidalMover
+  cons: [M2, S2]
+  file: tide_cons_avg_lytt.nc
+  id: tide_lytt
+  topo: depth_lytt
+  vars: [u, v]
+  z0: 0.001
+- class: TidalMover
+  cons: [M2, S2]
+  file: tide_cons_avg_norlnd.nc
+  id: tide_northland
+  topo: depth_northland
+  vars: [u, v]
+  z0: 0.001
+- class: TidalMover
+  cons: [M2, S2]
+  file: tide_cons_avg_np.nc
+  id: tide_newplymouth
+  topo: depth_newplymouth
+  vars: [u, v]
+  z0: 0.001
+- class: TidalMover
+  cons: [M2, S2]
+  file: tide_cons_avg_otag.nc
+  id: tide_otago
+  topo: depth_otago
+  vars: [u, v]
+  z0: 0.001
+
+- class: GriddedDataGroup
+  id: tide_data
+  vars: [u, v]
+  members: [tide_nz, tide_tauranga, tide_bluf, tide_auckland, tide_lytt,
+            tide_northland, tide_newplymouth, tide_otago]
+reactors:
+- class: GriddedReactor
+  file: 'nz%Y%m.nc'
+  id: temp
+  vars: [temp]
+- class: GriddedReactor
+  file: 'nz%Y%m.nc'
+  id: salt
+  vars: [salt]
+stickers:
+- {class: GriddedTopo, file: tide_cons_avg_nz.nc, id: depth_nz,
+  vars: dep, zinvert: true}
+- {class: GriddedTopo, file: tide_cons_avg_taur.nc, id: depth_tauranga,
+  vars: dep, zinvert: true}
+- {class: GriddedTopo, file: tide_cons_avg_bluf.nc, id: depth_bluf,
+  vars: dep, zinvert: true}
+- {class: GriddedTopo, file: tide_cons_avg_auck.nc, id: depth_auckland,
+  vars: dep, zinvert: true}
+- {class: GriddedTopo, file: tide_cons_avg_lytt.nc, id: depth_lytt,
+  vars: dep, zinvert: true}
+- {class: GriddedTopo, file: tide_cons_avg_norlnd.nc, id: depth_northland,
+  vars: dep, zinvert: true}
+- {class: GriddedTopo, file: tide_cons_avg_np.nc, id: depth_newplymouth,
+  vars: dep, zinvert: true}
+- {class: GriddedTopo, file: tide_cons_avg_otag.nc, id: depth_otago,
+  vars: dep, zinvert: true}
+- class: Shoreline
+  file: NZ(WGS84).bnd
+  id: shoreline
+- class: Boundary
+  id: boundary
+  bnd: [166.3300, 178.6000, -47.4000, -34.0000]
+- class: GriddedDataGroup
+  id: depth
+  vars: dep
+  members: [depth_nz,depth_tauranga, depth_bluf, depth_auckland, depth_lytt,
+            depth_northland, depth_newplymouth, depth_otago]
