@@ -243,17 +243,16 @@ class GridData(FieldData):
     if options.pop('zcoord','up')=='down':
       if self.is3d: self.lev=-self.lev
       self.zinvert=True
-
+    
     if nv:
       lon=lon[:]
       lat=lat[:]
-      if cfile['mask']:
-        self.mask=numpy.where(cfile['mask'][:] !=1 )[0]
+      if cfile.has_key('mask'):
+        self.mask=numpy.where(cfile['mask'][:] != 1 )[0]
         lon=lon.take(self.mask)
         lat=lat.take(self.mask)
       else:
         self.mask=None
-
       self.interpolator=FEInterpolator(lon,lat,self.lev,self.geod)
     elif lon:
       self.mask=None # Mask not implemented for standard grids yet
@@ -268,20 +267,21 @@ class GridData(FieldData):
     ncfile.close()
     
     if self.time is None:
-      self.files=[nc.Dataset(self.filelist[0]).variables]
+      bfile = nc.Dataset(self.filelist[0])
+      self.files=[bfile]
     else:
       self.timeindex=[0]
       self.files=[]
       self.flen=[]
       for filepath in self.filelist:
-        cfile = nc.Dataset(filepath).variables
-        self.files.append(cfile) #Open all the files
-        start_time_str = re.search('(?<=\s)\d.+$', cfile['time'].units).group()
+        bfile = nc.Dataset(filepath)
+        self.files.append(bfile) #Open all the files
+        start_time_str = re.search('(?<=\s)\d.+$', bfile.variables['time'].units).group()
         start_time = datetime.datetime.strptime(start_time_str, 
                                                 '%Y-%m-%d %H:%M:%S')
-        deltas = [datetime.timedelta(seconds=float(t)) for t in cfile['time'][:]]
+        deltas = [datetime.timedelta(seconds=float(t)) for t in bfile.variables['time'][:]]
         time0 = [ dt2ncep(start_time+delta) for delta in deltas ]
-        if (len(self.time)>0) and (time0[0]<self.time[-1]):raise DataException('For templated time files times must be increasing - time in file %s less than preceeding file' % (cfile))
+        if (len(self.time)>0) and (time0[0]<self.time[-1]):raise DataException('For templated time files times must be increasing - time in file %s less than preceeding file' % (bfile.filepath()))
         self.time.extend(time0) #Add times in file to time list
         self.flen.append(len(time0))
         self.timeindex.append(len(self.time)) #Add start time index of next file
@@ -335,11 +335,11 @@ class GridData(FieldData):
         ind0=max(0,self.tind-self.timeindex[self.fileind0]-1)
         ind1=min(self.tind-self.timeindex[self.fileind1],self.flen[self.fileind1]-1)
         #print '%s %d %d %d %d' % (v,self.fileind0,self.fileind1,ind0,ind1)
-        self.buf0[v]=self.files[self.fileind0][v][ind0][:]
-        self.buf1[v]=self.files[self.fileind1][v][ind1][:]
+        self.buf0[v]=self.files[self.fileind0].variables[v][ind0][:]
+        self.buf1[v]=self.files[self.fileind1].variables[v][ind1][:]
         if self.mask is not None:
-          self.buf0[v]=self.buf0[v].take(self.mask,-1)
-          self.buf1[v]=self.buf1[v].take(self.mask,-1)
+         self.buf0[v]=self.buf0[v].take(self.mask,-1)
+         self.buf1[v]=self.buf1[v].take(self.mask,-1)
     if (self.tind==0) and (time<self.time[0]):
       print 'Warning: model time before start time of data %s' % self.id
     elif (self.tind==len(self.time)-1) and (time>self.time[-1]):
@@ -412,7 +412,7 @@ class GriddedTide(GridData):
     import datetime
     GridData.__init__(self,id,[vars[0]+'_amp'],**options)
     self.vars=vars
-    fcons=[cons.tostring().rstrip().rstrip('\x00').upper() for cons in self.files[0]['cons'][:]]
+    fcons=[cons.tostring().rstrip().rstrip('\x00').upper() for cons in self.files[0].variables['cons'][:]]
     consindex=[]
     self.cons=[]
     consreq=options.get('cons',fcons)
@@ -428,13 +428,13 @@ class GriddedTide(GridData):
     for iv,v in enumerate(self.vars):
       vamp=v+'_amp'
       vpha=v+'_pha'
-      if not self.files[0][vamp]:
+      if not self.files[0].variables[vamp]:
         raise ConfigException('Amplitude data for variable %s missing' % (v))
-      if not self.files[0][vpha]:
+      if not self.files[0].variables[vpha]:
         raise ConfigException('Phase data for variable %s missing' % (v))
-      self.amp[v]=self.files[0][vamp][:][consindex]
-      self.phac[v]=numpy.cos(self.files[0][vpha][:][consindex])
-      self.phas[v]=numpy.sin(self.files[0][vpha][:][consindex])
+      self.amp[v]=self.files[0].variables[vamp][:][consindex]
+      self.phac[v]=numpy.cos(self.files[0].variables[vpha][:][consindex])
+      self.phas[v]=numpy.sin(self.files[0].variables[vpha][:][consindex])
       if (self.amp[v].shape[0]<>self.ncons) or (self.phac[v].shape[0]<>self.ncons):
         raise ConfigException('First dimension of amplitudes and phases must match number of constituents')
   
