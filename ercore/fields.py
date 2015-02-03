@@ -80,6 +80,7 @@ class FEInterpolator(object):
     self.geod=geod
     self.lev=lev
     self.tree=cKDTree(numpy.vstack((self.lon,self.lat)).T)
+    print 'Lev', self.lev
     
   def __call__(self,dat,p):
     dist,i=self.tree.query(p[:,:2],3)
@@ -247,16 +248,20 @@ class GridData(FieldData):
     if nv:
       lon=lon[:]
       lat=lat[:]
-      if cfile.has_key('mask'):
-        self.mask=numpy.where(cfile['mask'][:] != 1 )[0]
-        lon=lon.take(self.mask)
-        lat=lat.take(self.mask)
-      else:
-        self.mask=None
+      # if cfile.has_key('mask'):
+      #   self.mask=numpy.where(cfile['mask'][:] != False )[0]
+      #   lon=lon.take(self.mask)
+      #   lat=lat.take(self.mask)
+      # else:
+      self.mask=None
       self.interpolator=FEInterpolator(lon,lat,self.lev,self.geod)
-    elif lon:
+    elif lat and lon:
       self.mask=None # Mask not implemented for standard grids yet
-      self.interpolator=RectInterpolator(lon[0],lat[0],lon[-1],lat[-1],(lon[1]-lon[0]) if len(lon)>1 else 0,(lat[1]-lat[0]) if len(lat)>1 else 0,self.lev,lat if self.geod else None)
+      self.interpolator=RectInterpolator(lon[0],lat[0],lon[-1],lat[-1],
+                                        (lon[1]-lon[0]) if len(lon)>1 else 0,
+                                        (lat[1]-lat[0]) if len(lat)>1 else 0,
+                                        self.lev,
+                                        lat if self.geod else None)
     else:
       raise DataException('Gridded file %s structure not understood' % (self.filename))
 
@@ -337,9 +342,9 @@ class GridData(FieldData):
         #print '%s %d %d %d %d' % (v,self.fileind0,self.fileind1,ind0,ind1)
         self.buf0[v]=self.files[self.fileind0].variables[v][ind0][:]
         self.buf1[v]=self.files[self.fileind1].variables[v][ind1][:]
-        if self.mask is not None:
-         self.buf0[v]=self.buf0[v].take(self.mask,-1)
-         self.buf1[v]=self.buf1[v].take(self.mask,-1)
+        if self.mask:
+          self.buf0[v]=self.buf0[v].take(self.mask,-1)
+          self.buf1[v]=self.buf1[v].take(self.mask,-1)
     if (self.tind==0) and (time<self.time[0]):
       print 'Warning: model time before start time of data %s' % self.id
     elif (self.tind==len(self.time)-1) and (time>self.time[-1]):
