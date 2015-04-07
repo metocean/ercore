@@ -80,7 +80,6 @@ class FEInterpolator(object):
     self.geod=geod
     self.lev=lev
     self.tree=cKDTree(numpy.vstack((self.lon,self.lat)).T)
-    print 'Lev', self.lev
     
   def __call__(self,dat,p):
     dist,i=self.tree.query(p[:,:2],3)
@@ -286,7 +285,7 @@ class GridData(FieldData):
                                                 '%Y-%m-%d %H:%M:%S')
         deltas = [datetime.timedelta(seconds=float(t)) for t in bfile.variables['time'][:]]
         time0 = [ dt2ncep(start_time+delta) for delta in deltas ]
-        if (len(self.time)>0) and (time0[0]<self.time[-1]):raise DataException('For templated time files times must be increasing - time in file %s less than preceeding file' % (bfile.filepath()))
+        #if (len(self.time)>0) and (time0[0]<self.time[-1]):raise DataException('For templated time files times must be increasing - time in file %s less than preceeding file' % (bfile.filepath()))
         self.time.extend(time0) #Add times in file to time list
         self.flen.append(len(time0))
         self.timeindex.append(len(self.time)) #Add start time index of next file
@@ -346,9 +345,9 @@ class GridData(FieldData):
           self.buf0[v]=self.buf0[v].take(self.mask,-1)
           self.buf1[v]=self.buf1[v].take(self.mask,-1)
     if (self.tind==0) and (time<self.time[0]):
-      print 'Warning: model time before start time of data %s' % self.id
+      print 'Warning: model time (%s) before start time (%s) of data %s' % (ncep2dt(time), ncep2dt(self.time[0]), self.id)
     elif (self.tind==len(self.time)-1) and (time>self.time[-1]):
-      print 'Warning: model time after end time of data %s' % self.id
+      print 'Warning: model time (%s) after end time (%s) of data %s' % (ncep2dt(time), ncep2dt(self.time[-1]), self.id)
     if self.t0==self.t1:
       tfac=0.
     else:
@@ -437,6 +436,7 @@ class GriddedTide(GridData):
         raise ConfigException('Amplitude data for variable %s missing' % (v))
       if not self.files[0].variables[vpha]:
         raise ConfigException('Phase data for variable %s missing' % (v))
+      print vpha
       self.amp[v]=self.files[0].variables[vamp][:][consindex]
       self.phac[v]=numpy.cos(self.files[0].variables[vpha][:][consindex])
       self.phas[v]=numpy.sin(self.files[0].variables[vpha][:][consindex])

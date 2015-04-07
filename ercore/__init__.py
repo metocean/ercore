@@ -32,6 +32,7 @@ def copydoc(fromfunc, sep="\n"):
 #All simulation objects (i.e. movers, materials etc. must have an id attribute)
 class ObjectList(list):
     def __init__(self,items,copy=False):
+        print items
         if not isinstance(items,list):items=[items]
         for i in items:
             if not hasattr(i,'id'):raise ERConfigException('Each item must have an id attribute')
@@ -110,6 +111,7 @@ class ERcore(object):
         for prop in dir(obj):
             if prop in ['movers','reactors','diffusers','stickers','topo','members']:
                 val=getattr(obj,prop)
+                print val, prop
                 if isinstance(val,list):
                     val=ObjectList([objects[v] if isinstance(v,str) and objects[v] else v for v in val])
                     for v in val:
