@@ -209,42 +209,31 @@ class GridData(FieldData):
       else:
         self.buf0[v]=cfile[v][:]
 
-    try:
-      try:
-        lon = cfile['lon']
-        lat = cfile['lat']
-      except KeyError:
-        lon = cfile['longitude']
-        lat = cfile['latitude']
-    except KeyError:
-      raise DataException('Dataset needs lon, lat, and nv variables')
+    for vlon,vlat in [('lon','lat'),('longitude','latitude')]:
+      if vlon in cfile.keys() and vlat in cfile.keys():
+        lon, lat = cfile[vlon], cfile[vlat]
+        break
+      else:
+        raise DataException('Dataset needs lon, lat variables')  
 
-    try:
-      nv = cfile['nv']
-    except KeyError:
-      nv = None
-
-    try:
-      try:
-        self.lev = cfile['zlevels'][:]
+    # Check for nv variables for finite elements grids
+    self.nv = True if 'nv' in cfile.keys() else None
+    
+    for var in ['zlevels', 'lev', 'levels', 'level']:
+      if var in cfile.keys():
+        self.lev = cfile[var][:]
         self.is3d = True
-      except KeyError:
-        self.lev = cfile['lev'][:]
-        self.is3d = True
-    except KeyError:
-      self.lev = None
-      self.is3d = False
-
-    # if self.is3d:
-    #   self.lev=cfile[v].getAxis(1)[:]
-    #   if self.lev is None:
-    #     raise DataException('3D data file must specify levels')
+        break
+      else:
+        self.lev = None
+        self.is3d = False
 
     if options.pop('zcoord','up')=='down':
       if self.is3d: self.lev=-self.lev
       self.zinvert=True
     
-    if nv:
+    if self.nv:
+      # Is finite element grid
       lon=lon[:]
       lat=lat[:]
       if cfile.has_key('mask'):
@@ -356,7 +345,10 @@ class GridData(FieldData):
     for v in self.vars:
       dat=(1.-tfac)*self.buf0[v]+tfac*self.buf1[v]
       if self.is3d and self.surfsub:
-        dat=dat[:,:,:]-dat[0,:,:]
+        if self.nv:
+          dat=dat[:,:]-dat[0,:]
+        else:
+          dat=dat[:,:,:]-dat[0,:,:]
       out.append(dat)
       self.bufstore[v]=dat
     self.buftime=time
