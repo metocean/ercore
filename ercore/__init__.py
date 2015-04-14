@@ -86,7 +86,13 @@ class ERcore(object):
     self.fout={}
     self.outpath=k.get('outpath','.')
     self.__dict__.update(k)
-    
+
+  def __exit__(self,*args):
+    pass
+
+  def __enter__(self):
+    return self
+
   def readYAML(self,ctlfile, namespace=globals()):
     """Read a YAML configuration file for an ERcore simulation"""
     import yaml,inspect
@@ -111,7 +117,6 @@ class ERcore(object):
         for prop in dir(obj):
             if prop in ['movers','reactors','diffusers','stickers','topo','members']:
                 val=getattr(obj,prop)
-                print val, prop
                 if isinstance(val,list):
                     val=ObjectList([objects[v] if isinstance(v,str) and objects[v] else v for v in val])
                     for v in val:

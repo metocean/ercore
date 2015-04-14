@@ -247,12 +247,12 @@ class GridData(FieldData):
     if nv:
       lon=lon[:]
       lat=lat[:]
-      # if cfile.has_key('mask'):
-      #   self.mask=numpy.where(cfile['mask'][:] != False )[0]
-      #   lon=lon.take(self.mask)
-      #   lat=lat.take(self.mask)
-      # else:
-      self.mask=None
+      if cfile.has_key('mask'):
+        self.mask=numpy.where(cfile['mask'][:] != False )[0]
+        lon=lon.take(self.mask)
+        lat=lat.take(self.mask)
+      else:
+        self.mask=None
       self.interpolator=FEInterpolator(lon,lat,self.lev,self.geod)
     elif lat and lon:
       self.mask=None # Mask not implemented for standard grids yet
@@ -341,7 +341,7 @@ class GridData(FieldData):
         #print '%s %d %d %d %d' % (v,self.fileind0,self.fileind1,ind0,ind1)
         self.buf0[v]=self.files[self.fileind0].variables[v][ind0][:]
         self.buf1[v]=self.files[self.fileind1].variables[v][ind1][:]
-        if self.mask:
+        if numpy.any(self.mask):
           self.buf0[v]=self.buf0[v].take(self.mask,-1)
           self.buf1[v]=self.buf1[v].take(self.mask,-1)
     if (self.tind==0) and (time<self.time[0]):
@@ -436,7 +436,6 @@ class GriddedTide(GridData):
         raise ConfigException('Amplitude data for variable %s missing' % (v))
       if not self.files[0].variables[vpha]:
         raise ConfigException('Phase data for variable %s missing' % (v))
-      print vpha
       self.amp[v]=self.files[0].variables[vamp][:][consindex]
       self.phac[v]=numpy.cos(self.files[0].variables[vpha][:][consindex])
       self.phas[v]=numpy.sin(self.files[0].variables[vpha][:][consindex])

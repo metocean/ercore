@@ -92,7 +92,7 @@ class Plankton(BuoyantTracer):
   
   def spawn(self,t1,t2):#Become something else or spawn
     if self.props['spawnclass']:
-      ind=(self.state) & (self.age>=self.props['spawnage'])
+      ind=(self.state) & (self.age>=self.props['spawnage']-(t2-t1-0.001))
       nind=ind.sum()
       if nind:
         if self.props['maxage']<=self.props['spawnage']:#Has become next life stage
