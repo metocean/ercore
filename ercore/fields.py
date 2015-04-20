@@ -1,14 +1,12 @@
 #!/usr/bin/env python
 import numpy
-from ercore import ERCoreException,ERConfigException,copydoc,ncep2dt,dt2ncep
+from ercore import ERCoreException,ERConfigException,copydoc,ncep2dt,dt2ncep, decrypt_var
 from _flib_ercore import interph,interp3d,interpz,inpoly
 import datetime
 import netCDF4 as nc
 import glob
 import re
 import shelve
-
-from crypt import *
 
 R2D=180./numpy.pi
 D2R=1/R2D

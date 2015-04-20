@@ -6,6 +6,24 @@ _NCEPT0_=730120.99999
 ncep2dt=lambda t:_DT0_+datetime.timedelta(t-_NCEPT0_)
 dt2ncep=lambda t: (1.+t.toordinal()+t.hour/24.+t.minute/1440.+t.second/86400.) if isinstance(t,datetime.datetime) else t
 
+__key__ = '8zB5fAf83YQj3P67EArM9WfYZ1YLayAY'
+
+def decrypt_var(var, key, array=None):
+    if isinstance(array, numpy.ndarray):
+        array = array
+    else:
+        array = var[:]
+    
+    if not hasattr(var, 'is_encrypted') or \
+       var.is_encrypted == 'False' or not key:
+        return array 
+    else:
+        dkey = base64.b64decode(key).replace(base64.b64encode(__key__), '')
+        nkey = numpy.fromstring(dkey)
+        decrypted = array[:]/nkey
+        return decrypted
+
+
 def parsetime(t):
     if isinstance(t,datetime.datetime):
         return dt2ncep(t)
