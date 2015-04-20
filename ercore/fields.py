@@ -6,6 +6,9 @@ import datetime
 import netCDF4 as nc
 import glob
 import re
+import shelve
+
+from crypt import *
 
 R2D=180./numpy.pi
 D2R=1/R2D
@@ -303,8 +306,18 @@ class GridData(FieldData):
     self.file0=self.files[0]
     self.file1=self.files[0]
     self.buftime=0
-    
 
+  def get_key(self, ncfile, var, varname):
+    keystorepath = os.path.join(os.path.dirname(ncfile.filepath()),'keystore')
+    if os.path.exists(keystorepath):
+      keystore = shelve.open(keystorepath)
+      if not hasattr(ncfile, 'storename') or not hasattr(var, 'is_encrypted') or\
+      var.is_encrypted == 'False':
+        return None
+      else:
+        return keystore[str(ncfile.storename)][str(varname)]
+      keystore.close()
+    
   def get(self,time): #Time is current model time
     """Get data slab for specified time
     Arguments:
@@ -328,8 +341,16 @@ class GridData(FieldData):
         ind0=max(0,self.tind-self.timeindex[self.fileind0]-1)
         ind1=min(self.tind-self.timeindex[self.fileind1],self.flen[self.fileind1]-1)
         #print '%s %d %d %d %d' % (v,self.fileind0,self.fileind1,ind0,ind1)
-        self.buf0[v]=self.files[self.fileind0].variables[v][ind0][:]
-        self.buf1[v]=self.files[self.fileind1].variables[v][ind1][:]
+        ncfile1 = self.files[self.fileind0]
+        ncfile2 = self.files[self.fileind1]
+        var1 = ncfile1.variables[v]
+        var2 = ncfile2.variables[v]
+        arr1 = var1[ind0][:]
+        arr2 = var2[ind1][:]
+        key1 = self.get_key(ncfile1, var1, v)
+        key2 = self.get_key(ncfile2, var2, v)
+        self.buf0[v]= decrypt_var(var1, key1, arr1)
+        self.buf1[v]= decrypt_var(var2, key2, arr2)
         if numpy.any(self.mask):
           self.buf0[v]=self.buf0[v].take(self.mask,-1)
           self.buf1[v]=self.buf1[v].take(self.mask,-1)
@@ -428,9 +449,18 @@ class GriddedTide(GridData):
         raise ConfigException('Amplitude data for variable %s missing' % (v))
       if not self.files[0].variables[vpha]:
         raise ConfigException('Phase data for variable %s missing' % (v))
-      self.amp[v]=self.files[0].variables[vamp][:][consindex]
-      self.phac[v]=numpy.cos(self.files[0].variables[vpha][:][consindex])
-      self.phas[v]=numpy.sin(self.files[0].variables[vpha][:][consindex])
+      ncfile = self.files[0]
+      varamp = ncfile.variables[vamp]
+      varpha = ncfile.variables[vpha]
+      arramp = varamp[:][consindex]
+      arrpha = varpha[:][consindex]
+      keyamp = self.get_key(ncfile, varamp, vamp)
+      keypha = self.get_key(ncfile, varpha, vpha)
+      arramp = decrypt_var(varamp, keyamp, arramp)
+      arrpha = decrypt_var(varpha, keypha, arrpha)
+      self.amp[v]=arramp
+      self.phac[v]=numpy.cos(arrpha)
+      self.phas[v]=numpy.sin(arrpha)
       if (self.amp[v].shape[0]<>self.ncons) or (self.phac[v].shape[0]<>self.ncons):
         raise ConfigException('First dimension of amplitudes and phases must match number of constituents')
   
