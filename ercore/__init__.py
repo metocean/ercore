@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import datetime,os,numpy,re
+import base64
 
 _DT0_=datetime.datetime(2000,1,1)
 _NCEPT0_=730120.99999

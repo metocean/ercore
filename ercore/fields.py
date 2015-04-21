@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import os
 import numpy
 from ercore import ERCoreException,ERConfigException,copydoc,ncep2dt,dt2ncep, decrypt_var
 from _flib_ercore import interph,interp3d,interpz,inpoly
