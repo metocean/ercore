@@ -238,12 +238,12 @@ class GridData(FieldData):
       # Is finite element grid
       lon=lon[:]
       lat=lat[:]
-      if cfile.has_key('mask'):
-        self.mask=numpy.where(cfile['mask'][:] != False )[0]
-        lon=lon.take(self.mask)
-        lat=lat.take(self.mask)
-      else:
-        self.mask=None
+      # if cfile.has_key('mask'):
+      #   self.mask=numpy.where(cfile['mask'][:] != False )[0]
+      #   lon=lon.take(self.mask)
+      #   lat=lat.take(self.mask)
+      # else:
+      self.mask=None
       self.interpolator=FEInterpolator(lon,lat,self.lev,self.geod)
     elif lat and lon:
       self.mask=None # Mask not implemented for standard grids yet
@@ -440,7 +440,8 @@ class GriddedTide(GridData):
     self.amp={}
     self.phac={}
     self.phas={}
-    self.tidestr=TideStr(numpy.zeros((self.ncons,1)),numpy.zeros((self.ncons,1)),self.cons,options.get('t0',datetime.datetime.now()),options.get('lat',0.0))
+    lat0 = self.files[0].lat0
+    self.tidestr=TideStr(numpy.zeros((self.ncons,1)),numpy.zeros((self.ncons,1)),self.cons,options.get('t0',datetime.datetime.now()),lat0)
     for iv,v in enumerate(self.vars):
       vamp=v+'_amp'
       vpha=v+'_pha'
@@ -451,12 +452,15 @@ class GriddedTide(GridData):
       ncfile = self.files[0]
       varamp = ncfile.variables[vamp]
       varpha = ncfile.variables[vpha]
-      arramp = varamp[:][consindex]
-      arrpha = varpha[:][consindex]
+      arramp = varamp[consindex,:]
+      arrpha = varpha[consindex,:]
       keyamp = self.get_key(ncfile, varamp, vamp)
       keypha = self.get_key(ncfile, varpha, vpha)
       arramp = decrypt_var(varamp, keyamp, arramp)
       arrpha = decrypt_var(varpha, keypha, arrpha)
+      if numpy.any(self.mask):
+        arramp = arramp.take(self.mask, -1)
+        arrpha = arrpha.take(self.mask, -1)
       self.amp[v]=arramp
       self.phac[v]=numpy.cos(arrpha)
       self.phas[v]=numpy.sin(arrpha)
