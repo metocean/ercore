@@ -292,6 +292,7 @@ class GridData(FieldData):
     elif isinstance(cfile, (str,unicode)):
       filetmpl = re.sub('%Y|%m|%d|%H|%M','*', cfile)
       files.extend(glob.glob(filetmpl))
+    files.sort()
     return files
     
   def reset(self):

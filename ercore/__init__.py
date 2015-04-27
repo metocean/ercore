@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import datetime,os,numpy,re
 import base64
+import gc
 
 _DT0_=datetime.datetime(2000,1,1)
 _NCEPT0_=730120.99999
@@ -46,6 +47,8 @@ def copydoc(fromfunc, sep="\n"):
             func.__doc__ = sep.join([sourcedoc, func.__doc__])
         return func
     return _decorator
+
+class TerminateException(Exception): pass  
 
 #Enhanced list class to allow indexing by id
 #All simulation objects (i.e. movers, materials etc. must have an id attribute)
@@ -106,10 +109,15 @@ class ERcore(object):
     self.__dict__.update(k)
 
   def __exit__(self,*args):
-    pass
+    if hasattr(self, 'materials'):
+      del self.materials
+    gc.collect()
 
   def __enter__(self):
     return self
+
+  def terminate(self):
+    return True if self.running == False else False
 
   def readYAML(self,ctlfile, namespace=globals()):
     """Read a YAML configuration file for an ERcore simulation"""
@@ -155,6 +163,7 @@ class ERcore(object):
         tend: Start time as datetime, ncep decimal time or string
         dt: Simulation timestep as seconds
     """
+    self.running = True
     t=parsetime(t)
     tend=parsetime(tend)
     iprint=int(self.tout/dt) if self.tout>0 else 1
@@ -169,6 +178,8 @@ class ERcore(object):
       if self.geod:e.geodcalc(True)
     print 'Running ERcore times %f to %f' % (t,tend)
     while ((dt>0) and (t<tend)) or ((dt<0) and (t>tend)):
+      if self.terminate():
+        raise TerminateException('Model has been terminated')
       i+=1
       t2=t+dt
       for e in self.materials:
