@@ -209,7 +209,7 @@ class BuoyantPlume(Plume):
     #print str(self.post[np,2])+str(self.ambients[0])
   
   def _densfunc(self,np):
-    return numpy.tile(self.props['D0'])
+    return self.props['D0'] if np==0 else numpy.tile(self.props['D0'],np)
     
   def _mix(self,dt):
     np=self.np
