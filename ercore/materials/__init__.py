@@ -312,8 +312,13 @@ class PassiveTracer(_Material):
     np=self.np
     imax=3 if self.is3d else 2
     for diffuser in self.diffusers:
+      # Diffusion references:
+      # Garcia-Martinez and Tovar, 1999 - Computer Modeling of Oil Spill Trajectories With a High Accuracy Method
+      # Lonin, S.A., 1999. Lagrangian model for oil spill diffusion at sea. Spill Science and Technology Bulletin, 5(5): 331-336 
       diff=(6*dt*diffuser.interp(self.pos[:np],t1,self.age[:np],imax=imax))**0.5
-      self.post[:np,:imax]+=numpy.random.uniform(-diff,diff,size=(np,imax))*self.mfx[:np,:imax]
+      self.post[:np,:imax]+=numpy.random.uniform(-diff,diff,size=(np,imax))*self.mfx[:np,:imax] #self.mfx=map factors i.e. meters to lat/lon
+      # correction for vertical diffusion resulting in above sea-surface Zlevel
+      self.post[:np,2]=numpy.minimum(self.post[:np,2],0.0)
     
     
 class BuoyantTracer(PassiveTracer):

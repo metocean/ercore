@@ -27,7 +27,7 @@ if test==1:
   A=0.25*numpy.pi*d*d
   V0=0.000001*F/60/A
   Z0=-0.6
-  plume1=HCPlume('plume',100000,is3d=True,movers=[current],reactors=[temp,salt],V0=numpy.array([0,0,V0]),P0=numpy.array([0,0,Z0]),T0=80,D0=870,wb=0.27,B0=d/2,GOR=GOR,Mg=28.97e-3,Cpl=1.8,spwn=1000)
+  plume1=HCPlume('plume',100000,is3d=True,movers=[current],reactors=[temp,salt],V0=numpy.array([0,0,V0]),P0=numpy.array([0,0,Z0]),T0=80,D0=870,wb=0.27,B0=d/2,GOR=GOR,Mg=28.97e-3,Cpl=1.8,spwn=1000,visc=0.033,IFT=0.02,wb=0.27,tstep=3600.)
   plume2=HCPlume('plume2',10000,is3d=True,movers=[current],reactors=[temp,salt],V0=numpy.array([0,0,V0]),P0=numpy.array([0,0,Z0]),T0=80,D0=870,wb=0.27,B0=d/2,GOR=GOR,Mg=28.97e-3,Cpl=1.8,gsep=False)
 #Test 2 - Idealised gas plume
 elif test==2:
