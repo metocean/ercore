@@ -55,14 +55,14 @@ class Plume(_Material):
   def initialize(self,t1,t2):
     _Material.initialize(self,t1,t2)
     self.V0=numpy.sqrt((numpy.array(self.props['V0'])**2).sum())
-    self.dt0=10.*self.props['B0']/numpy.sqrt((self.props['V0']**2).sum())
+    self.dt0=10.*self.props['B0']/self.V0
     self.h=numpy.zeros(self.state.shape)
     self.b=self.props['B0']+self.h
     self.u=self.props['V0']*numpy.ones((len(self.state),1))
     self.vmod=numpy.sqrt((self.u**2).sum(1))
     self.ddens=0.+self.h
     self.conc=self.props['C0']+self.h
-    self.M0=numpy.sqrt((self.props['V0']**2).sum()*self.props['B0']**2) 
+    self.M0=self.V0*numpy.array(self.props['B0'])**2
     self.Vb=self.props.get('Vb',0.12) #Terminal velocity
       
   def _get_entrainment(self,type='jirka'):
@@ -200,16 +200,21 @@ class BuoyantPlume(Plume):
   def _get_ambient(self,t):
     Plume._get_ambient(self,t)
     np=self.np-1
-    temp=self.reactors[0].interp(self.post[np:np+1,:],t)[0]
+    temp=self.reactors[0].interp(self.post[np:np+1,:],t)[0]  # outputs array with imax length
     salt=self.reactors[1].interp(self.post[np:np+1,:],t)[0]
     P=pres(self.post[np,2],self.post[np:np+1,1] if self.geod else 0.)
     temp=temppot(salt, temp, 0, P) #Convert to absolute temperature
     den=dens(salt, temp, P)
+    # Note from Rosa: added a fix for when imax>0. not tested in all conditions.
+    print 'salt = ', salt
+    temp = temp[0]
+    salt = salt[0]
+    den  = den[0]
     self.ambients=self.ambients[0],temp,salt,den
     #print str(self.post[np,2])+str(self.ambients[0])
   
   def _densfunc(self,np):
-    return self.props['D0'] if np==0 else numpy.tile(self.props['D0'],np)
+    return self.props['D0'] # if np==0 else numpy.tile(self.props['D0'],np)
     
   def _mix(self,dt):
     np=self.np
@@ -218,7 +223,7 @@ class BuoyantPlume(Plume):
     dml=dt*D*Q #,numpy.newaxis] #Change of liquid mass
     ml1=self.mass[np-1]+dml #New mass
     self.conc[np]=(self.mass[np-1]*self.conc[np-1])/ml1 #Concentration
-    self.salt[:np]=(S[:np]*dml+self.mass[:np]*self.salt[:np])/ml1 #Salinity
+    self.salt[:np]=(S*dml+self.mass[:np]*self.salt[:np])/ml1 #Salinity
     self.temp[np]=(self.Cpr*T*dml+self.mass[np-1]*self.temp[np-1])/ml1 #Temperature
     self.dens[np]=self.conc[np]*self._densfunc(np)+(1.-self.conc[np])*D
     self.ddens[np]=(self.ambients[3]-self.dens[np])/self.dens[np]
