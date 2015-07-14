@@ -86,6 +86,7 @@
             cconc(ix,iy)=sum1*cconc(ix,iy)/sum2
           enddo
         enddo
+        print*, 'calc_dens cconc(1,1) = ', cconc(1,1)
       end subroutine
       
       

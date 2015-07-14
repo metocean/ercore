@@ -203,37 +203,35 @@
       vv1=>dg(igrid)%vv1
       end subroutine
       
-      end module griddata
-      
-      
-      
-      function jday(j,m,d)
-	integer j,m,d,c,jday
+    integer function jday(j,m,d)
+      integer,intent(in) :: j,m,d
+      integer m2,j2,c
 
-	if (m.lt.3) then
-		m=m + 12
-		j = j - 1
-	endif
-	c=2-floor(j/100.) + floor(j/400.);
-	jday= floor(1461*(j + 4716)/4.)+floor(153*(m + 1)/5.)+d+c-1525; 
-	return
-	end function
-      
-	function udtime(strtime)
+      if (m.lt.3) then
+        m2=m+12
+        j2=j-1
+      else
+        m2=m
+        j2=j
+      endif
 
-	real*8 udtime
-	character*19 strtime
-	integer year,month,day,hour,min,sec
+      c=2-floor(j2/100.) + floor(j2/400.)
+      jday= floor(1461*(j2 + 4716)/4.)+floor(153*(m2 + 1)/5.)+d+c-1525
+      return
+    end function jday
 
-	read(strtime(1:4),*) year
-	read(strtime(6:7),*) month
-	read(strtime(9:10),*) day
-	read(strtime(12:13),*) hour
-	read(strtime(15:16),*) min
-	read(strtime(18:19),*) sec
-	print*, 'jday = ', year,month,day, jday(year,month,day)
-	udtime=dble(jday(year,month,day))+hour/24.0+min/1440.0+sec/86400.0
-	return
-	end function
-      
-      
+    function udtime(strtime)
+        character(19) strtime
+        integer y,m,d,hr,mn,sc
+        real*8 udtime
+        read(strtime(1:4),*) y
+        read(strtime(6:7),*) m
+        read(strtime(9:10),*) d
+        read(strtime(12:13),*) hr
+        read(strtime(15:16),*) mn
+        read(strtime(18:19),*) sc
+        udtime = dble(jday(y,m,d)) + hr/24. + mn/1440. + sc/86400.
+        return
+    end function udtime
+
+end module griddata 

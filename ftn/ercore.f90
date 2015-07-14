@@ -10,6 +10,7 @@
       parameter(r2d=180./pi,d2r=1./r2d,arad=r2d/6367456.)
       
       real,allocatable :: kx(:,:),ky(:,:),srand(:)
+      real,allocatable :: vout1(:),vout2(:),vout3(:),vout4(:)
       real*8,allocatable :: pxt(:),pyt(:)
       character(len=120) infile,windfile,curfile,wavefile,sstfile,depfile
       character(len=2012) bndfile,outfile,ncoutfile
@@ -19,7 +20,7 @@
       real wndx,wndy,curx,cury
       real wspunc,wdirunc,dcurunc,ccurunc,diffunc
       real*8 mfy,diffacx,diffacy
-      real*8 ts,te,tt,xlims(2),ylims(2),dts,dt2
+      real*8 ts,te,tt,xlims(2),ylims(2),dts,dt2,udts,udte
       logical bnd,iwind,icur,ihs,isst,iunc,idep
       logical debug
 
@@ -87,42 +88,42 @@
         bnd=.false.
       else
         bnd=.true.
-        write(*,'(/,a,a)')'Reading boundary file: ',bndfile
+        write(*,'(/,a,a)')'Reading boundary file: ',trim(adjustl(bndfile))
         call read_shoreline(bndfile)
         write(*,'(i0,a,i0,a)') size(slx),' boundary points in ',maxval(sli),' sections'
         write(*,'(a,4(x,f12.4))'),'Boundary limits: ',minval(slx),maxval(slx),minval(sly),maxval(sly)
       endif
       
       if (iwind) then
-        write(*,'(/,a,a)')'Reading wind grid file: ',windfile
+        write(*,'(/,a,a)')'Reading wind grid file: ',trim(adjustl(windfile))
         call init_grid(windfile,1)
         write(*,'(a,2i0)') 'Grid dimensions :',dg(1)%nx,dg(1)%ny
         write(*,'(a,4(x,f12.4))'),'Boundary limits: ',minval(dg(1)%xx),maxval(dg(1)%xx),minval(dg(1)%yy),maxval(dg(1)%yy)
       endif
       
       if (icur) then
-        write(*,'(/,a,a)')'Reading current grid file: ',curfile
+        write(*,'(/,a,a)')'Reading current grid file: ',trim(adjustl(curfile))
         call init_grid(curfile,2)
         write(*,'(a,2i0)') 'Grid dimensions :',dg(2)%nx,dg(2)%ny
         write(*,'(a,4(x,f12.4))'),'Boundary limits: ',minval(dg(2)%xx),maxval(dg(2)%xx),minval(dg(2)%yy),maxval(dg(2)%yy)
       endif
 
       if (ihs) then
-        write(*,'(/,a,a)')'Reading wave grid file: ',wavefile
+        write(*,'(/,a,a)')'Reading wave grid file: ',trim(adjustl(wavefile))
         call init_grid(wavefile,3)
         write(*,'(a,2i0)') 'Grid dimensions :',dg(3)%nx,dg(3)%ny
         write(*,'(a,4(x,f12.4))'),'Boundary limits:',minval(dg(3)%xx),maxval(dg(3)%xx),minval(dg(3)%yy),maxval(dg(3)%yy)
       endif
 
       if (isst) then
-        write(*,'(/,a,a)')'Reading sst grid file: ',sstfile
+        write(*,'(/,a,a)')'Reading sst grid file: ',trim(adjustl(sstfile))
         call init_grid(curfile,4)
         write(*,'(a,2i0)') 'Grid dimensions :',dg(4)%nx,dg(4)%ny
         write(*,'(a,4(x,f12.4))'),'Boundary limits:',minval(dg(4)%xx),maxval(dg(4)%xx),minval(dg(4)%yy),maxval(dg(4)%yy)
       endif
 
       if (idep) then
-        write(*,'(/,a,a)')'Reading depth grid file: ',depfile
+        write(*,'(/,a,a)')'Reading depth grid file: ',trim(adjustl(depfile))
         call init_grid(curfile,5)
         write(*,'(a,2i0)') 'Grid dimensions :',dg(5)%nx,dg(5)%ny
         write(*,'(a,4(x,f12.4))'),'Boundary limits:',minval(dg(5)%xx),maxval(dg(5)%xx),minval(dg(5)%yy),maxval(dg(5)%yy)
@@ -152,6 +153,7 @@
       enddo
        
       allocate(kx(4,npmax),ky(4,npmax),pxt(npmax),pyt(npmax))
+      allocate(vout1(npmax),vout2(npmax),vout3(npmax),vout4(npmax))
       
       if (outfile.ne.'')then
         open(20,file=outfile,status='replace')
@@ -163,7 +165,7 @@
       
       write(*,'(/,a,a)')'Initialialising output grid file: ',trim(adjustl(ncoutfile))
       call init_outgrid(xlims(1),xlims(2),ylims(1),ylims(2),dims(1),dims(2))
-      call init_ncout(ncoutfile,nr,ognx,ogny)
+      call init_ncout(ncoutfile,nr)
       write(*,'(a,2i0)') 'Grid dimensions :',dims
       write(*,'(a,4(x,f12.4))'),'Boundary limits: ',xlims,ylims
       
@@ -172,15 +174,16 @@
       udte = udtime(tend)
       ts=udts-timebase
       te=udte-timebase
+
       if (debug) then
-        print*, 'timebase = ', timebase
         print*, 'tstart   = ', tstart, '|'
         print*, 'tend     = ', tend, '|'
-        print*, 'udtime(tstart) = ', udts
-        print*, 'udtime(tend)   = ', udte
+        print*, 'udts = ', udts
+        print*, 'udte= ', udte
+        print*, 'timebase = ', timebase
         print*,' ts,te = ', ts,te
       endif
-      stop 'aqui'
+      
       it=0
       tt=ts
       dts=dt/86400.
@@ -188,150 +191,174 @@
       if (iwind) call read_slab(tt,1)
       if (icur) call read_slab(tt,2)
       mfy=arad
-
+      
       do while (tt.lt.te)
         write(*,'(a,f12.5)') 'Timestep :',tt-ts
         call add_release(it,dt)
-      
+        !print*, 'rel(1)%npr = ', rel(1)%npr
         if(mod(it,itout).eq.0)then
           call poutput(tt-ts,dts)
         endif
         if (incout.gt.0) then
-        if(mod(it,incout).eq.0)then
-          do ir=1,nr
-            call calc_dens(rel(ir)%px,rel(ir)%py,rel(ir)%mass,rel(ir)%npr)
-            call output_dens(tt,ir,cconc,ognx,ogny)
-          enddo
-        endif
+          if(mod(it,incout).eq.0)then
+            do ir=1,nr
+              call calc_dens(rel(ir)%px,rel(ir)%py,rel(ir)%mass,rel(ir)%npr)
+              call output_dens(tt,ir) 
+            enddo
+          endif
         endif
         
         tt=tt+dts
         it=it+1
-        
+
         if (iwind) call read_slab(tt,1)
         if (icur) call read_slab(tt,2)
         if (ihs) call read_slab(tt,3)
         if (isst) call read_slab(tt,4)
-  
+        
         do ir=1,nr
         
-        np=rel(ir)%npr
-        rel(ir)%age(1:np)=rel(ir)%age(1:np)+dt
-        px=>rel(ir)%px
-        py=>rel(ir)%py
-        psc=>rel(ir)%psc
-        
-        allocate(srand(np),mfx(np))        
-        mfx=arad/cos(d2r*py(1:np))
-        
-        if (curx.ne.0) then
-          pxt(1:np)=px(1:np)+dt*curx*mfx
-          pyt(1:np)=py(1:np)+dt*cury*mfy
-        elseif (icur) then
-          call setgrid(2)
-          kx(1,1:np)=dt*interph(uuo,px,py,np)
-          ky(1,1:np)=dt*interph(vvo,px,py,np)
-          pxt(1:np)=px(1:np)+0.5*kx(1,1:np)*mfx
-          pyt(1:np)=py(1:np)+0.5*ky(1,1:np)*mfy
-          kx(2,1:np)=dt2*(interph(uuo,pxt,pyt,np)+interph(uu,pxt,pyt,np))
-          ky(2,1:np)=dt2*(interph(vvo,pxt,pyt,np)+interph(vv,pxt,pyt,np))
-          pxt(1:np)=px(1:np)+0.5*kx(2,1:np)*mfx
-          pyt(1:np)=py(1:np)+0.5*ky(2,1:np)*mfy
-          kx(3,1:np)=dt2*(interph(uuo,pxt,pyt,np)+interph(uu,pxt,pyt,np))
-          ky(3,1:np)=dt2*(interph(vvo,pxt,pyt,np)+interph(vv,pxt,pyt,np))
-          pxt(1:np)=px(1:np)+kx(3,1:np)*mfx
-          pyt(1:np)=py(1:np)+ky(3,1:np)*mfy
-          kx(4,1:np)=dt*interph(uu,pxt,pyt,np)
-          ky(4,1:np)=dt*interph(vv,pxt,pyt,np)
-          kx(1,1:np)=d16*(kx(1,1:np)+2*(kx(2,1:np)+kx(3,1:np))+kx(4,1:np))
-          ky(1,1:np)=d16*(ky(1,1:np)+2*(ky(2,1:np)+ky(3,1:np))+ky(4,1:np))
-          if (iunc) then
-                call random_number(srand)
-                kx(3,1:np)=1.+dcurunc*2*(srand-0.5)
-                call random_number(srand)
-                kx(4,1:np)=ccurunc*2*(srand-0.5)
-                kx(2,1:np)=kx(1,1:np)*kx(3,1:np)+kx(4,1:np)*ky(1,1:np)
-                ky(2,1:np)=ky(1,1:np)*kx(3,1:np)-kx(4,1:np)*kx(1,1:np)
-                pxt(1:np)=px(1:np)+kx(2,1:np)*mfx
-                pyt(1:np)=py(1:np)+ky(2,1:np)*mfy
-          else
-                pxt(1:np)=px(1:np)+kx(1,1:np)*mfx
-                pyt(1:np)=py(1:np)+ky(1,1:np)*mfy
-          endif
-        else
-          pxt(1:np)=px(1:np)
-          pyt(1:np)=py(1:np)
-        endif
-        
-        if (iwind.or.windspd.ne.0.) then
-          if (iwind) then
-            call setgrid(1)
-            kx(1,1:np)=0.5*(interph(uuo,px,py,np)+interph(uu,pxt,pyt,np))
-            ky(1,1:np)=0.5*(interph(vvo,px,py,np)+interph(vv,pxt,pyt,np))
-            kx(2,1:np)=sqrt(kx(1,1:np)**2+ky(1,1:np)**2)
-            kx(3,1:np)=atan2(ky(1,1:np),kx(1,1:np))
-          else
-            kx(2,1:np)=windspd
-            kx(3,1:np)=winddir
-          endif
-          call random_number(srand)
-          kx(4,1:np)=2*(rel(ir)%cw_max-rel(ir)%cw_min)*(srand-0.5)
-          where (kx(4,1:np).lt.0)
-            kx(4,1:np)=kx(4,1:np)-rel(ir)%cw_min
-          elsewhere
-            kx(4,1:np)=kx(4,1:np)+rel(ir)%cw_min
-          end where
-          kx(3,1:np)=kx(3,1:np)+asin(kx(4,1:np))
-          call random_number(srand)
-          kx(2,1:np)=kx(2,1:np)*(rel(ir)%dw_min+(rel(ir)%dw_max-rel(ir)%dw_min)*srand)
-          if (iunc) then
-                call random_number(srand)
-                kx(2,1:np)=kx(2,1:np)*(1.+2*wspunc*(0.5-srand))
-                call random_gauss(srand,np)
-                kx(3,1:np)=kx(3,1:np)+wdirunc*srand
-          endif
-          pxt(1:np)=pxt(1:np)+dt*kx(2,1:np)*cos(kx(3,1:np))*mfx
-          pyt(1:np)=pyt(1:np)+dt*kx(2,1:np)*sin(kx(3,1:np))*mfy
-        endif
-        
-        if (difftype.eq.1) then
-          call random_number(srand)
-          kx(1,1:np)=diffacx*(srand-0.5)
-          call random_number(srand)
-          ky(1,1:np)=diffacy*(srand-0.5)
-        else if (difftype.eq.2) then
-          call random_gauss(srand,np)
-          kx(1,1:np)=diffacx*srand
-          call random_gauss(srand,np)
-          ky(1,1:np)=diffacy*srand
-        endif
-        if (difftype.gt.0) then
-          if (iunc) then
-                kx(1,1:np)=diffunc*kx(1,1:np)
-                ky(1,1:np)=diffunc*ky(1,1:np)
-          endif
-          pxt(1:np)=pxt(1:np)+kx(1,1:np)*mfx
-          pyt(1:np)=pyt(1:np)+ky(1,1:np)*mfy
-        endif
-        
-        call sl_intersect(px,py,pxt(1:np),pyt(1:np),psc,rel(ir)%refloat,np)
+          np=rel(ir)%npr
+          rel(ir)%age(1:np)=rel(ir)%age(1:np)+dt
+          px=>rel(ir)%px
+          py=>rel(ir)%py
+          psc=>rel(ir)%psc
+          allocate(srand(np),mfx(np))        
+          mfx=arad/cos(d2r*py(1:np))
+          
+          if (curx.ne.0) then
+            pxt(1:np)=px(1:np)+dt*curx*mfx
+            pyt(1:np)=py(1:np)+dt*cury*mfy
+          elseif (icur) then
+            call setgrid(2)
+            call interph(uuo,px,py,x0,y0,idx,idy,vout1,np,nx0,ny0)
+            call interph(vvo,px,py,x0,y0,idx,idy,vout2,np,nx0,ny0)
+            kx(1,1:np)=dt*vout1
+            ky(1,1:np)=dt*vout2
+            pxt(1:np)=px(1:np)+0.5*kx(1,1:np)*mfx
+            pyt(1:np)=py(1:np)+0.5*ky(1,1:np)*mfy
 
-        rel(ir)%px(1:np)=pxt
-        rel(ir)%py(1:np)=pyt
- 
-        deallocate(srand)
+            call interph(uuo,pxt,pyt,x0,y0,idx,idy,vout1,np,nx0,ny0)
+            call interph(uu ,pxt,pyt,x0,y0,idx,idy,vout2,np,nx0,ny0)
+            call interph(vvo,pxt,pyt,x0,y0,idx,idy,vout3,np,nx0,ny0)
+            call interph(vv ,pxt,pyt,x0,y0,idx,idy,vout4,np,nx0,ny0)
+
+            kx(2,1:np)=dt2*(vout1+vout2)
+            ky(2,1:np)=dt2*(vout3+vout4)
+
+            pxt(1:np)=px(1:np)+0.5*kx(2,1:np)*mfx
+            pyt(1:np)=py(1:np)+0.5*ky(2,1:np)*mfy
+
+            call interph(uuo,pxt,pyt,x0,y0,idx,idy,vout1,np,nx0,ny0)
+            call interph(uu ,pxt,pyt,x0,y0,idx,idy,vout2,np,nx0,ny0)
+            call interph(vvo,pxt,pyt,x0,y0,idx,idy,vout3,np,nx0,ny0)
+            call interph(vv ,pxt,pyt,x0,y0,idx,idy,vout4,np,nx0,ny0)
+
+            kx(3,1:np)=dt2*(vout1+vout2)
+            ky(3,1:np)=dt2*(vout3+vout4)
+
+            pxt(1:np)=px(1:np)+kx(3,1:np)*mfx
+            pyt(1:np)=py(1:np)+ky(3,1:np)*mfy
+
+            call interph(uu,px,py,x0,y0,idx,idy,vout1,np,nx0,ny0)
+            call interph(vv,px,py,x0,y0,idx,idy,vout2,np,nx0,ny0)
+            kx(4,1:np)=dt*vout1
+            ky(4,1:np)=dt*vout2
+
+            kx(1,1:np)=d16*(kx(1,1:np)+2*(kx(2,1:np)+kx(3,1:np))+kx(4,1:np))
+            ky(1,1:np)=d16*(ky(1,1:np)+2*(ky(2,1:np)+ky(3,1:np))+ky(4,1:np))
+
+            if (iunc) then
+                  call random_number(srand)
+                  kx(3,1:np)=1.+dcurunc*2*(srand-0.5)
+                  call random_number(srand)
+                  kx(4,1:np)=ccurunc*2*(srand-0.5)
+                  kx(2,1:np)=kx(1,1:np)*kx(3,1:np)+kx(4,1:np)*ky(1,1:np)
+                  ky(2,1:np)=ky(1,1:np)*kx(3,1:np)-kx(4,1:np)*kx(1,1:np)
+                  pxt(1:np)=px(1:np)+kx(2,1:np)*mfx
+                  pyt(1:np)=py(1:np)+ky(2,1:np)*mfy
+            else
+                  pxt(1:np)=px(1:np)+kx(1,1:np)*mfx
+                  pyt(1:np)=py(1:np)+ky(1,1:np)*mfy
+            endif
+          else
+            pxt(1:np)=px(1:np)
+            pyt(1:np)=py(1:np)
+          endif
+          
+          if (iwind.or.windspd.ne.0.) then
+            if (iwind) then
+              call setgrid(1)
+              call interph(uuo,px,py,x0,y0,idx,idy,vout1,np,nx0,ny0)
+              call interph(uu ,px,py,x0,y0,idx,idy,vout2,np,nx0,ny0)
+              call interph(vvo,px,py,x0,y0,idx,idy,vout3,np,nx0,ny0)
+              call interph(vv ,px,py,x0,y0,idx,idy,vout4,np,nx0,ny0)
+              kx(1,1:np)=0.5*(vout1+vout2)
+              ky(1,1:np)=0.5*(vout3+vout4)
+              
+              kx(2,1:np)=sqrt(kx(1,1:np)**2+ky(1,1:np)**2)
+              kx(3,1:np)=atan2(ky(1,1:np),kx(1,1:np))
+            else
+              kx(2,1:np)=windspd
+              kx(3,1:np)=winddir
+            endif
+            
+            call random_number(srand)
+            kx(4,1:np)=2*(rel(ir)%cw_max-rel(ir)%cw_min)*(srand-0.5)
+            where (kx(4,1:np).lt.0)
+              kx(4,1:np)=kx(4,1:np)-rel(ir)%cw_min
+            elsewhere
+              kx(4,1:np)=kx(4,1:np)+rel(ir)%cw_min
+            end where
+            kx(3,1:np)=kx(3,1:np)+asin(kx(4,1:np))
+            call random_number(srand)
+            kx(2,1:np)=kx(2,1:np)*(rel(ir)%dw_min+(rel(ir)%dw_max-rel(ir)%dw_min)*srand)
+            if (iunc) then
+                  call random_number(srand)
+                  kx(2,1:np)=kx(2,1:np)*(1.+2*wspunc*(0.5-srand))
+                  call random_gauss(srand,np)
+                  kx(3,1:np)=kx(3,1:np)+wdirunc*srand
+            endif
+            pxt(1:np)=pxt(1:np)+dt*kx(2,1:np)*cos(kx(3,1:np))*mfx
+            pyt(1:np)=pyt(1:np)+dt*kx(2,1:np)*sin(kx(3,1:np))*mfy
+          endif
+          
+          if (difftype.eq.1) then
+            call random_number(srand)
+            kx(1,1:np)=diffacx*(srand-0.5)
+            call random_number(srand)
+            ky(1,1:np)=diffacy*(srand-0.5)
+          else if (difftype.eq.2) then
+            call random_gauss(srand,np)
+            kx(1,1:np)=diffacx*srand
+            call random_gauss(srand,np)
+            ky(1,1:np)=diffacy*srand
+          endif
+          if (difftype.gt.0) then
+            if (iunc) then
+                  kx(1,1:np)=diffunc*kx(1,1:np)
+                  ky(1,1:np)=diffunc*ky(1,1:np)
+            endif
+            pxt(1:np)=pxt(1:np)+kx(1,1:np)*mfx
+            pyt(1:np)=pyt(1:np)+ky(1,1:np)*mfy
+          endif
+          
+          call sl_intersect(px,py,pxt(1:np),pyt(1:np),psc,rel(ir)%refloat,np)
+
+          rel(ir)%px(1:np)=pxt
+          rel(ir)%py(1:np)=pyt
+   
+          deallocate(srand)
         
         enddo
-        
       enddo
       
       write(*,'(/,a,a)')'Ended simulation at: ',tend
       
       close(20)
       call close_ncout()      
-      
-      end
-
+     
+    contains 
 
       subroutine random_gauss(rrand,np)
         parameter(pi=3.141592653589793,pi2=2*pi)
@@ -342,3 +369,5 @@
 
         rrand=sqrt(-2*log(rand0))*cos(pi2*rand1)
       end subroutine
+
+end program

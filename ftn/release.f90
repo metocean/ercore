@@ -79,6 +79,7 @@
           if (rel(ir)%npr.eq.rel(ir)%np) cycle
           t1=(it*dt-rel(ir)%rstart)
           t2=(rel(ir)%rend-rel(ir)%rstart)
+          print*, 't1,t2 = ', t1,t2
           if (t1.ge.0.) then
             npr=rel(ir)%npr
             if (t2.le.0) then
@@ -96,14 +97,13 @@
       
       subroutine poutput(tt,dt)
       real*8 tt,dt
-      
+        
         do ir=1,nr
           write(20,'(I8,X,F12.5,X,I8)')ir,tt,rel(ir)%npr
           do ip=1,rel(ir)%npr
-            write(20,'(3F12.5,I8,F12.5)')rel(ir)%px(ip),rel(ir)%py(ip),rel(ir)%mass(ip),dt*rel(ir)%psc(ip),rel(ir)%age(ip)/86400.
+            write(20,'(3F12.5,I8,F12.5)')rel(ir)%px(ip),rel(ir)%py(ip),rel(ir)%mass(ip),int(dt)*rel(ir)%psc(ip),rel(ir)%age(ip)/86400.
           enddo
         enddo
-      
       end subroutine
       
       
