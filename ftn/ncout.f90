@@ -4,16 +4,18 @@
     integer ncid,ierr,itind
     integer dtimeid,dlonid,dlatid,densid
     integer vtimeid,vlonid,vlatid,vensid,vconcid
-    
+  
+  
     contains
       subroutine close_ncout()
         ierr=nf90_close(ncid)
       end subroutine
       
-      subroutine init_ncout(filename,nr)
+      subroutine init_ncout(filename,nr,ognx,ogny)
         character*120 filename
         integer nr,nrel(nr),maskid
-        
+        integer ognx, ogny
+
         if (filename.eq.'')then
           ncid=0
           return
@@ -56,8 +58,13 @@
         return
       end subroutine
       
-      subroutine output_dens(ttime,ir)
-        if (ir.eq.1) itind=itind+1
+      subroutine output_dens(ttime,ir, cconc, ognx, ogny)
+        real*8 ttime
+        real :: cconc(:,:)
+        integer ir, ognx, ogny
+        
+        if (ir.eq.1) then
+          itind=itind+1
           ierr=nf90_put_var(ncid,vtimeid,ttime,(/itind/))
           ierr=nf90_put_var(ncid,vconcid,cconc,(/1,1,itind,ir/),(/ognx,ogny,1,1/))
         endif

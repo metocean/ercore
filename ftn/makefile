@@ -1,12 +1,12 @@
-FFLAGS=-c -O3 -I/usr/local/intel/include -IPA
-LDFLAGS=-O3 -IPA -static -L/usr/local/intel/lib -L/usr/local/lib -lnetcdff -lnetcdf -lhdf5 -lhdf5_hl -lhdf5 -lz
-#FFLAGS= -c -g -I./ -I/usr/local/intel/include
-#LDFLAGS=-g -static /usr/local/intel/lib/libnetcdf.a
+#FFLAGS=-c -O3 -I/usr/local/intel/include -IPA
+#LDFLAGS=-O3 -IPA -static -L/usr/local/intel/lib -L/usr/local/lib -lnetcdff -lnetcdf -lhdf5 -lhdf5_hl -lhdf5 -lz
+FFLAGS= -c -g -I./ -I/usr/local/include
+LDFLAGS=-g -I/usr/local/include/ -lnetcdf -lnetcdff -lhdf5 -lhdf5_fortran -lz -lsz
 
-FC=ifort
+FC=gfortran
 EXE=ercore
 
-MOD= rnkpar.f90 griddata.f90 shoreline.f90 release.f90 output.f90
+MOD= interp.f90 rnkpar.f90 griddata.f90 shoreline.f90 release.f90 output.f90 ncout.f90
 
 .SUFFIXES: .f90 .o
 

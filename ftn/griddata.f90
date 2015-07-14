@@ -1,7 +1,7 @@
       module griddata
       
       type gridstr
-        real,pointer,dimension(:) :: xx,yyz
+        real,pointer,dimension(:) :: xx,yy
         real,pointer,dimension(:,:) :: uu0,vv0,uu1,vv1
         real,pointer,dimension(:,:) :: uu,vv,uuo,vvo
         real*8,pointer,dimension(:) :: ttime
@@ -14,7 +14,7 @@
       
       type(gridstr), target, allocatable :: dg(:)
       
-      logical icur,iwind
+      !logical icur,iwind
       real*8 timebase,timebase0
       integer nx0,ny0
       real x0,y0,idx,idy
@@ -231,7 +231,7 @@
 	read(strtime(12:13),*) hour
 	read(strtime(15:16),*) min
 	read(strtime(18:19),*) sec
-	 
+	print*, 'jday = ', year,month,day, jday(year,month,day)
 	udtime=dble(jday(year,month,day))+hour/24.0+min/1440.0+sec/86400.0
 	return
 	end function

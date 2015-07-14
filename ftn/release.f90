@@ -42,8 +42,8 @@
         rel(ir)%cw_max=cw_max(ir)
         rel(ir)%refloat=refloat(ir)
         rel(ir)%halflife=halflife(ir)
-        allocate(rel(ir)%px(np(ir)),rel(ir)%py(np(ir)),rel(ir)%psc(np(ir)),rel(ir)%mass(np(ir)))
-        allocate(rel(ir)%age(np(ir)))
+        allocate(rel(ir)%px(np(ir)),rel(ir)%py(np(ir)),rel(ir)%psc(np(ir)))
+        allocate(rel(ir)%mass(np(ir)),rel(ir)%age(np(ir)))
         rel(ir)%px=dble(lon(ir))
         rel(ir)%py=dble(lat(ir))
         rel(ir)%psc=0
@@ -57,16 +57,16 @@
       
       
       subroutine dump_release(ir)
-      integer ir
-      
-        write(*,'(/,a,i)') 'Release ',ir
-        write(*,'(a,i,a)') 'with ',rel(ir)%np,' particles'
-        write(*,'(a,f,a,f)') 'Release location: ',rel(ir)%lon,',',rel(ir)%lat
-        write(*,'(a,f,a,f,a)') 'Time: ',rel(ir)%rstart,' s after start until ',rel(ir)%rend,' s after start'
-        write(*,'(a,f,a,f)') 'Downwind factor min: ',rel(ir)%dw_min,' max: ',rel(ir)%dw_max
-        write(*,'(a,f,a,f)') 'Crosswind factor min: ',rel(ir)%cw_min,' max: ',rel(ir)%cw_max
-        write(*,'(a,f,a)') 'Refloat time: ',rel(ir)%refloat,' s '
-        write(*,'(a,f,a)') 'Halflife: ',rel(ir)%halflife,' s '
+        integer ir
+    
+        write(*,'(/,a,i0)') 'Release ',ir
+        write(*,'(a,i0,a)') 'with ',rel(ir)%np,' particles'
+        write(*,'(a,f12.4,a,f12.4)') 'Release location: ',rel(ir)%lon,',',rel(ir)%lat
+        write(*,'(a,f20.4,a,f20.4)') 'Time: ',rel(ir)%rstart,' s after start until ',rel(ir)%rend,' s after start'
+        write(*,'(a,f12.4,a,f12.4)') 'Downwind factor min: ',rel(ir)%dw_min,' max: ',rel(ir)%dw_max
+        write(*,'(a,f12.4,a,f12.4)') 'Crosswind factor min: ',rel(ir)%cw_min,' max: ',rel(ir)%cw_max
+        write(*,'(a,f12.4,a)') 'Refloat time: ',rel(ir)%refloat,' s '
+        write(*,'(a,f12.4,a)') 'Halflife: ',rel(ir)%halflife,' s '
       
       end subroutine
       

@@ -11,7 +11,8 @@
       
       real,allocatable :: kx(:,:),ky(:,:),srand(:)
       real*8,allocatable :: pxt(:),pyt(:)
-      character(len=120) infile,windfile,curfile,wavefile,sstfile,depfile,bndfile,outfile,ncoutfile
+      character(len=120) infile,windfile,curfile,wavefile,sstfile,depfile
+      character(len=2012) bndfile,outfile,ncoutfile
       character(len=19) tstart,tend
       integer difftype,itout,incout,np,dims(2)
       real diffval,diffac,dt
@@ -19,20 +20,21 @@
       real wspunc,wdirunc,dcurunc,ccurunc,diffunc
       real*8 mfy,diffacx,diffacy
       real*8 ts,te,tt,xlims(2),ylims(2),dts,dt2
-      logical bnd
+      logical bnd,iwind,icur,ihs,isst,iunc,idep
+      logical debug
 
+      namelist/files/windfile,curfile,wavefile,sstfile,bndfile,outfile
+      namelist/time/tstart,tend,dt,itout,debug
+      namelist/movers/windspd,winddir,curspd,curdir,difftype,diffval,hs,tp,sst
+      namelist/uncertainty/iunc,wspunc,wdirunc,dcurunc,ccurunc,diffunc
+      namelist/ncdfout/ncoutfile,incout,xlims,ylims,dims
+      
       wavefile=''
       sstfile='' 
       windfile=''
       curfile=''
       depfile=''
 
-      namelist/files/windfile,curfile,wavefile,sstfile,bndfile,outfile
-      namelist/time/tstart,tend,dt,itout
-      namelist/movers/windspd,winddir,curspd,curdir,difftype,diffval,hs,tp,sst
-      namelist/uncertainty/iunc,wspunc,wdirunc,dcurunc,ccurunc,diffunc
-      namelist/ncout/ncoutfile,incout,xlims,ylims,dims
-      
       windspd=0.
       curspd=0.
       winddir=0.
@@ -47,6 +49,7 @@
       dcurunc=0.
       diffunc=1.
       difftype=1     
+      debug=.true.
  
       if (iargc().gt.0) then
         call getarg(1,infile)
@@ -62,7 +65,7 @@
         read(11,nml=time)
         read(11,nml=movers)
         call init_release(11)
-        read(11,nml=ncout)
+        read(11,nml=ncdfout)
       close(11)
       
       winddir=d2r*(270.-winddir)      
@@ -86,54 +89,54 @@
         bnd=.true.
         write(*,'(/,a,a)')'Reading boundary file: ',bndfile
         call read_shoreline(bndfile)
-        write(*,'(i,a,i,a)') size(slx),' boundary points in ',maxval(sli),' sections'
-        write(*,'(a,4(x,g))'),'Boundary limits: ',minval(slx),maxval(slx),minval(sly),maxval(sly)
+        write(*,'(i0,a,i0,a)') size(slx),' boundary points in ',maxval(sli),' sections'
+        write(*,'(a,4(x,f12.4))'),'Boundary limits: ',minval(slx),maxval(slx),minval(sly),maxval(sly)
       endif
       
       if (iwind) then
         write(*,'(/,a,a)')'Reading wind grid file: ',windfile
         call init_grid(windfile,1)
-        write(*,'(a,2i)') 'Grid dimensions :',dg(1)%nx,dg(1)%ny
-        write(*,'(a,4(x,g))'),'Boundary limits: ',minval(dg(1)%xx),maxval(dg(1)%xx),minval(dg(1)%yy),maxval(dg(1)%yy)
+        write(*,'(a,2i0)') 'Grid dimensions :',dg(1)%nx,dg(1)%ny
+        write(*,'(a,4(x,f12.4))'),'Boundary limits: ',minval(dg(1)%xx),maxval(dg(1)%xx),minval(dg(1)%yy),maxval(dg(1)%yy)
       endif
       
       if (icur) then
         write(*,'(/,a,a)')'Reading current grid file: ',curfile
         call init_grid(curfile,2)
-        write(*,'(a,2i)') 'Grid dimensions :',dg(2)%nx,dg(2)%ny
-        write(*,'(a,4(x,g))'),'Boundary limits: ',minval(dg(2)%xx),maxval(dg(2)%xx),minval(dg(2)%yy),maxval(dg(2)%yy)
+        write(*,'(a,2i0)') 'Grid dimensions :',dg(2)%nx,dg(2)%ny
+        write(*,'(a,4(x,f12.4))'),'Boundary limits: ',minval(dg(2)%xx),maxval(dg(2)%xx),minval(dg(2)%yy),maxval(dg(2)%yy)
       endif
 
       if (ihs) then
         write(*,'(/,a,a)')'Reading wave grid file: ',wavefile
         call init_grid(wavefile,3)
-        write(*,'(a,2i)') 'Grid dimensions :',dg(3)%nx,dg(3)%ny
-        write(*,'(a,4(x,g))'),'Boundary limits:',minval(dg(3)%xx),maxval(dg(3)%xx),minval(dg(3)%yy),maxval(dg(3)%yy)
+        write(*,'(a,2i0)') 'Grid dimensions :',dg(3)%nx,dg(3)%ny
+        write(*,'(a,4(x,f12.4))'),'Boundary limits:',minval(dg(3)%xx),maxval(dg(3)%xx),minval(dg(3)%yy),maxval(dg(3)%yy)
       endif
 
       if (isst) then
         write(*,'(/,a,a)')'Reading sst grid file: ',sstfile
         call init_grid(curfile,4)
-        write(*,'(a,2i)') 'Grid dimensions :',dg(4)%nx,dg(4)%ny
-        write(*,'(a,4(x,g))'),'Boundary limits:',minval(dg(4)%xx),maxval(dg(4)%xx),minval(dg(4)%yy),maxval(dg(4)%yy)
+        write(*,'(a,2i0)') 'Grid dimensions :',dg(4)%nx,dg(4)%ny
+        write(*,'(a,4(x,f12.4))'),'Boundary limits:',minval(dg(4)%xx),maxval(dg(4)%xx),minval(dg(4)%yy),maxval(dg(4)%yy)
       endif
 
       if (idep) then
         write(*,'(/,a,a)')'Reading depth grid file: ',depfile
         call init_grid(curfile,5)
-        write(*,'(a,2i)') 'Grid dimensions :',dg(5)%nx,dg(5)%ny
-        write(*,'(a,4(x,g))'),'Boundary limits:',minval(dg(5)%xx),maxval(dg(5)%xx),minval(dg(5)%yy),maxval(dg(5)%yy)
+        write(*,'(a,2i0)') 'Grid dimensions :',dg(5)%nx,dg(5)%ny
+        write(*,'(a,4(x,f12.4))'),'Boundary limits:',minval(dg(5)%xx),maxval(dg(5)%xx),minval(dg(5)%yy),maxval(dg(5)%yy)
       endif
 
       
-      if (.not.iwind) write(*,'(a,g,a,g)'),'Constant wind: ',windspd,' m/s From[deg]: ',winddir
-      if (.not.icur) write(*,'(a,g,a,g)'),'Constant current: ',curspd,' m/s From[deg]: ',curdir
-      if (.not.iwind) write(*,'(a,g,a,g)'),'Constant wave Height[m]: ',hs,' m Period[s]: ',tp
-      if (.not.icur) write(*,'(a,g,a)'),'Constant SST: ',sst,' C'
+      if (.not.iwind) write(*,'(a,f12.4,a,f12.4)'),'Constant wind: ',windspd,' m/s From[deg]: ',winddir
+      if (.not.icur) write(*,'(a,f12.4,a,f12.4)'),'Constant current: ',curspd,' m/s From[deg]: ',curdir
+      if (.not.iwind) write(*,'(a,f12.4,a,f12.4)'),'Constant wave Height[m]: ',hs,' m Period[s]: ',tp
+      if (.not.icur) write(*,'(a,f12.4,a)'),'Constant SST: ',sst,' C'
      
-
       if (.not.iwind.and..not.icur.and..not.ihs.and..not.isst)  timebase=udtime("0001-01-01 00:00:00")
- 
+      if (debug) print*, 'timebase = ', timebase
+
       if (difftype.eq.1) then
         diffacx=2*sqrt(6*diffval*dt)
         diffacy=2*sqrt(6*diffval*dt)
@@ -141,14 +144,14 @@
         diffacx=sqrt(2*diffval*dt)
         diffacy=sqrt(2*diffval*dt)
       endif
-!      print*,diffacx,diffacy
+      write(*,'(/,a,g0,a)')'Diffusion ',diffval,' m^2/s'
+      if (debug) print*,'diffacx,diffacy = ', diffacx,diffacy
       
       do ir=1,nr
         call dump_release(ir)
       enddo
-      
-       allocate(kx(4,npmax),ky(4,npmax),pxt(npmax),pyt(npmax))
-      write(*,'(/,a,f,a)')'Diffusion ',diffval,' m^2/s'      
+       
+      allocate(kx(4,npmax),ky(4,npmax),pxt(npmax),pyt(npmax))
       
       if (outfile.ne.'')then
         open(20,file=outfile,status='replace')
@@ -158,17 +161,26 @@
         enddo
       endif
       
-      write(*,'(/,a,a)')'Initialialising output grid file: ',ncoutfile
+      write(*,'(/,a,a)')'Initialialising output grid file: ',trim(adjustl(ncoutfile))
       call init_outgrid(xlims(1),xlims(2),ylims(1),ylims(2),dims(1),dims(2))
-      call init_ncout(ncoutfile,nr)
-      write(*,'(a,2i)') 'Grid dimensions :',dims
-      write(*,'(a,4(x,f9.4))'),'Boundary limits: ',xlims,ylims
+      call init_ncout(ncoutfile,nr,ognx,ogny)
+      write(*,'(a,2i0)') 'Grid dimensions :',dims
+      write(*,'(a,4(x,f12.4))'),'Boundary limits: ',xlims,ylims
       
       write(*,'(/,a,a)')'Starting simulation at: ',tstart
-      ts=udtime(tstart)-timebase
-      te=udtime(tend)-timebase
-!      print*,ts,te
-
+      udts = udtime(tstart)
+      udte = udtime(tend)
+      ts=udts-timebase
+      te=udte-timebase
+      if (debug) then
+        print*, 'timebase = ', timebase
+        print*, 'tstart   = ', tstart, '|'
+        print*, 'tend     = ', tend, '|'
+        print*, 'udtime(tstart) = ', udts
+        print*, 'udtime(tend)   = ', udte
+        print*,' ts,te = ', ts,te
+      endif
+      stop 'aqui'
       it=0
       tt=ts
       dts=dt/86400.
@@ -188,7 +200,7 @@
         if(mod(it,incout).eq.0)then
           do ir=1,nr
             call calc_dens(rel(ir)%px,rel(ir)%py,rel(ir)%mass,rel(ir)%npr)
-            call output_dens(tt,ir)
+            call output_dens(tt,ir,cconc,ognx,ogny)
           enddo
         endif
         endif
