@@ -30,7 +30,7 @@ def decrypt_var(var, key, array=None):
 def parsetime(t):
     if isinstance(t,datetime.datetime):
         return dt2ncep(t)
-    elif isinstance(t,str):
+    elif isinstance(t,(str, unicode)):
         try:
             return dt2ncep(datetime.datetime.strptime(t,'%Y%m%d_%Hz'))
         except:
@@ -65,7 +65,7 @@ class ObjectList(list):
         
     def __getitem__(self,key):
         if key is None:return None
-        if isinstance(key,str):
+        if isinstance(key,(str, unicode)):
             idlist=self.idList()
             for idl in idlist:
                 if key in idl:return self[idlist.index(idl)]
@@ -77,7 +77,7 @@ class ObjectList(list):
         return "\n".join([str(n) for n in self])
             
     def subset(self,keys):
-        if isinstance(keys,str):keys=[keys]
+        if isinstance(keys,(str,unicode)):keys=[keys]
         idlist=self.idList()
         return [self[idlist.index(key)] for key in keys if key in idlist]
                         
@@ -148,7 +148,7 @@ class ERcore(object):
                     val=ObjectList([objects[v] if isinstance(v,str) and objects[v] else v for v in val])
                     for v in val:
                         if isinstance(v,str):raise ERConfigException('Cannot find one of %s with id(s) %s specifed for %s' % (prop,v,obj.id))
-                elif isinstance(val,str) and objects[val]:
+                elif isinstance(val,(str, unicode)) and objects[val]:
                     val=objects[val]
                 else:
                     raise ERConfigException('Cannot find one of %s with id(s) %s specifed for %s' % (prop,val,obj.id))
