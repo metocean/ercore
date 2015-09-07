@@ -216,9 +216,10 @@ def get_astro(icons,t0=datetime.datetime.now(),lat=None):
     shallow=any([(len(CONS_STR[ic])==2 if CONS_STR.has_key(ic) else False)for ic in icons ])
     v=[]
     for ic in icons:
-	  cic=ic.strip()
-	  if cic in CONS_STR:
-		v.append(PI2* ((numpy.vdot(CONS_STR[cic][1:7],astro)+CONS_STR[cic][7]) % 1.) if len(CONS_STR[cic])>3 else 0.)
+      cic=ic.strip()
+      cic = ic.replace("\x00", "")#added simon 10/11/2014
+      if cic in CONS_STR:
+        v.append(PI2* ((numpy.vdot(CONS_STR[cic][1:7],astro)+CONS_STR[cic][7]) % 1.) if len(CONS_STR[cic])>3 else 0.)
     if lat:
         if lat<5 and lat>=0:lat=5
         if lat>-5 and lat<0:lat=-5
@@ -261,7 +262,8 @@ def get_astro(icons,t0=datetime.datetime.now(),lat=None):
         
 
 def get_freqs(icons):
-    return [CONS_STR.get(ic.strip(),[None])[0] for ic in icons]
+    #return [CONS_STR.get(ic.strip(),[None])[0] for ic in icons]
+    return [CONS_STR.get(ic.replace("\x00", ""),[None])[0] for ic in icons] #Modif s.weppe 10/11/2014
     
 def ap2ep(u,v):
     u = u.amp*numpy.ma.exp(-1.j*u.pha)
