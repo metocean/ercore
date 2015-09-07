@@ -59,8 +59,29 @@ class _Material:
     self.props['P0']=P0
     self.props['spawn']=spawn
     self.props.update(prop)
-    self.pos=numpy.array(P0)*numpy.ones((nbuff+1,3))
-    self.post=numpy.array(P0)*numpy.ones((nbuff+1,3))
+    # Initialization of particle position vector 
+    if numpy.size(P0[2])==1:
+    # P0:single position x,y,z
+    # pre-allocate with a single release position
+      self.pos=numpy.array(P0)*numpy.ones((nbuff+1,3))
+      self.post=numpy.array(P0)*numpy.ones((nbuff+1,3))
+    elif numpy.size(P0[2])==2:
+    # P0:single x,y position but range of vertical z level
+    # random position allocated within that range
+      # Initialize variables
+      P01=[P0[0],P0[1],P0[2][0]]
+      self.pos=numpy.array(P01)*numpy.ones((nbuff+1,3))
+      self.post=numpy.array(P01)*numpy.ones((nbuff+1,3))
+      #thickness of z layer
+      dz=abs(P0[2][0]-P0[2][1])
+      # depth are supposed to be negative
+      # import pdb; pdb.set_trace() 
+      zz=numpy.random.random(nbuff+1)
+      self.pos[:,2]=min(P0[2])+dz*zz
+      self.post[:,2]=min(P0[2])+dz*zz
+    #Could add same code for range of X,Y ?
+    # e.g. if numpy.size(P0[0])==2 & numpy.size(P0[1])==2 
+    # then release along a line [X1,Y1] - [X2,Y2]
     self.reln=reln #Particles per release
     self.R=R0 #Total release of material
     self.Q=Q0 # Flux of material per day
