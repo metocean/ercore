@@ -59,6 +59,8 @@ class _Material:
     self.props['P0']=P0
     self.props['spawn']=spawn
     self.props.update(prop)
+    # Release Options
+    #
     # Initialization of particle position vector 
     if numpy.size(P0[2])==1:
     # P0:single position x,y,z
@@ -79,9 +81,26 @@ class _Material:
       zz=numpy.random.random(nbuff+1)
       self.pos[:,2]=min(P0[2])+dz*zz
       self.post[:,2]=min(P0[2])+dz*zz
+      
+    if "circular_radius" in self.props:
+      #release in a circle rather than at a single X,Y point location
+      #1 deg lat = 110 km, 1 deg lon= 111.32km*cos(lat) 
+      deg_in_m_lon=111320.0*numpy.cos(-numpy.pi*P0[1]/180)
+      deg_in_m_lat=110574.0
+      radius_lon=self.props['circular_radius']/deg_in_m_lon
+      radius_lat=self.props['circular_radius']/deg_in_m_lat
+      rand1=numpy.random.random(nbuff+1)
+      rand2=numpy.random.random(nbuff+1)
+      self.pos[:,0]=self.pos[:,0]+radius_lon*rand1*numpy.ones((1,nbuff+1))*numpy.cos(rand2*2*numpy.pi)
+      self.pos[:,1]=self.pos[:,1]+radius_lat*rand1*numpy.ones((1,nbuff+1))*numpy.sin(rand2*2*numpy.pi)
+      self.post[:,0]=self.pos[:,0]
+      self.post[:,1]=self.pos[:,1]
+      # Note this will not make a perfect circle, but approximation is likely good enough.
     #Could add same code for range of X,Y ?
     # e.g. if numpy.size(P0[0])==2 & numpy.size(P0[1])==2 
     # then release along a line [X1,Y1] - [X2,Y2]
+    #
+    # End of Release Options
     self.reln=reln #Particles per release
     self.R=R0 #Total release of material
     self.Q=Q0 # Flux of material per day
