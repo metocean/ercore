@@ -201,10 +201,14 @@ class _Material:
     else:
       nind=i0.sum()
     if nind==0:return False
+    # update the number of active particles. nind = nb of part with state<0
     self.np-=nind
     for a in self.arrays:
-      a[:-nind]=a[~i0]
-      a[self.np:self.np+nind]=a[-1]
+      a[:-nind]=a[~i0] # shuffle arrays accounting for dead particles
+      #repeat the last line of the updated array to backfill
+      #a[self.np:self.np+nind]=a[-1]
+      # repeat the last "nind" lines of the updated array to backfill
+      a[self.np:self.np+nind]=a[-nind-1:-1]
     return True
     
   def fheader(self):
