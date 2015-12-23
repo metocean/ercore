@@ -203,6 +203,7 @@ class _Material:
     if nind==0:return False
     # update the number of active particles. nind = nb of part with state<0
     self.np-=nind
+    self.np=max(self.np,0) #make sure this does not become <0
     for a in self.arrays:
       a[:-nind]=a[~i0] # shuffle arrays accounting for dead particles
       #repeat the last line of the updated array to backfill
