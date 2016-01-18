@@ -15,11 +15,11 @@ class Plankton(BuoyantTracer):
                  'vspeed':0,
                  'tempmin':None,
                  'tempmax':None,
-                 'temptol':1,
+                 'temptol':.1,
                  'temptaxis':0,
                  'saltmin':None,
                  'saltmax':None,
-                 'salttol':1,
+                 'salttol':.1,
                  'salttaxis':0}
   __doc__=BuoyantTracer.__doc__+"""
     spawnage: Age at which spwaning occurs (days)
@@ -52,8 +52,8 @@ class Plankton(BuoyantTracer):
     if np==0:return
     #Mortality - note killing after maxage already handled in material base class
     if self.props['mortality']>0:self.mass[:np]-=self.props['mortality']*(t2-t1)*self.mass[:np]
-    
-    if 'temp' in self.reactors:
+    reactors = [r.id for r in self.reactors]
+    if 'temp' in reactors:
       if (self.props['tempmin'] is not None) or (self.props['tempmax'] is not None):
         temp=self.reactors['temp'].interp(self.pos[:np,:],t1)[:,0]
         if (self.props['tempmax'] is not None):
@@ -64,7 +64,7 @@ class Plankton(BuoyantTracer):
           m=(self.props['tempmin']+self.props['temptol']-temp)/self.props['temptol']
           self.mass[:np]-=numpy.maximum(numpy.minimum(m,1),0)*self.mass[:np]
           if (m>0).any():print 'Temperature minimum reached for some %s' % (self.id)
-    if 'salt' in self.reactors:
+    if 'salt' in reactors:
       if (self.props['saltmin'] is not None) or (self.props['saltmax'] is not None):
         salt=self.reactors['salt'].interp(self.pos[:np,:],t1)[:,0]
         if (self.props['saltmax'] is not None):
