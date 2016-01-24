@@ -1,18 +1,18 @@
 ! -*- f90 -*-
 !
       module shoreline
-      
+
       parameter(tol=0.000000001)
 
-      real*8,allocatable,dimension(:) :: slx,sly 
+      real*8,allocatable,dimension(:) :: slx,sly
       real,allocatable,dimension(:,:) :: slbnd
       integer,allocatable,dimension(:) :: sli,slt,polyi,polyn
       integer nt
       real mapbndx(4),mapbndy(4),maxbndx,maxbndy,minbndx,minbndy
-      
+
       contains
       subroutine read_shoreline(file)
-      
+
       integer pass,nn,ns
       character(len=120) file
       character(len=12) h1,h2
@@ -21,12 +21,12 @@
       maxbndx=360.
       minbndy=-90.
       maxbndy=90.
-      
+
       if (allocated(slx)) then
         deallocate(slx,sly,sli,slt)
         deallocate(slbnd,polyi,polyn)
       endif
-      
+
       open(10,file=file,status='old')
       do pass=1,2
         nn=0
@@ -74,15 +74,21 @@
         endif
       enddo
       close(10)
+
+      if (allocated(slx)) then
+        deallocate(slx,sly,sli,slt)
+        deallocate(slbnd,polyi,polyn)
+      endif
+
       end subroutine
-      
-      
+
+
       subroutine gridinpoly(mask,xx,yy,nx,ny)
         integer nx,ny,ipoly,iseg
         real mask(nx,ny)
         real*8 xx(nx),yy(ny),x1,x2,y1,y2,x,y
         logical test
-        
+
         mask=1.0
         do ix=1,nx
           do iy=1,ny
@@ -112,24 +118,24 @@
           enddo
         enddo
       end subroutine
-      
-      
+
+
       subroutine sl_intersect_wrap(pos,post,poso,psc,refloat,np)
-      
+
       real*8 :: pos(np,2),post(np,2),poso(np,2),pxt(np),pyt(np)
       integer :: psc(np)
-      
+
       pxt=post(:,1)
       pyt=post(:,2)
       call sl_intersect(pos(:,1),pos(:,2),pxt,pyt,psc,refloat,np)
       poso(:,1)=pxt
       poso(:,2)=pyt
-      
+
       end subroutine
-  
-      
+
+
       subroutine sl_intersect(px,py,pxt,pyt,psc,refloat,np)
-      
+
       parameter(tol=0.000000001)
       integer np,iseg,ip
       real*8 :: px(np),py(np),pxt(np),pyt(np)
@@ -187,7 +193,7 @@
               c2=px(ip)*pyt(ip)-pxt(ip)*py(ip)
               xi=(c1*a2-a1*c2)/det
               yi=(c1*b2-b1*c2)/det
-!              write(*,'(4(f12.7,f12.7,a),f12.7,f12.7)') x1,y1,'->',x2,y2,'  ',px(ip),py(ip),'->',pxt(ip),pyt(ip),':',xi,yi 
+!              write(*,'(4(f12.7,f12.7,a),f12.7,f12.7)') x1,y1,'->',x2,y2,'  ',px(ip),py(ip),'->',pxt(ip),pyt(ip),':',xi,yi
 !              print*,ip,iseg,a1,b1,a2,b2,det
 !              print*,(x1-xi),(xi-x2),(px(ip)-xi),(xi-pxt(ip)),tol
               if ((x1-xi)*(x2-xi).lt.tol.and.(px(ip)-xi)*(pxt(ip)-xi).lt.tol) then
@@ -207,14 +213,14 @@
                 endif
               endif
 !           else
-!              print*,'Determinant 0 ',ip              
+!              print*,'Determinant 0 ',ip
             endif
           enddo
         enddo
         ip=ip+1
       enddo parloop
       end subroutine
-      
-      
-      
+
+
+
       end module shoreline
