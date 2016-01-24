@@ -7,41 +7,37 @@ from ercore import ERcore
 from ercore.fields import ConstantMover,GriddedTopo
 from ercore.materials import PassiveTracer
 
-x = numpy.arange(5)
-y = numpy.arange(4)
-xx,yy = numpy.meshgrid(x,y)
-z = -1*(4.-xx)
-print z
-z = z.astype('float32')
-
-import cdms2
-cdms2.setNetcdfDeflateFlag(0)
-cdms2.setNetcdfShuffleFlag(0)
-nc = cdms2.open('dep.nc','w+')
-xax = nc.createAxis('x', x)
-yax = nc.createAxis('y', y)
-dep = nc.createVariable('dep','f',[yax,xax])
-dep[:,:] = z[:,:]
-nc.close()
-
-
-dep=GriddedTopo('depth',['dep'], file='dep.nc',zinvert=True,geod=True)
 current = ConstantMover('cur',['uo','vo'],uo=1./3600.,vo=0.0)
 t1 = datetime.datetime(2000,1,1)
 t2 = datetime.datetime(2000,1,1,1)
 
-particles = PassiveTracer('bombs', nbuff=1000,
-                            movers=[current], stickers=[dep], geod=False,
+# bombs = PassiveTracer('bombs', nbuff=1000,
+#                             movers=[current], #stickers=[dep],
+#                             geod=False,
+#                             tstart=t1,tend=t1, tstep=0.,
+#                             reln=1,
+#                             P0=[0,1,0],
+#                             outfile='surface_no_bottom.out')
+#
+#
+# ercore=ERcore(geod=False)
+# ercore.materials=[bombs]
+# ercore.run(t=datetime.datetime(2000,1,1),tend=datetime.datetime(2000,1,1,12),dt=3600)
+
+dep=GriddedTopo('depth',['z'], file='dep.nc',zinvert=False)
+bombs = PassiveTracer('bombs', nbuff=1000,
+                            movers=[current], stickers=[dep],
+                            geod=False,
                             tstart=t1,tend=t1, tstep=0.,
                             reln=1,
-                            P0=[0,1,-2])
+                            P0=[0,1,0],
+                            outfile='surface_bottom.out')
 
-# import pdb; pdb.set_trace()
 ercore=ERcore(geod=False)
-ercore.materials=[particles]
+ercore.materials=[bombs]
 ercore.run(t=datetime.datetime(2000,1,1),tend=datetime.datetime(2000,1,1,12),dt=3600)
 
-#
+
 # colors=['b+','r+','g+','m+']
 # figure()
 # for rk in range(4,0,-1):
