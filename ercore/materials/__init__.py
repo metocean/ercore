@@ -4,6 +4,7 @@ import copy
 from ercore import dt2ncep,parsetime,ObjectList,ERRuntimeException
 from ercore.lib import pres,temppot,dens
 from ercore._flib_ercore import slipvel
+from shapely.geometry import Point,Polygon
 
 R2D=180./numpy.pi
 D2R=1/R2D
@@ -11,6 +12,20 @@ ARAD=R2D/6367456.
 R1=1/8.31
 SPI=0.5235987755982 #pi/6
 PI2=2*numpy.pi
+
+def get_random_point_in_polygon(nbuff,poly):
+     (minx, miny, maxx, maxy) = poly.bounds
+     matrix=numpy.zeros(shape=(nbuff+1,2))
+     for np in range(0,nbuff+1):
+        while matrix[np,0]==0:
+                Xp=(maxx-minx)*numpy.random.random(1)+minx
+                Yp=(maxy-miny)*numpy.random.random(1)+miny
+                p = Point(Xp,Yp)
+                if poly.contains(p):
+                        matrix[np,0]=Xp
+                        matrix[np,1]=Yp
+     return matrix
+
 
 def eqnstate(P,T,Mg,Z=1.0):
   return R1*P*Mg/Z/(T+273)
@@ -96,6 +111,18 @@ class _Material:
       self.post[:,0]=self.pos[:,0]
       self.post[:,1]=self.pos[:,1]
       # Note this will not make a perfect circle, but approximation is likely good enough.
+
+    if "polygon" in self.props:
+     # release in a polygon shape
+     poly=Polygon(self.props['polygon'])
+     point_in_poly = get_random_point_in_polygon(nbuff,poly)
+     self.pos[:,0]=point_in_poly[:,0]
+     self.pos[:,1]=point_in_poly[:,1]
+     self.post[:,0]=self.pos[:,0]
+     self.post[:,1]=self.pos[:,1]
+ 
+
+
     #Could add same code for range of X,Y ?
     # e.g. if numpy.size(P0[0])==2 & numpy.size(P0[1])==2 
     # then release along a line [X1,Y1] - [X2,Y2]
