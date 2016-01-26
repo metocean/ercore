@@ -84,7 +84,7 @@ class FEInterpolator(object):
     self.tree=cKDTree(numpy.vstack((self.lon,self.lat)).T)
     
   def __call__(self,dat,p):
-    dist,i=self.tree.query(p[:,:2],3)
+    dist,i=self.tree.query(p[:,:2],3, n_jobs=-1)
     if i.max()>=dat.shape[-1]:
       raise DataException('Finite element interpolation out of range')
     dist[dist<DMIN]=DMIN
@@ -308,7 +308,7 @@ class GridData(FieldData):
     self.buftime=0
 
   def get_key(self, ncfile, var, varname):
-    keystorepath = os.path.join(os.path.dirname(ncfile.filepath()),'keystore')
+    keystorepath = os.path.join(os.path.dirname(self.filelist[0]),'keystore')
     if os.path.exists(keystorepath):
       keystore = shelve.open(keystorepath)
       if not hasattr(ncfile, 'storename') or not hasattr(var, 'is_encrypted') or\
@@ -323,6 +323,7 @@ class GridData(FieldData):
     Arguments:
       time: Time as NCEP decimal
     """
+    start = datetime.datetime.now()
     if time is None or self.time is None:
       return [self.buf0[v] for v in self.vars]
     if time==self.buftime:
@@ -373,6 +374,7 @@ class GridData(FieldData):
       out.append(dat)
       self.bufstore[v]=dat
     self.buftime=time
+    #print 'GET', self.id, datetime.datetime.now()-start
     return out
   
   @copydoc(FieldData.interp)

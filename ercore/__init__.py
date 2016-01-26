@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import datetime,os,numpy,re
+import datetime,os,numpy,re,copy
 import base64
 import gc
 
@@ -25,6 +25,43 @@ def decrypt_var(var, key, array=None):
         nkey = numpy.fromstring(dkey, dtype=numpy.int64)
         decrypted = array[:]/(nkey*10**-1)
         return decrypted
+
+def get_summary_report(summary, dt, tout, outdir, materials):
+  total_nrel = sum([m.reln for m in materials])
+  materials_id = ','.join(['%d - %s (%s)' % (m.reln,m.id, m.__class__.__name__) for m in materials])
+  report = """
+===============================================
+  ErCore Model Summary
+--------------------------------------------
+  Directory output :          %s
+  Model time step:            %ss
+  Output frequency:           %ss
+  Materials:                  %s
+  Total particles released:   %d
+--------------------------------------------
+  Time Summary
+--------------------------------------------
+  Start time:              %s
+  End time:                %s
+  Initialization time:     %0.5fs
+  Avg. step time:          %0.5fs
+  Avg. release time:       %0.5fs
+  Avg. react time:         %0.5fs
+  Avg. advect time:        %0.5fs
+  Avg. diffuse time:       %0.5fs
+  Avg. stick time:         %0.5fs
+  Avg. ageing time:        %0.5fs
+  Avg. dieing time:        %0.5fs
+  Total modeling time:     %s
+===============================================
+
+""" % (outdir, dt, tout, materials_id, total_nrel,
+       summary['start_time'], summary['end_time'], summary['initialize'],
+       summary['tstep'], summary['release'], summary['react'],
+       summary['advect'], summary['diffuse'], summary['stick'],
+       summary['ageing'], summary['die'],
+       datetime.timedelta(seconds=summary['total_time']))
+  return report
 
 
 def parsetime(t):
@@ -107,7 +144,11 @@ class ERcore(object):
   def __init__(self,**k):
     self.fout={}
     self.outpath=k.get('outpath','.')
+    self.save_summary = True
     self.__dict__.update(k)
+    self.summary = {'initialize':None, 'release':None, 'advect':None, 
+                    'stick':None, 'diffuse':None,'stick':None,'spawn':None,
+                    'total_time':None,'end_time':None,'tstep':None}
 
   def __exit__(self,*args):
     if hasattr(self, 'materials'):
@@ -157,6 +198,20 @@ class ERcore(object):
     import inspect
     self.materials=[o for o in objects if materials._Material in inspect.getmro(o.__class__)]
 
+  def timestamp(self, section, start=None, avg=True):
+    if self.save_summary:
+      if not start:
+        self.summary[section] = '%s' % datetime.datetime.now()
+      else:
+        start = start or datetime.datetime.now()
+        delta = datetime.datetime.now()-start
+        if section not in self.summary or self.summary[section] is None:
+          self.summary[section] = delta.total_seconds()
+        else:
+          self.summary[section] = numpy.average([self.summary[section],
+                                                  delta.total_seconds()])
+    return datetime.datetime.now()
+
   def run(self,t,tend,dt):
     """Run Ercore
     Arguments:
@@ -164,6 +219,7 @@ class ERcore(object):
         tend: Start time as datetime, ncep decimal time or string
         dt: Simulation timestep as seconds
     """
+    start_time = self.timestamp('start_time')
     self.running = True
     t=parsetime(t)
     tend=parsetime(tend)
@@ -178,29 +234,40 @@ class ERcore(object):
       print '%s: Initialized %s' % (ncep2dt(t).strftime('%Y%m%d %H:%M:%S'), e.id)
       if self.geod:e.geodcalc(True)
     print 'Running ERcore times %f to %f' % (t,tend)
+    last_step = self.timestamp('initialize', start_time)
     while ((dt>0) and (t<tend)) or ((dt<0) and (t>tend)):
       if self.terminate():
         raise TerminateException('Model has been terminated')
+      start_step = datetime.datetime.now()
       i+=1
       t2=t+dt
       for e in self.materials:
         if e.tcum>=e.tstep:
           e.tcum-=e.tstep
           e.release(t,t2)
+          last_time = self.timestamp('release', start_step)
           if self.geod:e.geodcalc()
           e.react(t,t2)
+          last_time = self.timestamp('react', last_time)
           if (e.state[:e.np]>0).any():
             e.advect(t,t2,self.rkorder)
+            last_time = self.timestamp('advect', last_time)
             e.diffuse(t,t2)
+            last_time = self.timestamp('diffuse', last_time)
             e.stick(t,t2)
+            last_time = self.timestamp('stick', last_time)
           e.spawn(t,t2)
+          last_time = self.timestamp('spawn', last_time)
         e.pos[:e.np,:]=numpy.where(e.state[:e.np,numpy.newaxis]>0,e.post[:e.np,:],e.pos[:e.np,:])
         print '[%s] %s: %s %d particles' % (self.release_id, t if t<700000 else ncep2dt(t).strftime('%Y%m%d %H:%M:%S'),e.id,e.np)
         e.age[:e.np]+=abs(dt)*(e.state[:e.np]>0)
+        last_time = self.timestamp('ageing', last_time)
         e.die(t,t2)
+        last_time = self.timestamp('die', last_time)
         e.tcum+=86400.*abs(dt)
         if i%iprint==0:
           self.fout[e.id].write(e.sfprint(t2))
+          last_time = self.timestamp('write output', last_time)
           ind=(e.state<0) 
           nind=ind.sum()
           if nind:e._reset(ind) #Recycle particles
@@ -212,10 +279,13 @@ class ERcore(object):
             if spw0 not in etypes:continue
             self.materials[etypes.index(spw0)].release(t,t2,**e.children[spw])
       t+=dt
+      last_step = self.timestamp('tstep', start_step)
     for e in self.materials:
       self.fout[e.id].close()
-
-  
-  
-
-
+    last_time = self.timestamp('total_time', start_time)
+    end_time = self.timestamp('end_time')
+    if self.save_summary:
+      report = get_summary_report(self.summary, dt*86400, self.tout, self.outpath, self.materials)
+      with open(os.path.join(self.outpath,'summary.txt'),'w') as sfile:
+        sfile.write(report)
+      print report

@@ -41,7 +41,7 @@ class Plankton(BuoyantTracer):
   """
   status_codes=BuoyantTracer.status_codes.update({-3:'Transition to next life stage'})
   def __init__(self,id,nbuff,**k):
-    BuoyantTracer.__init__(self,id,nbuff,**k)
+    super(BuoyantTracer, self).__init__(id,nbuff,**k)
     self.props['vposday']=-abs(self.props['vposday'])
     self.props['vposnight']=-abs(self.props['vposnight'])
     if self.props['mortality']>0:self.props['maxage']=min(self.props['maxage'],7./self.props['mortality']) #this will remove particles where mass<1/1000th of original value
