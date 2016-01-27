@@ -1,0 +1,70 @@
+diffusers:
+- class: ConstantDiffuser
+  diffx: 0.001
+  diffy: 0.001
+  diffz: 0.00001
+  id: diff
+  vars: [diffx, diffy, diffz]
+materials:
+- P0: [174.6806, -36.8266, 0.0]
+  Q: 1
+  class: Plankton
+  diffusers: [diff]
+  id: !!python/unicode 'Setteable'
+  maxage: 15.0
+  mortality: 0.1
+  movers: [3D, tide_nz, tide_akl]
+  nbuff: 1000
+  outfile: !!python/unicode 'Plankton_Setteable.txt'
+  reactors: []
+  reln: 500
+  saltmax: 0
+  saltmin: 0
+  salttaxis: 0.0
+  spawn: 0
+  spawnage: 0
+  spawnclass: 0
+  stickers: [shoreline]
+  tempmax: 0
+  tempmin: 0
+  temptaxis: 0.0
+  tend: '2005-01-01 07:00:00'
+  tstart: '2005-01-01 04:00:00'
+  unstick: 0
+  vposday: 0.0
+  vposnight: 0
+  vspeed: 0
+movers:
+- class: GriddedMover
+  file: [/home/andre/projects/Track/data/sample/hindcast/2005/s07_3D.nc]
+  id: 3D
+  topo: depth_nz
+  vars: [uo, vo]
+- class: TidalMover
+  cons: [M2, S2]
+  file: /home/andre/projects/Track/data/sample/tides/tide_nz.nc
+  id: tide_nz
+  topo: depth_nz
+  vars: [u, v]
+- class: TidalMover
+  cons: [M2, S2]
+  file: /home/andre/projects/Track/data/sample/tides/tide_akl.nc
+  id: tide_akl
+  topo: depth_tide_akl
+  vars: [u, v]
+reactors:
+- class: GriddedReactor
+  file: [/home/andre/projects/Track/data/sample/hindcast/2005/s07_3D.nc]
+  id: temp
+  vars: [temp]
+- class: GriddedReactor
+  file: [/home/andre/projects/Track/data/sample/hindcast/2005/s07_3D.nc]
+  id: salt
+  vars: [salt]
+stickers:
+- {class: GriddedTopo, file: /home/andre/projects/Track/data/sample/tides/tide_nz.nc,
+  id: depth_nz, vars: dep, zinvert: true}
+- {class: Shoreline, file: /home/andre/projects/Track/data/sample/static/NZ(WGS84).bnd,
+  id: shoreline, refloat: True}
+- {class: GriddedTopo, file: /home/andre/projects/Track/data/sample/tides/tide_akl.nc,
+  id: depth_tide_akl, vars: dep, zinvert: true}
