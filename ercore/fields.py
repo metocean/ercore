@@ -566,10 +566,11 @@ class GriddedTopo(GridData):
     """
     dep1=self.interp(pos,imax=1)[:,0]
     dep2=self.interp(post,imax=1)[:,0]
-    ind=((post[:,2]-dep2 < ALMOST_ZERO) & (state>0))
+    # -1* to ensure that outputs False if deps are actually the same.
+    ind=((post[:,2]-dep2 < -1*ALMOST_ZERO) & (state>0))
     pout=post[:,:]
     if ind.sum():
-      if pos[:,2]<dep1: # already under bathy
+      if (pos[ind,2]<dep1[ind]).any(): # already under bathy
         pout[ind,:]=pos[ind,:]
       else:
         denom=(dep2[ind]-dep1[ind]+pos[ind,2]-post[ind,2])
