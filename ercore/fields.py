@@ -18,7 +18,8 @@ ALMOST_ZERO = 1.e-6
 
 def slope_correction(p,topo,uu):
     '''Vertical velocity correction for slope'''
-    return numpy.minimum(abs(p[:,2]/topo[:,0]),1)*(uu[:,0]*topo[:,1]+uu[:,1]*topo[:,2])
+    frac = 1. if abs(topo[:,0])<=ALMOST_ZERO else numpy.minimum(abs(p[:,2]/topo[:,0]),1)
+    return frac*(uu[:,0]*topo[:,1]+uu[:,1]*topo[:,2])
 
 class DataException(ERCoreException):
   pass
