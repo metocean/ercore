@@ -74,12 +74,6 @@
         endif
       enddo
       close(10)
-
-      if (allocated(slx)) then
-        deallocate(slx,sly,sli,slt)
-        deallocate(slbnd,polyi,polyn)
-      endif
-
       end subroutine
 
 
@@ -143,6 +137,7 @@
       real*8 a1,b1,c1,a2,b2,c2,det,x1,x2,y1,y2,xi,yi,dsx,dsx0
       real refloat
       ip=1
+
       parloop: do while (ip.le.np)
 ! Check for out of bounds
         if (psc(ip).lt.-1) then
@@ -151,6 +146,7 @@
             ip=ip+1
             cycle parloop
         elseif(pxt(ip).lt.minbndx.or.pxt(ip).gt.maxbndx.or.pyt(ip).lt.minbndy.or.pyt(ip).gt.maxbndy) then
+            print*, 'aqui1 - stickou a shoreline = -9'
             px(ip)=pxt(ip)
             py(ip)=pyt(ip)
             psc(ip)=-9

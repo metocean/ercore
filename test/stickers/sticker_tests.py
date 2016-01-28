@@ -3,6 +3,7 @@ import numpy,datetime
 import cdms2
 from ercore import ERcore
 from ercore.fields import ConstantMover,GriddedTopo,GriddedMover
+from ercore.shoreline import Shoreline
 from ercore.materials import PassiveTracer
 from ercore import dt2ncep
 
@@ -75,6 +76,37 @@ def make_currents (t1,t2,u,fileout):
     wvar[:,:] = ww[:].astype('float32')
     nc.close()
 
+def make_currents_mask (t1,t2,u,fileout):
+    x = numpy.arange(4)
+    y = numpy.arange(3)
+    xx,yy = numpy.meshgrid(x,y)
+    dt = t2 - t1
+    dtsec = dt.days*24.*3600. + dt.seconds
+    uu = numpy.ones((3,len(y),len(x)))
+    vv = numpy.ones((3,len(y),len(x)))
+    ww = numpy.ones((3,len(y),len(x)))
+    uu = numpy.ma.masked_array(uu)
+    uu[:] = uu.fill_value
+    vv[:] = uu.fill_value
+    ww[:] = uu.fill_value
+    print 'x = ', x
+    print 'y = ', y
+    print 'uu = ', uu
+    cdms2.setNetcdfDeflateFlag(0)
+    cdms2.setNetcdfShuffleFlag(0)
+    nc = cdms2.open(fileout,'w+')
+    xax = nc.createAxis('lon', x)
+    yax = nc.createAxis('lat', y)
+    tax = nc.createAxis('time', numpy.array(map(numpy.float32,[0,dtsec/2.,dtsec])))
+    tax.units = t1.strftime('seconds since %Y-%m-%d %H:%M:%S')
+    uvar = nc.createVariable('u','f',[tax,yax,xax])
+    vvar = nc.createVariable('v','f',[tax,yax,xax])
+    wvar = nc.createVariable('w','f',[tax,yax,xax])
+    uvar[:,:] = uu[:].astype('float32')
+    vvar[:,:] = vv[:].astype('float32')
+    wvar[:,:] = ww[:].astype('float32')
+    nc.close()
+
 
 def Tank (deplevels,filedep,P0,unstick,outfile):
     ''' Tank below 0 + constante movers'''
@@ -90,17 +122,21 @@ def Tank (deplevels,filedep,P0,unstick,outfile):
     ercore.materials=[bombs]
     ercore.run(t=datetime.datetime(2000,1,1),tend=datetime.datetime(2000,1,1,12),dt=3600)
 
-def TankCurrents (deplevels,filedep,filecur,P0,unstick,outfile):
+def TankCurrents (deplevels,filedep,filecur,P0,unstick,outfile,shoreline=None):
     ''' Tank below 0 + constante movers'''
     dep=GriddedTopo('depth',['dep'], file=filedep, zinvert=True)
     u = numpy.ones(len(deplevels))/3600.
     v = numpy.zeros(len(deplevels))
     current = GriddedMover('cur',['u','v', 'w'], file=filecur)
-    #, is3d=True, depth=deplevels, topo=dep)
+    if shoreline is None:
+        stickers = [dep]
+    else:
+        shoreline = Shoreline(id='shore_right', file='shoreline.bnd')
+        stickers = [dep,shoreline]
     bombs = PassiveTracer('bombs', nbuff=1000,geod=False,
-                                movers=[current], stickers=[dep], unstick=unstick,
+                                movers=[current], stickers=stickers, unstick=unstick,
                                 tstart=t1,tend=t1, tstep=0.,
-                                reln=1,P0=P0,outfile=outfile)
+                                reln=2,P0=P0,outfile=outfile)
     ercore=ERcore(geod=False)
     ercore.materials=[bombs]
     ercore.run(t=datetime.datetime(2000,1,1),tend=datetime.datetime(2000,1,1,12),dt=3600)
@@ -115,7 +151,7 @@ if False:
 
     # do not meet bottom - OK
     Tank(deplevels=deplevels,filedep=filedep,
-        P0=[0,1,-0.5], unstick = 0, outfile = 'tank1_test0.out')
+        P0=[0,1,2], unstick = 0, outfile = 'tank1_test0.out')
 
     # meet the bottom and stick - OK
 # Time	id	x	y	z	state	age	mass
@@ -171,21 +207,110 @@ if False:
         P0=[0,1,-3], unstick = 1, outfile = 'tank2_test3.out')
 
 
+
 ## Tank2 with CURRENTS ##
 
-make_currents (t1=datetime.datetime(2000,1,1),t2=datetime.datetime(2000,1,1,13),u=1./3600., fileout='currents.nc')
-deplevels=[1,-1]
-filedep = 'dep2.nc'
-filecurrents='currents.nc'
+if False:
+    deplevels=[1,-1]
+    filedep = 'dep2.nc'
+    filecur='currents.nc'
 
-# do not meet bottom
-TankCurrents(deplevels=deplevels,filedep=filedep,filecur='currents.nc',
-        P0=[0,1,2], unstick = 0, outfile = 'tank2_test4.out')
+    make_currents (t1=datetime.datetime(2000,1,1),t2=datetime.datetime(2000,1,1,13),u=1./3600., fileout=filecur)
 
-# meet the bottom and stick - OK
-TankCurrents(deplevels=deplevels,filedep=filedep,filecur='currents.nc',
-        P0=[0,1,-0.5], unstick = 0, outfile = 'tank2_test5.out')
+    # do not meet bottom
+    TankCurrents(deplevels=deplevels,filedep=filedep,filecur=filecur,
+            P0=[0,1,2], unstick = 0, outfile = 'tank2_cur0.out')
 
-# meet the bottom and do not stick - comeback to life?
-TankCurrents(deplevels=deplevels,filedep=filedep,filecur='currents.nc',
-        P0=[0,1,-0.5], unstick = 1, outfile = 'tank2_test6.out')
+    # meet the bottom and stick - OK
+    TankCurrents(deplevels=deplevels,filedep=filedep,filecur=filecur,
+            P0=[0,1,-0.5], unstick = 0, outfile = 'tank2_cur1.out')
+
+    # meet the bottom and do not stick - comeback to life?
+    TankCurrents(deplevels=deplevels,filedep=filedep,filecur=filecur,
+            P0=[0,1,-0.5], unstick = 1, outfile = 'tank2_cur2.out')
+
+    # start below de bottom - was nan, now is bottom
+    TankCurrents(deplevels=deplevels,filedep=filedep,filecur=filecur,
+            P0=[0,1,-3], unstick = 1, outfile = 'tank2_cur3.out')
+
+## Tank2 with CURRENTS MASKED ##
+
+if False:
+    deplevels=[1,-1]
+    filedep = 'dep2.nc'
+    filecur='currents_mask.nc'
+
+    make_currents_mask (t1=datetime.datetime(2000,1,1),t2=datetime.datetime(2000,1,1,13),u=1./3600., fileout=filecur)
+
+    # do not meet bottom
+    TankCurrents(deplevels=deplevels,filedep=filedep,filecur=filecur,
+            P0=[0,1,2], unstick = 0, outfile = 'tank2_curmask0.out')
+
+    # meet the bottom and stick - OK
+    TankCurrents(deplevels=deplevels,filedep=filedep,filecur=filecur,
+            P0=[0,1,-0.5], unstick = 0, outfile = 'tank2_curmask1.out')
+
+    # meet the bottom and do not stick - comeback to life?
+    TankCurrents(deplevels=deplevels,filedep=filedep,filecur=filecur,
+            P0=[0,1,-0.5], unstick = 1, outfile = 'tank2_curmask2.out')
+
+    # start below de bottom - was nan, now is bottom
+    TankCurrents(deplevels=deplevels,filedep=filedep,filecur=filecur,
+            P0=[0,1,-3], unstick = 1, outfile = 'tank2_curmask3.out')
+
+
+###########
+## Tank3 ##
+###########
+
+if False:
+
+    deplevels=[0,-1]
+    filedep = 'dep3.nc'
+    make_dep (deplevels=deplevels,filedep=filedep)
+
+    # do not meet bottom - corrected - only had problem for constant movers when topo=0
+    Tank(deplevels=deplevels,filedep=filedep,
+        P0=[0,1,2], unstick = 0, outfile = 'tank3_test0.out')
+
+    # meet the bottom and stick - OK
+    Tank(deplevels=deplevels,filedep=filedep,
+        P0=[0,1,0.7], unstick = 0, outfile = 'tank3_test1.out')
+
+    # meet the bottom and do not stick - corrected for topo = 0 and z > 0
+    # import pdb; pdb.set_trace()
+    Tank(deplevels=deplevels,filedep=filedep,
+        P0=[0,1,0.7], unstick = 1, outfile = 'tank3_test2.out')
+
+    # start below de bottom - was nan, now is bottom
+    Tank(deplevels=deplevels,filedep=filedep,
+        P0=[0,1,-3.], unstick = 1, outfile = 'tank3_test3.out')
+
+
+##########################
+## Tank3 with currents + shoreline ##
+##########################
+
+if True:
+
+    deplevels=[0,-1]
+    filedep = 'dep3.nc'
+    filecur='currents.nc'
+
+    make_currents (t1=datetime.datetime(2000,1,1),t2=datetime.datetime(2000,1,1,13),u=1./3600., fileout=filecur)
+
+    # # do not meet bottom
+    # TankCurrents(deplevels=deplevels,filedep=filedep,filecur=filecur,
+    #         P0=[0,1,2], unstick = 0, outfile = 'tank3_cur0.out', shoreline=True)
+    #
+    # # meet the bottom and stick - OK
+    # TankCurrents(deplevels=deplevels,filedep=filedep,filecur=filecur,
+    #         P0=[0,1,0.7], unstick = 0, outfile = 'tank3_cur1.out',shoreline=True)
+
+    # meet the bottom and do not stick - comeback to life?
+    TankCurrents(deplevels=deplevels,filedep=filedep,filecur=filecur,
+            P0=[0,1,0.7], unstick = 1, outfile = 'tank3_cur2.out',shoreline=True)
+    dd
+    # start below de bottom - was nan, now is bottom
+    TankCurrents(deplevels=deplevels,filedep=filedep,filecur=filecur,
+            P0=[0,1,-3], unstick = 1, outfile = 'tank3_cur3.out',shoreline=True)
