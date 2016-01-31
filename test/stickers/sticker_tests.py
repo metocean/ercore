@@ -286,7 +286,7 @@ if True:
     TankCurrents(deplevels=deplevels,filedep=filedep,filecur=filecur,
             P0=[0,1,-1.5], unstick = 1, outfile = 'tank1_cur2_bnd.out',
             shoreline = fileshore)
-    
+
     # start below de bottom - was nan, now is bottom
     TankCurrents(deplevels=deplevels,filedep=filedep,filecur=filecur,
             P0=[0,1,-3], unstick = 1, outfile = 'tank1_cur3_bnd.out',
@@ -308,6 +308,10 @@ if True:
     TankCurrents(deplevels=deplevels,filedep=filedep,filecur=filecur,
             P0=[0,1,2], unstick = 1, outfile = 'tank3_cur1_bnd.out',
             shoreline = fileshore)
+
+    TankCurrents(deplevels=deplevels,filedep=filedep,filecur=filecur,
+            P0=[0,1,2], unstick = 1, outfile = 'tank3_cur1_bnd_map.out',
+            shoreline = 'shore_map.bnd')
 
     # meet the bottom and do not stick - meet shoreline on the left and die inside polygon.
     TankCurrents(deplevels=deplevels,filedep=filedep,filecur=filecur,
