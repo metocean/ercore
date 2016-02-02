@@ -9,7 +9,7 @@ from ercore.fields import *
 usage = "Usage: %prog [options] yaml_file tstart tend"
 parser = OptionParser(usage)
 
-parser.add_option("-d", "--dt", dest="dt",help="Time step (seconds)",default=10,type=float)
+parser.add_option("-d", "--dt", dest="dt",help="Time step (seconds)",default=3600.,type=float)
 
 (options, args) = parser.parse_args()
 
