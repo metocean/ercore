@@ -191,7 +191,7 @@ class GridData(FieldData):
     """  options:
     file: filename of gridded data file
     zcoord: direction of z-coordinate [up/down] (optional)
-"""
+    """
     #import cdms2,re,glob
     FieldData.__init__(self,id,vars,**options)
     if 'file' not in options.keys():
@@ -558,7 +558,7 @@ class GriddedTopo(GridData):
     self.buf0['dhdy']=dhdy
     self.vars.append('dhdy')
 
-  def intersect(self,pos,post,state):
+  def intersect(self,pos,post,state,t1,t2):
     """Test for intersection of particles with topo
     Arguments:
       pos: previous particle positions
@@ -573,7 +573,7 @@ class GriddedTopo(GridData):
     ind=((post[:,2]-dep2 < -1*ALMOST_ZERO) & (state>0))
     pout=post[:,:]
     if ind.sum():
-      if (pos[ind,2]<dep1[ind]).any(): # already under bathy
+      if (pos[ind,2] < dep1[ind]).any(): # already under bathy
         pout[ind,:]=pos[ind,:]
       else:
         denom=(dep2[ind]-dep1[ind]+pos[ind,2]-post[ind,2])
@@ -618,6 +618,89 @@ class TidalMover(GriddedTide):
         uu[:,2]+=w1
     return uu
 
+class GriddedElevation(GridData):
+  @copydoc(GridData.__init__)
+  def __init__(self,id,vars,**options):
+    GridData.__init__(self,id,vars,**options)
+    v=self.vars[0]
+    if self.zinvert:self.buf0[v]=-self.buf0[v]
+
+  def intersect(self,pos,post,state,t1,t2):
+    """Test for intersection of particles with free surface
+    Arguments:
+      pos: previous particle positions
+      post: new particle positions
+    Returns:
+      New particle positions after intersection (state is the same)
+    """
+    elev1=self.interp(pos,t1,imax=1)[:,0]
+    elev2=self.interp(post,t2,imax=1)[:,0]
+    ind=((post[:,2] > elev2) & (state>0))
+    pout=post[:,:]
+    if ind.sum():
+      if (pos[ind,2] > elev1[ind]).any(): # already above free surface
+        pout[ind,:] = pos[ind,:]
+        pout[ind,2] = elev1[ind]
+      else:
+        denom=(elev2[ind]-elev1[ind]+pos[ind,2]-post[ind,2])
+        f=(pos[ind,2]-elev1[ind])/denom
+        pout[ind,:]=pos[ind,:]+f[:,None]*(post[ind,:]-pos[ind,:])
+        pout[ind,2]=elev2[ind]
+    return pout
+
+class TidalElevation(GriddedTide):
+  @copydoc(GridData.__init__)
+
+  def intersect(self,pos,post,state,t1,t2):
+    """Test for intersection of particles with free surface
+    Arguments:
+      pos: previous particle positions
+      post: new particle positions
+    Returns:
+      New particle positions after intersection (state is the same)
+    """
+    elev1=self.interp(pos,t1,imax=1)[:,0]
+    elev2=self.interp(post,t2,imax=1)[:,0]
+    ind=((post[:,2] > elev2) & (state>0))
+    pout=post[:,:]
+    if ind.sum():
+      if (pos[ind,2] > elev1[ind]).any(): # already above free surface
+        pout[ind,:] = pos[ind,:]
+        pout[ind,2] = elev1[ind]
+      else:
+        denom=(elev2[ind]-elev1[ind]+pos[ind,2]-post[ind,2])
+        f=(pos[ind,2]-elev1[ind])/denom
+        pout[ind,:]=pos[ind,:]+f[:,None]*(post[ind,:]-pos[ind,:])
+        pout[ind,2]=elev2[ind]
+    return pout
+
+class ConstantElevation(ConstantData):
+  @copydoc(ConstantData.__init__)
+
+  def intersect(self,pos,post,state,t1,t2):
+    """Test for intersection of particles with free surface
+    Arguments:
+      pos: previous particle positions
+      post: new particle positions
+    Returns:
+      New particle positions after intersection (state is the same)
+    """
+    elev1=self.interp(pos,t1,imax=1)[:,0]
+    elev2=self.interp(post,t2,imax=1)[:,0]
+    ind=((post[:,2] > elev2) & (state>0))
+    pout=post[:,:]
+    if ind.sum():
+      if (pos[ind,2] > elev1[ind]).any(): # already above free surface
+        pout[ind,:] = pos[ind,:]
+        pout[ind,2] = elev1[ind]
+      else:
+        denom=(elev2[ind]-elev1[ind]+pos[ind,2]-post[ind,2])
+        f=(pos[ind,2]-elev1[ind])/denom
+        pout[ind,:]=pos[ind,:]+f[:,None]*(post[ind,:]-pos[ind,:])
+        pout[ind,2]=elev2[ind]
+    return pout
+
+
 class GriddedReactor(GridData):
   pass
 
@@ -647,18 +730,18 @@ class GriddedDataGroup(FieldData):
       pmask=pmask|nmask
     return datout
 
-  def intersect(self,pos,post,state):
+  def intersect(self,pos,post,state,t1,t2):
     if len(self.members)==1:#Trivial case of only one member
-      return self.members[0].intersect(pos,post,state)
+      return self.members[0].intersect(pos,post,state,t1,t2)
     pout=post[:,:]
     pmask=self.members[0].interpolator.ingrid(post)
     if pmask.any():
-      pout[pmask,:]=self.members[0].intersect(pos[pmask,:],post[pmask,:],state[pmask])
+      pout[pmask,:]=self.members[0].intersect(pos[pmask,:],post[pmask,:],state[pmask],t1,t2)
     for member in self.members[1:]:
       nmask=member.interpolator.ingrid(post)
       nmask=nmask&~pmask
       if not nmask.any():continue
-      pout[nmask,:]=member.intersect(pos[nmask,:],post[nmask,:],state[nmask])
+      pout[nmask,:]=member.intersect(pos[nmask,:],post[nmask,:],state[nmask],t1,t2)
       pmask=pmask|nmask
     return pout
 

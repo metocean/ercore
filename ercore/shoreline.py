@@ -27,11 +27,11 @@ class Shoreline:
     self.polyi=shoreline.polyi
     self.polyn=shoreline.polyn
 
-  def intersect(self,pos,post,stat):
+  def intersect(self,pos,post,stat,t1,t2):
     """Check for intersection of particles with shoreline
     Arguments
-      pos: Position matrix at time t
-      post: Position matrix at time t+1
+      pos: Position matrix at time t1
+      post: Position matrix at time t2
       stat: Matrix of particle statuses
     Returns:
       Matrix of intersection positions
