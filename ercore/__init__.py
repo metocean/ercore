@@ -189,7 +189,6 @@ class ERcore(object):
           e.release(t,t2)
           if self.geod:e.geodcalc()
           e.react(t,t2)
-        #   import pdb; pdb.set_trace()
           if (e.state[:e.np]>0).any():
             e.advect(t,t2,self.rkorder)
             e.diffuse(t,t2)
