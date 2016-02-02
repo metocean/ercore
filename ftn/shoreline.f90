@@ -146,7 +146,7 @@
             ip=ip+1
             cycle parloop
         elseif(pxt(ip).lt.minbndx.or.pxt(ip).gt.maxbndx.or.pyt(ip).lt.minbndy.or.pyt(ip).gt.maxbndy) then
-            print*, 'aqui1 - stickou a shoreline = -9'
+            print*, 'reached end of domain'
             px(ip)=pxt(ip)
             py(ip)=pyt(ip)
             psc(ip)=-9
