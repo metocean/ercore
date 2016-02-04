@@ -11,12 +11,18 @@
     
       contains
       
-      subroutine init_outgrid(x1,x2,y1,y2,nx,ny)
+      subroutine init_outgrid(x1,x2,y1,y2,nx,ny,usesl)
         use shoreline
         real*8 x1,x2,y1,y2
         integer nx,ny  
+        logical usesl
+
         ognx=nx
         ogny=ny
+        if (allocated(xlon)) then
+          deallocate(xlon,ylat,gmfx)
+          deallocate(cconc,mask)
+        endif
         allocate(xlon(nx),ylat(ny),cconc(nx,ny),mask(nx,ny),gmfx(ny))
         cconc=0.
         ogdx=(x2-x1)/ognx
@@ -28,7 +34,11 @@
           ylat(i)=ogdy*(i-1)+y1
           gmfx(i)=gmfy*cos(0.01745329*ylat(i))
         enddo
-        call gridinpoly(mask,xlon,ylat,ognx,ogny)
+        if (usesl) then
+          call gridinpoly(mask,xlon,ylat,ognx,ogny)
+        else
+          mask = 1.0
+        endif
       end subroutine
       
       subroutine calc_dens(px,py,mass,np)
@@ -87,6 +97,5 @@
           enddo
         enddo
       end subroutine
-      
-      
+           
       end module outgrid

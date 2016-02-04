@@ -83,6 +83,10 @@
         real*8 xx(nx),yy(ny),x1,x2,y1,y2,x,y
         logical test
 
+        if (.not. allocated(slbnd)) then
+          stop 'ERROR - need to read_shoreline first'
+        endif
+
         mask=1.0
         do ix=1,nx
           do iy=1,ny
