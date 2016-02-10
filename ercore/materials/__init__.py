@@ -245,15 +245,15 @@ class _Material:
     if self.np<1:return
     np=self.np
     posi=numpy.where(self.state[:np,None]<0,self.pos[:np,:],self.post[:np,:])
-    for sticker in self.stickers:
-      self.post[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np],t1,t2)
+    for sticker in self.stickers:      
+      posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np],t1,t2)
       if 'GriddedTopo' in sticker.__class__.__name__:
         self.dep[:self.np]=sticker.interp(self.post[:self.np,:],imax=1)[:,0]
       if 'Elevation' in sticker.__class__.__name__:
         self.elev[:self.np]=sticker.interp(self.post[:self.np,:],t2,imax=1)[:,0]
-      else:
-        if self.unstick<=0.:
-          self.state[self.state>1]=-1
+    if self.unstick<=0.:
+      self.state[self.state>1]=-1
+    self.post[:self.np,:]=posi[:self.np,:]
 
   def die(self,t1,t2):
     """Kill particles between times t1 and t2 and remove from simulation"""

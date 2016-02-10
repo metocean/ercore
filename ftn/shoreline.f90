@@ -157,17 +157,17 @@
             cycle parloop
         endif
 ! Check for refloat
-        if (psc(ip).gt.1) then
-          if (refloat.gt.0) then
-            psc(ip)=0
-          else
-            psc(ip)=psc(ip)+1
-            pxt(ip)=px(ip)
-            pyt(ip)=py(ip)
-            ip=ip+1
-            cycle parloop
-          endif
-        endif
+        !if (psc(ip).gt.1) then
+        !  if (refloat.gt.0) then
+        !    psc(ip)=0
+          !else
+            !psc(ip)=psc(ip)+1
+            !pxt(ip)=px(ip)
+            !pyt(ip)=py(ip)
+            !ip=ip+1
+            !cycle parloop
+        !  endif
+        !endif
         dsx=1.e20
         do ipoly=1,nt
           if (pxt(ip).lt.slbnd(ipoly,1)) cycle
@@ -204,7 +204,7 @@
                   else
                     dsx0=sqrt((xi-px(ip))**2+(yi-py(ip))**2)
                     if (dsx0.lt.dsx) then
-                       psc(ip)=2
+                       psc(ip)=psc(ip)+1
                        pxt(ip)=xi
                        pyt(ip)=yi
                        dsx=dsx0

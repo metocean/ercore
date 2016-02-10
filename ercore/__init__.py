@@ -194,7 +194,8 @@ class ERcore(object):
             e.diffuse(t,t2)
             e.stick(t,t2)
           e.spawn(t,t2)
-        e.pos[:e.np,:]=numpy.where(e.state[:e.np,numpy.newaxis]>0,e.post[:e.np,:],e.pos[:e.np,:])
+        #e.pos[:e.np,:]=numpy.where(e.state[:e.np,numpy.newaxis]>0,e.post[:e.np,:],e.pos[:e.np,:])
+        e.pos[:e.np,:] = e.post[:e.np,:]
         print '[%s] %s: %s %d particles' % (self.release_id, t if t<700000 else ncep2dt(t).strftime('%Y%m%d %H:%M:%S'),e.id,e.np)
         e.age[:e.np]+=abs(dt)*(e.state[:e.np]>0)
         e.die(t,t2)
