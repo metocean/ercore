@@ -58,7 +58,7 @@ class _Material:
   geod=False
   default_props={}
   status_codes={0:'Not released',1:'Released and active',-1:'Stuck to shoreline or bottom',-2:'Dead'}
-  def __init__(self,id,nbuff,movers=[],reactors=[],stickers=[],diffusers=[],tstart=None,tend=None,tstep=0.,outfile=None,P0=[0,0,0],spawn=1,reln=0,R0=1.,Q0=1.,unstick=0.,**prop):
+  def __init__(self,id,nbuff,movers=[],reactors=[],stickers=[],diffusers=[],tstart=None,tend=None,tstep=0.,tstep_release=0.,outfile=None,P0=[0,0,0],spawn=1,reln=0,R0=1.,Q0=1.,unstick=0.,**prop):
     self.id=id
     self.np=0
     self.ninc=1 #Counter for unique numbering
@@ -272,6 +272,25 @@ class _Material:
       if np>0:self.relsumt-=1.0*np/self._npt
     if np==0:return
     np=int(np)
+
+    # STAGED RELEASE-----------------
+    if self.tstep_release>0.0:
+      dt1=t2-self.tstart #time since start of model start      
+      if abs(((dt1*24)/self.tstep_release)-round(((dt1*24)/self.tstep_release)))<1e-3:
+        #checks if the runtime to date is a true multiple of the release time 
+        #if yes release particles , if no then no release
+        nb_rel=int(round(self.tstep_release/(dt*24))) 
+        #nb release=nb of release that would have occurred over tstep_release if continuous, so that reln is still relevant
+        #so np should be
+        np=nb_rel*np
+      else: #then no release
+        #import pdb;pdb.set_trace()
+        np=0
+      #print 'Releasing %s' % (np)
+      if np==0:return 0
+    #---------------------------
+
+    #nmax is max number of particles that can be released before reaching self.npmax
     nmax=self.npmax-self.np   
     if np>nmax:
       print 'Warning: particles exhausted for '+self.id
