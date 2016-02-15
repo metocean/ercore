@@ -5,6 +5,7 @@ from optparse import OptionParser
 from ercore import ERcore
 from ercore.materials import *
 from ercore.fields import *
+from ercore.shoreline import *
 
 usage = "Usage: %prog [options] yaml_file tstart tend"
 parser = OptionParser(usage)
