@@ -575,14 +575,56 @@ class GriddedTopo(GridData):
     if ind.sum():
       if (pos[ind,2] < dep1[ind]).any(): # already under bathy
         pout[ind,:]=pos[ind,:]
+        pout[ind,2] = dep1[ind]
       else:
         denom=(dep2[ind]-dep1[ind]+pos[ind,2]-post[ind,2])
         f=(pos[ind,2]-dep1[ind])/denom
         pout[ind,:]=pos[ind,:]+f[:,None]*(post[ind,:]-pos[ind,:])
       state[ind]+=1
-    # pout[:,2]=numpy.minimum(pout[:,2],0)
-    pout[:,2]=numpy.maximum(pout[:,2],dep1)
     return pout
+
+def intersect_free_surface(self,pos,post,state,t1,t2):
+  """Test for intersection of particles with free surface
+  Arguments:
+    pos: previous particle positions
+    post: new particle positions
+  Returns:
+    New particle positions after intersection (state modified in place)
+  """
+  # import pdb; pdb.set_trace()
+  elev1=self.interp(pos,t1,imax=1)[:,0]
+  elev2=self.interp(post,t2,imax=1)[:,0]
+  # to ensure that outputs False if elevs are actually the same.  
+  ind=((post[:,2]-elev2 > ALMOST_ZERO) & (state>0))
+  pout=post[:,:]
+  if ind.sum():
+    if (pos[ind,2] > elev1[ind]).any(): # already above free surface
+      pout[ind,:] = pos[ind,:]
+      pout[ind,2] = elev1[ind]
+    else:
+      denom=(elev2[ind]-elev1[ind]+pos[ind,2]-post[ind,2])
+      f=(pos[ind,2]-elev1[ind])/denom
+      pout[ind,:]=pos[ind,:]+f[:,None]*(post[ind,:]-pos[ind,:])        
+    state[ind]+=1
+  return pout
+
+
+class ConstantElevation(ConstantData):
+  @copydoc(ConstantData.__init__)
+  def intersect(self,pos,post,state,t1,t2):
+    return intersect_free_surface(self,pos,post,state,t1,t2)
+
+class GriddedElevation(GridData):
+  @copydoc(GridData.__init__)
+  def intersect(self,pos,post,state,t1,t2):
+    return intersect_free_surface(self,pos,post,state,t1,t2)
+
+
+class TidalElevation(GriddedTide):
+  @copydoc(GridData.__init__)
+  def intersect(self,pos,post,state,t1,t2):
+    return intersect_free_surface(self,pos,post,state,t1,t2)
+
 
 class GriddedMover(GridData):
   z0=0.
@@ -617,88 +659,6 @@ class TidalMover(GriddedTide):
         w1=slope_correction(p,topo,uu)
         uu[:,2]+=w1
     return uu
-
-class GriddedElevation(GridData):
-  @copydoc(GridData.__init__)
-  def __init__(self,id,vars,**options):
-    GridData.__init__(self,id,vars,**options)
-    v=self.vars[0]
-    if self.zinvert:self.buf0[v]=-self.buf0[v]
-
-  def intersect(self,pos,post,state,t1,t2):
-    """Test for intersection of particles with free surface
-    Arguments:
-      pos: previous particle positions
-      post: new particle positions
-    Returns:
-      New particle positions after intersection (state is the same)
-    """
-    elev1=self.interp(pos,t1,imax=1)[:,0]
-    elev2=self.interp(post,t2,imax=1)[:,0]
-    ind=((post[:,2] > elev2) & (state>0))
-    pout=post[:,:]
-    if ind.sum():
-      if (pos[ind,2] > elev1[ind]).any(): # already above free surface
-        pout[ind,:] = pos[ind,:]
-        pout[ind,2] = elev1[ind]
-      else:
-        denom=(elev2[ind]-elev1[ind]+pos[ind,2]-post[ind,2])
-        f=(pos[ind,2]-elev1[ind])/denom
-        pout[ind,:]=pos[ind,:]+f[:,None]*(post[ind,:]-pos[ind,:])
-        pout[ind,2]=elev2[ind]
-    return pout
-
-class TidalElevation(GriddedTide):
-  @copydoc(GridData.__init__)
-
-  def intersect(self,pos,post,state,t1,t2):
-    """Test for intersection of particles with free surface
-    Arguments:
-      pos: previous particle positions
-      post: new particle positions
-    Returns:
-      New particle positions after intersection (state is the same)
-    """
-    elev1=self.interp(pos,t1,imax=1)[:,0]
-    elev2=self.interp(post,t2,imax=1)[:,0]
-    ind=((post[:,2] > elev2) & (state>0))
-    pout=post[:,:]
-    if ind.sum():
-      if (pos[ind,2] > elev1[ind]).any(): # already above free surface
-        pout[ind,:] = pos[ind,:]
-        pout[ind,2] = elev1[ind]
-      else:
-        denom=(elev2[ind]-elev1[ind]+pos[ind,2]-post[ind,2])
-        f=(pos[ind,2]-elev1[ind])/denom
-        pout[ind,:]=pos[ind,:]+f[:,None]*(post[ind,:]-pos[ind,:])
-        pout[ind,2]=elev2[ind]
-    return pout
-
-class ConstantElevation(ConstantData):
-  @copydoc(ConstantData.__init__)
-
-  def intersect(self,pos,post,state,t1,t2):
-    """Test for intersection of particles with free surface
-    Arguments:
-      pos: previous particle positions
-      post: new particle positions
-    Returns:
-      New particle positions after intersection (state is the same)
-    """
-    elev1=self.interp(pos,t1,imax=1)[:,0]
-    elev2=self.interp(post,t2,imax=1)[:,0]
-    ind=((post[:,2] > elev2) & (state>0))
-    pout=post[:,:]
-    if ind.sum():
-      if (pos[ind,2] > elev1[ind]).any(): # already above free surface
-        pout[ind,:] = pos[ind,:]
-        pout[ind,2] = elev1[ind]
-      else:
-        denom=(elev2[ind]-elev1[ind]+pos[ind,2]-post[ind,2])
-        f=(pos[ind,2]-elev1[ind])/denom
-        pout[ind,:]=pos[ind,:]+f[:,None]*(post[ind,:]-pos[ind,:])
-        pout[ind,2]=elev2[ind]
-    return pout
 
 
 class GriddedReactor(GridData):
