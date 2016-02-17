@@ -4,3 +4,4 @@ netCDF4
 billiard
 matplotlib
 pyyaml
+nose
