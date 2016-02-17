@@ -25,7 +25,7 @@ Testing
 
 Go into tests folder and start do a:
 
-``
+```
 nosetests -sv
 ```
 
