@@ -1,0 +1,13 @@
+pycallable: msl_actions.modeling.ERCoreWrapper
+id: whanga
+name: Whangarei
+boundary: [174.25, 175.2,-36.3, -35.6]
+sitesfile: /prod/ctl/ercore.releases.xml
+uds:
+    host: http://ariki1:9191/
+    datasets: [roms_nz_sfc, wrf_nzm_nz, wrf_nzm_cni]
+    vars: ['ugrd10m','vgrd10m','us','vs']
+currents:
+    vars: [us, vs]
+wind:
+    vars: [ugrd10m, vgrd10m]

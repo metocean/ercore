@@ -1,0 +1,7 @@
+# Create ctls files capability do define "flavors" of runs
+# Test if it's faster to run several sites in parallel or all in one process
+# Make sure the final json file it's in a ingestable format for MOV
+# Density function should use shoreline to mask KDE. See _flib_ercore.output.calc_dens
+....
+
+
