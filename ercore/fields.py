@@ -271,12 +271,7 @@ class GridData(FieldData):
       for filepath in self.filelist:
         bfile = nc.Dataset(filepath)
         self.files.append(bfile) #Open all the files
-        start_time_str = re.search('(?<=\s)\d.+$', bfile.variables['time'].units).group()
-        start_time = datetime.datetime.strptime(start_time_str, 
-                                                '%Y-%m-%d %H:%M:%S')
-        deltas = [datetime.timedelta(seconds=float(t)) for t in bfile.variables['time'][:]]
-        time0 = [ dt2ncep(start_time+delta) for delta in deltas ]
-        #if (len(self.time)>0) and (time0[0]<self.time[-1]):raise DataException('For templated time files times must be increasing - time in file %s less than preceeding file' % (bfile.filepath()))
+        time0 = map(dt2ncep,nc.num2date(bfile.variables['time'][:],bfile.variables['time'].units))
         self.time.extend(time0) #Add times in file to time list
         self.flen.append(len(time0))
         self.timeindex.append(len(self.time)) #Add start time index of next file
