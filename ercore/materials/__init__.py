@@ -63,6 +63,7 @@ class _Material:
     self.np=0
     self.ninc=1 #Counter for unique numbering
     self.tstep=prop.get('tstep',0.)
+    self.tstep_release=tstep_release
     self.npmax=nbuff
     self.tstart=parsetime(tstart) if tstart else 0.
     self.tend=parsetime(tend) if tend else 1.e10
