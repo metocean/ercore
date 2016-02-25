@@ -8,9 +8,10 @@ python module _flib_ercore ! in
             real*8 ogdx,ogdy,gmfy
             real*8,allocatable,dimension(:) :: xlon,ylat,gmfx
             real,allocatable,dimension(:,:) :: cconc,mask
-            subroutine init_outgrid(x1,x2,y1,y2,nx,ny)
+            subroutine init_outgrid(x1,x2,y1,y2,nx,ny,usesl)
                 real*8 :: x1,x2,y1,y2
                 integer :: nx,ny
+                logical :: usesl
             end subroutine init_outgrid
             subroutine calc_dens(px,py,mass,np)
                 real*8, dimension(np) :: px,py,mass

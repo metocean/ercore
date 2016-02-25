@@ -34,9 +34,9 @@ class _Material(object):
       spawn: Number of spawned particles (per day)
       reln: Number of particles per release
       R0: Total release of material
-      Q0: Flux of material (per day) 
+      Q0: Flux of material (per day)
       **properties: Optional keyword arguments specifying additional properties
-      
+
     Properties:
     """
   is3d=True
@@ -62,6 +62,8 @@ class _Material(object):
     self.props.update(prop)
     self.pos=numpy.array(P0)*numpy.ones((nbuff+1,3))
     self.post=numpy.array(P0)*numpy.ones((nbuff+1,3))
+    self.dep = numpy.ones((nbuff+1))*-999.
+    self.elev = numpy.zeros((nbuff+1))
     self.reln=reln #Particles per release
     self.R=R0 #Total release of material
     self.Q=Q0 # Flux of material per day
@@ -76,7 +78,7 @@ class _Material(object):
     self.outfile=outfile if outfile else 'ercore.'+self.id+'.out'
     self.relsumt=0.
     if self.tstart!=self.tend:self._npt=1.*self.reln/abs(self.tend-self.tstart)
-    
+
   def yamlstr(self):
     str="""
   class: %s
@@ -107,7 +109,7 @@ class _Material(object):
   #Total release mass
   R0:1.
   #Flux of material per day (optional)
-  Q0:0       
+  Q0:0
   """ % (self.__class__.__name__,self.__class__.__name__+'1')
 
   def initialize(self,t1,t2):
@@ -116,7 +118,7 @@ class _Material(object):
     if not self.tstart:self.tstart=t1
     if not self.tend:self.tend=self.tstart
     if self.Q<=0.:self.Q=self.R/(abs(self.tend-self.tstart) if self.tend!=self.tstart else 1.) #See release below - this makes self.Q=self.R at release time
-  
+
   def geodcalc(self,init=False):
     """Calculate the map factors for geodetic coordinates"""
     if init:
@@ -124,7 +126,7 @@ class _Material(object):
       self.mfx[:,0]=self.mfx[:,1]/numpy.cos(D2R*self.pos[:,1])
       self.geod=True
     self.mfx[:self.np,0]=self.mfx[:self.np,1]/numpy.cos(D2R*self.pos[:self.np,1])
-     
+
   def __str__(self):
     """String representation of material"""
     if self.np>0:
@@ -140,13 +142,13 @@ class _Material(object):
   %f to %f x-direction
   %f to %f y-direction
   %f to %f z-direction""" % (self.type,self.np,self.pos.shape[0],tuple(props),minn[0],maxx[0],minn[1],maxx[1],minn[2],maxx[2])
-  
-    
+
+
   def __index__(self,ind):
     """Return particle at index"""
     if ind>self.np:return None
     return Particle(self.pos[ind,:],self.state[ind],self.age[ind],self.mass[ind],self.props)
-    
+
   def _reset(self,i0):
     """Reset and shuffle arrays after particles removed"""
     if len(self.arrays)==0:
@@ -167,18 +169,18 @@ class _Material(object):
       a[:-nind]=a[~i0]
       a[self.np:self.np+nind]=a[-1]
     return True
-    
+
   def fheader(self):
     """Return file header for output"""
-    return 'Time\tid\tx\ty\tz\tstate\tage\tmass\n'
-   
+    return 'Time\tid\tx\ty\tz\tstate\tage\tmass\tzbottom\telev\n'
+
   def sfprint(self,t):
     """Return string dump of all particles at specified timestep"""
     str=''
     for i in range(0,self.np):
-      str+="%f\t%d\t%f\t%f\t%f\t%d\t%f\t%f\n" % ((t,self.nid[i])+tuple(self.pos[i])+(self.state[i],self.age[i],self.mass[i]))
+      str+="%f\t%d\t%f\t%f\t%f\t%d\t%f\t%f\t%f\t%f\n" % ((t,self.nid[i])+tuple(self.pos[i])+(self.state[i],self.age[i],self.mass[i],self.dep[i],self.elev[i]))
     return str
-    
+
   def release(self,t1,t2,**k):
     """Release all particles between time t1 and t2"""
     if t2>t1:
@@ -190,7 +192,7 @@ class _Material(object):
       dt1=self.tstart-t2
       dt2=t1-self.tend
     dt=min(abs(t2-t1),dt1,dt2,abs(self.tend-self.tstart))
-    if k.has_key('nprel'): #Prescribed release size 
+    if k.has_key('nprel'): #Prescribed release size
       np=k['nprel']
     elif dt==0: #Start and end time the same
       np=k.get('nprel',self.reln)
@@ -201,7 +203,7 @@ class _Material(object):
       if np>0:self.relsumt-=1.0*np/self._npt
     if np==0:return
     np=int(np)
-    nmax=self.npmax-self.np   
+    nmax=self.npmax-self.np
     if np>nmax:
       print 'Warning: particles exhausted for '+self.id
       np=nmax
@@ -222,40 +224,45 @@ class _Material(object):
           array=k[key]
     self.np=np1
     return np
-    
+
   def advect(self,t1,t2,order=4):
     """Do advection for time t1 to t2"""
     pass
-  
+
   def diffuse(self,t1,t2):
     """Do diffusion for t1 to t2"""
     pass
-  
+
   def react(self,t1,t2):
     """Do reaction for t1 to t2"""
     pass
-  
+
   def spawn(self,t1,t2):
     """Do spawning for t1 to t2"""
     return None
-  
+
   def stick(self,t1,t2):
     """Do sticking for t1 to t2"""
     if self.np<1:return
     np=self.np
     posi=numpy.where(self.state[:np,None]<0,self.pos[:np,:],self.post[:np,:])
-    for sticker in self.stickers:
-      self.post[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np])
-      if self.unstick<=0.:
-        self.state[self.state>1]=-1
-  
+    for sticker in self.stickers:      
+      posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np],t1,t2)
+      if 'GriddedTopo' in sticker.__class__.__name__:
+        self.dep[:self.np]=sticker.interp(posi[:self.np,:],imax=1)[:,0]
+      if 'Elevation' in sticker.__class__.__name__:
+        self.elev[:self.np]=sticker.interp(posi[:self.np,:],t2,imax=1)[:,0]
+    if self.unstick<=0.:
+      self.state[self.state>1]=-1
+    self.post[:self.np,:]=posi[:self.np,:]
+
   def die(self,t1,t2):
     """Kill particles between times t1 and t2 and remove from simulation"""
     if self.np==0:return
     dead=(self.age>self.props.get('maxage',1.e20)) | (self.mass<=0.0001*self.mass0)
     self.state[dead]=-2
-    
-  
+
+
 class PassiveTracer(_Material):
   __doc__=_Material.__doc__
   #Movers:currents0,currents1...
@@ -306,7 +313,7 @@ class PassiveTracer(_Material):
     except:
       import traceback
       raise ERRuntimeException(traceback.format_exc())
-      
+
   def diffuse(self,t1,t2):
     if (len(self.diffusers)==0) or self.np==0:return
     dt=86400.*abs(t2-t1)
@@ -315,24 +322,24 @@ class PassiveTracer(_Material):
     for diffuser in self.diffusers:
       diff=(6*dt*diffuser.interp(self.pos[:np],t1,self.age[:np],imax=imax))**0.5
       self.post[:np,:imax]+=numpy.random.uniform(-diff,diff,size=(np,imax))*self.mfx[:np,:imax]
-    
-    
+
+
 class BuoyantTracer(PassiveTracer):
   __doc__=PassiveTracer.__doc__+"""
     w0: Rise velocity (m/s) [-ve for sinking]
   """
   default_props={'w0':0.0}
-  
+
   def initialize(self,t1,t2):
     PassiveTracer.initialize(self,t1,t2)
     self.w0=numpy.tile(self.props.get('w0',0.),self.npmax+1)
-      
+
   def advect(self,t1,t2,order=4):
     if self.np==0:return
     PassiveTracer.advect(self,t1,t2,order)
     self.post[:self.np,2]+=86400.*(t2-t1)*self.w0[:self.np]
-    
-    
+
+
 class Drifter(PassiveTracer):
   #Reactors:wind
   default_props={'dw_min':0.01,'dw_max':0.04,'cw_min':0.0,'cw_max':0.0}
@@ -362,8 +369,8 @@ class Drifter(PassiveTracer):
       cwr=0.
     self.post[:np,0]+=dt*self.mfx[:np,0]*wsp*(dwr*wcos-cwr*wsin)
     self.post[:np,1]+=dt*self.mfx[:np,1]*wsp*(dwr*wsin+cwr*wcos)
-    
-  
+
+
 class BDTracer(BuoyantTracer):
    #Reactors:temp,salt - note that reactor ids must start with salt or temp
    #Default: air in water
@@ -376,7 +383,7 @@ class BDTracer(BuoyantTracer):
     nmol: Number of moles
     db: Bubble diameter (m)
   """
-  
+
   def initialize(self,t1,t2):
     BuoyantTracer.initialize(self,t1,t2)
     if self.props['nmol']==0:
@@ -388,10 +395,10 @@ class BDTracer(BuoyantTracer):
       self.props['nmol']=gdens*SPI*self.props['db']**3/self.props['Mg']
       self.dens=numpy.tile(gdens,self.npmax+1)
     self.db=(self.props['nmol']*self.props['Mg']/SPI/self.dens)**0.33333
-  
+
   def eqnstate(self,P,T):
     return eqnstate(P,T,self.props['Mg'])
-      
+
   def react(self,t1,t2):
     np=self.np
     if np==0:return
@@ -403,6 +410,3 @@ class BDTracer(BuoyantTracer):
     self.dens[:np]=self.eqnstate(101300+9.81*Pw*adens,temp)
     self.db[:np]=(self.props['nmol']*self.props['Mg']/SPI/self.dens[:np])**0.33333
     self.w0[:np]=slipvel.bubble_slip(self.db[:np],adens,adens-self.dens[:np],temp,self.props['visco'],self.props['IFT'])
-  
-
-

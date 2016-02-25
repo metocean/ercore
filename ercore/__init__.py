@@ -11,15 +11,15 @@ dt2ncep=lambda t: (1.+t.toordinal()+t.hour/24.+t.minute/1440.+t.second/86400.) i
 __key__ = '37869016296302156518474613665606'
 
 def decrypt_var(var, key, array=None):
-  
+
     if isinstance(array, numpy.ndarray):
         array = array
     else:
         array = var[:]
-    
+
     if not hasattr(var, 'is_encrypted') or \
        var.is_encrypted == 'False' or not key:
-        return array 
+        return array
     else:
         dkey = re.sub(base64.b64encode(__key__),'',base64.b64decode(key), count=1)
         nkey = numpy.fromstring(dkey, dtype=numpy.int64)
@@ -86,7 +86,7 @@ def copydoc(fromfunc, sep="\n"):
         return func
     return _decorator
 
-class TerminateException(Exception): pass  
+class TerminateException(Exception): pass
 
 #Enhanced list class to allow indexing by id
 #All simulation objects (i.e. movers, materials etc. must have an id attribute)
@@ -99,7 +99,7 @@ class ObjectList(list):
             import copy
             items=copy.deepcopy(items)
         list.__init__(self,items)
-        
+
     def __getitem__(self,key):
         if key is None:return None
         if isinstance(key,(str, unicode)):
@@ -109,25 +109,25 @@ class ObjectList(list):
         elif isinstance(key,int):
             if key<len(self):return list.__getitem__(self,key)
         return None
-            
+
     def __str__(self):
         return "\n".join([str(n) for n in self])
-            
+
     def subset(self,keys):
         if isinstance(keys,(str,unicode)):keys=[keys]
         idlist=self.idList()
         return [self[idlist.index(key)] for key in keys if key in idlist]
-                        
+
     def sort(self,attr='id',reverse=False):
         sortkey=lambda o:getattr(o,attr)
         list.sort(self,key=sortkey,reverse=reverse)
-    
+
     def idList(self):
         return [ds.id for ds in self]
 
 class ERCoreException(Exception):
   pass
-  
+
 class ERConfigException(ERCoreException):
   pass
 
@@ -193,7 +193,7 @@ class ERcore(object):
                     val=objects[val]
                 else:
                     raise ERConfigException('Cannot find one of %s with id(s) %s specifed for %s' % (prop,val,obj.id))
-                setattr(objects[obj.id],prop,val) 
+                setattr(objects[obj.id],prop,val)
     import materials
     import inspect
     self.materials=[o for o in objects if materials._Material in inspect.getmro(o.__class__)]
@@ -258,7 +258,8 @@ class ERcore(object):
             last_time = self.timestamp('stick', last_time)
           e.spawn(t,t2)
           last_time = self.timestamp('spawn', last_time)
-        e.pos[:e.np,:]=numpy.where(e.state[:e.np,numpy.newaxis]>0,e.post[:e.np,:],e.pos[:e.np,:])
+        #e.pos[:e.np,:]=numpy.where(e.state[:e.np,numpy.newaxis]>0,e.post[:e.np,:],e.pos[:e.np,:])
+        e.pos[:e.np,:] = e.post[:e.np,:]
         print '[%s] %s: %s %d particles' % (self.release_id, t if t<700000 else ncep2dt(t).strftime('%Y%m%d %H:%M:%S'),e.id,e.np)
         e.age[:e.np]+=abs(dt)*(e.state[:e.np]>0)
         last_time = self.timestamp('ageing', last_time)

@@ -74,12 +74,6 @@
         endif
       enddo
       close(10)
-
-      if (allocated(slx)) then
-        deallocate(slx,sly,sli,slt)
-        deallocate(slbnd,polyi,polyn)
-      endif
-
       end subroutine
 
 
@@ -88,6 +82,10 @@
         real mask(nx,ny)
         real*8 xx(nx),yy(ny),x1,x2,y1,y2,x,y
         logical test
+
+        if (.not. allocated(slbnd)) then
+          stop 'ERROR - need to read_shoreline first'
+        endif
 
         mask=1.0
         do ix=1,nx
@@ -143,6 +141,7 @@
       real*8 a1,b1,c1,a2,b2,c2,det,x1,x2,y1,y2,xi,yi,dsx,dsx0
       real refloat
       ip=1
+
       parloop: do while (ip.le.np)
 ! Check for out of bounds
         if (psc(ip).lt.-1) then
@@ -151,23 +150,24 @@
             ip=ip+1
             cycle parloop
         elseif(pxt(ip).lt.minbndx.or.pxt(ip).gt.maxbndx.or.pyt(ip).lt.minbndy.or.pyt(ip).gt.maxbndy) then
+            print*, 'reached end of domain'
             px(ip)=pxt(ip)
             py(ip)=pyt(ip)
             psc(ip)=-9
             cycle parloop
         endif
 ! Check for refloat
-        if (psc(ip).gt.1) then
-          if (refloat.gt.0) then
-            psc(ip)=0
-          else
-            psc(ip)=psc(ip)+1
-            pxt(ip)=px(ip)
-            pyt(ip)=py(ip)
-            ip=ip+1
-            cycle parloop
-          endif
-        endif
+        !if (psc(ip).gt.1) then
+        !  if (refloat.gt.0) then
+        !    psc(ip)=0
+          !else
+            !psc(ip)=psc(ip)+1
+            !pxt(ip)=px(ip)
+            !pyt(ip)=py(ip)
+            !ip=ip+1
+            !cycle parloop
+        !  endif
+        !endif
         dsx=1.e20
         do ipoly=1,nt
           if (pxt(ip).lt.slbnd(ipoly,1)) cycle
@@ -204,7 +204,7 @@
                   else
                     dsx0=sqrt((xi-px(ip))**2+(yi-py(ip))**2)
                     if (dsx0.lt.dsx) then
-                       psc(ip)=2
+                       psc(ip)=psc(ip)+1
                        pxt(ip)=xi
                        pyt(ip)=yi
                        dsx=dsx0

@@ -26,19 +26,19 @@ class Shoreline:
     self.sly=shoreline.sly
     self.polyi=shoreline.polyi
     self.polyn=shoreline.polyn
-       
-  def intersect(self,pos,post,stat):
+
+  def intersect(self,pos,post,stat,t1,t2):
     """Check for intersection of particles with shoreline
     Arguments
-      pos: Position matrix at time t
-      post: Position matrix at time t+1
+      pos: Position matrix at time t1
+      post: Position matrix at time t2
       stat: Matrix of particle statuses
     Returns:
       Matrix of intersection positions
     """
     poso=numpy.hstack((shoreline.sl_intersect_wrap(pos[:,:2],post[:,:2],stat,self.refloat),post[:,2:3]))
     return poso
-    
+
 class Boundary:
   """Class to define simulation boundary"""
   def __init__(self,id,bnd,**options):
@@ -52,7 +52,7 @@ class Boundary:
     self.x2=bnd[1]
     self.y1=bnd[2]
     self.y2=bnd[3]
-  
+
   def intersect(self,pos,post,stat):
     """Check for intersection of particles with boundary
     Arguments
@@ -73,9 +73,3 @@ class Boundary:
     outp[yhigh,1]=self.y2
     outp[ylow,1]=self.y1
     return outp
-    
-
-  
-
-  
-
