@@ -1,0 +1,85 @@
+\documentclass[a4paper]{article}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage[english]{babel}
+\usepackage[utf8x]{inputenc}
+\usepackage{amsmath}
+\usepackage{graphicx}
+
+\title{ERCore Technical Description}
+\author{MetOcean Solutions Ltd.}
+
+\begin{document}
+\maketitle
+
+
+\section{Introduction}
+
+ERCore is a Lagrangian particle tracking model for simulating the dispersion of material in the oceanic or atmospheric environment.
+It solves equations describing the movement of discrete particles in response to an ambient flow field.
+Turbulent diffusion is included with a random walk approach and the presence of a boundary such as a shoreline or the air-sea interface can be specified.
+A simulated particle can represent any material with additional physical, chemical or biological processes added as required to simulate active modifications that may occur as it moves within the water or air.
+Examples of active particles include sediment, oil, plankton and even persons lost at sea.
+
+This document describes the mathematical and numerical formulation of the model.
+Also included are descriptions of the various extensions that can be applied to the particles to allow them to simulate different materials.
+
+\section{Numerical formulation}
+\subsection{Equations of motion}
+The coordinate system is defined with $z$ positive upwards.
+
+
+The change position $x,y,z$ of a particle at time $t$ is governed by:\begin{align}
+\frac{dx}{dt} = U(x,y,z,t)+\tilde{u}+u_p \\
+\frac{dy}{dt} = V(x,y,z,t)+\tilde{v}+v_p \\ 
+\frac{dz}{dt} = W(x,y,z,t)+\tilde{w}+w_p 
+\end{align}
+where $U,V,W$ is the ambient flow and $\tilde{u},\tilde{v},\tilde{w}$ are a turbulent flow component. $u_p,v_p,w_p$ are any additional motions that are properties of the particle's interaction with the surrounding water or air such as sinking, floating, drifting or swimming.
+
+\subsection{Diffusion}
+The turbulent component of the velocity is given by:
+\begin{align}
+\int_{t}^{t+\Delta t} \tilde{u} dt = \sqrt{6K_h \Delta t} H(-1,1) \\
+\int_{t}^{t+\Delta t} \tilde{v} dt = \sqrt{6K_h \Delta t} H(-1,1) \\
+\int_{t}^{t+\Delta t} \tilde{w} dt = \sqrt{6K_v \Delta t} H(-1,1)
+\end{align}
+where $K_h$ and $K_v$ are horizontal and vertical eddy diffusion coefficients and $H$ is a number sampled from a uniform distribution bewteen $-1$ and $1$.
+The eddy diffusion coefficients can be provided as known values, either constant or as a spatially (and temporally) varying field.
+
+\subsection{Coordinate system}
+The model solves all equations in standard SI units.
+However the horizontal coordinates can also be configured as geographical longitude and latitude.
+In this case a map factor is applied to any horizontal differences as:
+\begin{align}
+\d\lambda = 360dx\(C*cos{\theta})\\
+\d\theta = 360dy/C
+\end{align}
+where $\lambda$ and $phi$ are the longitude and latitude respectively. $C$ is the circumference of the earth.
+
+\subsection{Numerical solution}
+The equations of motion for each particle are integrated with a constant time step, $\Delta t$.
+A Runge-Kutta scheme for the ambient flow component, with default order 4 (which can be reduced for computational speed by user configuration).
+The turbulent and particle components of motion are added with a simple first order integration.
+
+\subsection{Forcing fields}
+The forcing fields $U,V,W$ are provided as input data which can be constant or as spatially and temporally varying fields.
+For variable fields, the value at the particle position for a given time is determined by simple multilinear interpolation.
+An number of additional fields which can influence the particle can also be prescribed and are likewise interpolated to provide the local ambient conditions for the particle at each timestep.
+
+\subsection{Boundaries}
+Boundaries can be specified in 4 ways:
+\begin{enumerate}
+\item A shoreline vector
+\item A spatially varying field (such as ocean depth) 
+\item A constant level
+\item A bounding box
+\end{enumerate}
+In each case an intersection algorithm is applied at each timestep to determine whether the particle crosses the boundary.
+If an intersection occurs, the particle is placed at the intersection point.
+The particles subsequent action at the following timestep depends on whether the boundary is sticky.
+If the boundary is non-sticky the particle is free to move away from the boundary if its vector of motion carries it away.
+
+\section{Particle Processes}
+\subsection{Biota}
+
+
+\end{document}
