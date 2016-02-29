@@ -9,9 +9,9 @@ from ercore.materials import PassiveTracer
 t1 = datetime.datetime(2000,1,1)
 t2 = datetime.datetime(2000,1,1,1)
 
-#################
-## below zero  ##
-#################
+######################
+## meet the bottom ##
+#####################
 
 from utils import make_dep    
 x = numpy.arange(4)
@@ -50,19 +50,43 @@ p2s = PassiveTracer('p2s', nbuff=1000,geod=False,
                     reln=2,P0=[0,2,-20],outfile='dep1_p2stick.out')
 
 
-# start mid water column
+# start above bottom
 p3 = PassiveTracer('p3', nbuff=1000,geod=False,
                     movers=[current], stickers=[dep],unstick=1,
                     tstart=t1,tend=t1, tstep=0., 
-                    reln=2,P0=[0,2,-15],outfile='dep1_p3.out')
+                    reln=2,P0=[0,2,-16],outfile='dep1_p3.out')
 
 p3s = PassiveTracer('p3s', nbuff=1000,geod=False,
                     movers=[current], stickers=[dep],unstick=0,
                     tstart=t1,tend=t1, tstep=0., 
-                    reln=2,P0=[0,2,-15],outfile='dep1_p3stick.out')
-
+                    reln=2,P0=[0,2,-16],outfile='dep1_p3stick.out')
 
 
 ercore=ERcore(geod=False)
 ercore.materials=[p1,p2,p3, p1s,p2s,p3s]
+ercore.run(t=datetime.datetime(2000,1,1),tend=datetime.datetime(2000,1,1,12),dt=3600)
+
+###########################
+## start at bottom slope ##
+###########################
+
+dep=GriddedTopo('depth',['dep'], file=filedep, zinvert=True)
+current = ConstantMover('cur',['uo','vo'],uo=-0.5/3600.,vo=0.0)
+
+
+p4 = PassiveTracer('p4', nbuff=1000,geod=False,
+                    movers=[current], stickers=[dep],unstick=1,
+                    tstart=t1,tend=t1, tstep=0., 
+                    reln=2,P0=[1.5,2,-15],outfile='dep1_p4.out')
+
+
+p4s = PassiveTracer('p4s', nbuff=1000,geod=False,
+                    movers=[current], stickers=[dep],unstick=0,
+                    tstart=t1,tend=t1, tstep=0., 
+                    reln=2,P0=[1.5,2,-15],outfile='dep1_p4s.out')
+
+
+
+ercore=ERcore(geod=False)
+ercore.materials=[p4,p4s]
 ercore.run(t=datetime.datetime(2000,1,1),tend=datetime.datetime(2000,1,1,12),dt=3600)

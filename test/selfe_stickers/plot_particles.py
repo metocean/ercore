@@ -1,4 +1,6 @@
 ## plot all pasrticles by timestamp ##
+import sys; sys.path += ["/source/ercore"]
+
 import numpy
 import matplotlib.pyplot as plt
 from ercore.shoreline import Shoreline
@@ -6,9 +8,10 @@ from ercore.fields import GriddedTopo
 from ercore import dt2ncep,ncep2dt
 
 plt_acc = True
-P0 = [174.655, -36.818, 0] # too shallow
+# P0 = [174.655, -36.818, 0] # too s hallow
 # P0 = [174.686, -36.8655, 0] # near bridge
-bnd = [174.56873198401499,174.82807580347946,-36.927971300850707,-36.717879213428184]
+P0 =[174.6884,-36.8366,0] # andre
+#bnd = [174.56873198401499,174.82807580347946,-36.927971300850707,-36.717879213428184]
 filep = 'passive_akl.txt'
 file_shore='shoreline_akl_eri.bnd'
 
@@ -58,5 +61,5 @@ for lin in lines[1:]:
     plt.plot(px,py, 'ko')
 
 plt.show()
-# plt.savefig('plt_part.png')
+plt.savefig('plt_part.png')
 # plt.close()

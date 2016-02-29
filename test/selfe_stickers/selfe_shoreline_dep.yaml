@@ -1,5 +1,13 @@
 # python erbio selfe_shoreline_dep.yaml '2005-01-05 00:00:00' '2005-01-06 00:00:00'
 
+diffusers:
+- class: ConstantDiffuser
+  diffx: 0.001
+  diffy: 0.001
+  diffz: 1.0e-05
+  id: diff
+  vars: [diffx, diffy, diffz]
+
 stickers:
 - class: Shoreline 
   file: NZ(WGS84).bnd
@@ -19,13 +27,7 @@ movers:
   topo: depth_tide_akl
   vars: [u, v]
 
-diffusers:
-- class: ConstantDiffuser
-  diffx: 0.001
-  diffy: 0.001
-  diffz: 0.00001
-  id: diff
-  vars: [diffx, diffy, diffz]
+
 
 
 materials:
@@ -33,8 +35,9 @@ materials:
   id: !!python/unicode 'passive'
   # P0: [174.6806, -36.8266, 0.0]
   # P0: [174.677, -36.811, 0]
-  P0: [174.655, -36.818, 0] # too shallow
+  # P0: [174.655, -36.818, 0] # too shallow
   #P0: [174.686, -36.8655, 0] # near bridge
+  P0: [174.6884,-36.8366,0] # andre
   movers: [tide_akl]
   # diffusers: [diff]
   nbuff: 1000

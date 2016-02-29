@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+import sys; sys.path += ["/source/ercore"]
+
+
 import numpy,datetime
 from ercore import ERcore
 from ercore.fields import ConstantMover,ConstantElevation
