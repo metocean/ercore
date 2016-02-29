@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 #This is driver script for ERSAR, for surface drifting objects
-import sys
+import sys; sys.path += ["/source/ercore"]
+
 from optparse import OptionParser
 from ercore import ERcore
 from ercore.materials import *
+from ercore.materials.biota import *
 from ercore.fields import *
 from ercore.shoreline import *
 
