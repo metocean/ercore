@@ -4,11 +4,42 @@ import sys; sys.path += ["/source/ercore"]
 import numpy,datetime
 from ercore import ERcore
 from ercore.fields import ConstantMover,GriddedTopo
-from ercore.materials import PassiveTracer
+from ercore.materials import PassiveTracer,BuoyantTracer
 
 t1 = datetime.datetime(2000,1,1)
 t2 = datetime.datetime(2000,1,1,1)
 
+###########################
+## below to above bottom ##
+###########################
+
+from utils import make_dep    
+x = numpy.arange(4)
+y = numpy.arange(4)
+xx,yy = numpy.meshgrid(x,y)
+dep = numpy.ones(xx.shape)
+dep[:,:2] = 20.
+dep[:,2:] = 10.
+print dep
+filedep = 'dep1.nc'
+make_dep(x,y,dep,filedep)
+
+dep=GriddedTopo('depth',['dep'], file=filedep, zinvert=True)
+current = ConstantMover('cur',['uo','vo'],uo=0.5/3600.,vo=0)
+
+# rising particle, start below bottom
+
+p0 = BuoyantTracer('p0', nbuff=1000,geod=False,
+                    movers=[current], stickers=[dep],unstick=1,
+                    tstart=t1,tend=t1, tstep=0., 
+                    w0=0.5/3600.,
+                    reln=2,P0=[0,0,-22],outfile='dep_p0.out')
+
+
+ercore=ERcore(geod=False)
+ercore.materials=[p0]
+ercore.run(t=datetime.datetime(2000,1,1),tend=datetime.datetime(2000,1,1,12),dt=3600)
+dd
 ######################
 ## meet the bottom ##
 #####################
