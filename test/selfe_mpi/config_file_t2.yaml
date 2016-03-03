@@ -10,7 +10,7 @@ diffusers:
 
 
 materials:
-- P0: [174.705635,-36.851551,0.0]
+- P0: [174.705635,-36.851551,-25.]
   Q0: 0
   R0: 1
   class: PassiveTracer
@@ -55,12 +55,12 @@ movers:
 #   topo: depth_nz
 #   vars: [u, v]
 - class: TidalMover
-  cons: [M2, S2]
+  #cons: [M2, S2]
   file: tide_akl.nc
   id: tide_akl
   topo: depth_tide_akl
   vars: [u, v]
-
+  zcoord: 'down'
 # reactors:
 # - class: GriddedReactor
 #   file: [/home/andre/projects/Track/data/sample/hindcast/2004/nz200401.nc]
@@ -77,5 +77,4 @@ stickers:
   id: depth_nz, vars: dep, zinvert: true}
 - {class: Shoreline, file: NZ(WGS84).bnd,
   id: shoreline}
-- {class: GriddedTopo, file: tide_akl.nc,
-  id: depth_tide_akl, vars: dep, zinvert: true}
+- {class: GriddedTopo, file: tide_akl.nc, id: depth_tide_akl, vars: dep, zinvert: true}
