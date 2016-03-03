@@ -247,13 +247,11 @@ class _Material(object):
     np=self.np
     posi=numpy.where(self.state[:np,None]<0,self.pos[:np,:],self.post[:np,:])
     for sticker in self.stickers:      
-      posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np],t1,t2)
+      posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np],t1,t2, self.unstick)
       if 'GriddedTopo' in sticker.__class__.__name__:
         self.dep[:self.np]=sticker.interp(posi[:self.np,:],imax=1)[:,0]
       if 'Elevation' in sticker.__class__.__name__:
         self.elev[:self.np]=sticker.interp(posi[:self.np,:],t2,imax=1)[:,0]
-    if self.unstick<=0.:
-      self.state[self.state>1]=-1
     self.post[:self.np,:]=posi[:self.np,:]
 
   def die(self,t1,t2):
@@ -261,7 +259,6 @@ class _Material(object):
     if self.np==0:return
     dead=(self.age>self.props.get('maxage',1.e20)) | (self.mass<=0.0001*self.mass0)
     self.state[dead]=-2
-
 
 class PassiveTracer(_Material):
   __doc__=_Material.__doc__
