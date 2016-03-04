@@ -257,8 +257,8 @@ class _Material(object):
   def die(self,t1,t2):
     """Kill particles between times t1 and t2 and remove from simulation"""
     if self.np==0:return
-    dead=(self.age>self.props.get('maxage',1.e20)) | (self.mass<=0.0001*self.mass0)
-    self.state[dead]=-2
+    dead=(self.age[:self.np]>self.props.get('maxage',1.e20)) | (self.mass[:self.np]<=0.0001*self.mass0)
+    self.state[:self.np][dead]=-2
 
 class PassiveTracer(_Material):
   __doc__=_Material.__doc__

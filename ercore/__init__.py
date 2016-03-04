@@ -212,7 +212,7 @@ class ERcore(object):
                                                   delta.total_seconds()])
     return datetime.datetime.now()
 
-  def run(self,t,tend,dt):
+  def run(self,t,tend,dt,keep_sticked=True):
     """Run Ercore
     Arguments:
         t: Start time as datetime, ncep decimal time or string
@@ -223,6 +223,7 @@ class ERcore(object):
     self.running = True
     t=parsetime(t)
     tend=parsetime(tend)
+    outofcompute = -1 if keep_sticked else 0
     iprint=int(self.tout/dt) if self.tout>0 else 1
     dt/=86400.
     etypes=[e.id for e in self.materials]
@@ -261,15 +262,15 @@ class ERcore(object):
         #e.pos[:e.np,:]=numpy.where(e.state[:e.np,numpy.newaxis]>0,e.post[:e.np,:],e.pos[:e.np,:])
         e.pos[:e.np,:] = e.post[:e.np,:]
         print '[%s] %s: %s %d particles' % (self.release_id, t if t<700000 else ncep2dt(t).strftime('%Y%m%d %H:%M:%S'),e.id,e.np)
-        e.age[:e.np]+=abs(dt)*(e.state[:e.np]>0)
+        e.age[:e.np]+=abs(dt)*(e.state[:e.np]>=outofcompute)
         last_time = self.timestamp('ageing', last_time)
         e.die(t,t2)
         last_time = self.timestamp('die', last_time)
         e.tcum+=86400.*abs(dt)
         if i%iprint==0:
           self.fout[e.id].write(e.sfprint(t2))
-          last_time = self.timestamp('write output', last_time)
-          ind=(e.state<0) 
+          last_time = self.timestamp('write output', last_time)  
+          ind=(e.state<outofcompute) 
           nind=ind.sum()
           if nind:e._reset(ind) #Recycle particles
           if nind>0:print '%d %s particles removed' % (nind,e.id)
