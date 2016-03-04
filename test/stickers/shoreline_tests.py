@@ -4,7 +4,7 @@ import sys; sys.path += ["/source/ercore"]
 import numpy,datetime
 # import cdms2
 from ercore import ERcore
-from ercore.fields import ConstantMover
+from ercore.fields import ConstantMover, GriddedMover
 from ercore.shoreline import Shoreline
 from ercore.materials import PassiveTracer
 # from ercore import dt2ncep
@@ -134,6 +134,73 @@ t2 = datetime.datetime(2000,1,1,1)
 # ## 3x3 wih shoreline on 2 ##
 # ############################
 
+# fileshore = 'shore_x2.bnd'
+# f = open(fileshore, 'w+')
+# f.write('"Map Bounds","1",4\n')
+# f.write('%i,%i\n' % (0,0))
+# f.write('%i,%i\n' % (0,3))
+# f.write('%i,%i\n' % (3,3))
+# f.write('%i,%i\n' % (3,0))
+# f.write('"1","1",5\n')
+# f.write('%.1f,%i\n' % (1.9,0))
+# f.write('%.1f,%i\n' % (1.9,3))
+# f.write('%i,%i\n' % (3,3))
+# f.write('%i,%i\n' % (3,0))
+# f.write('%.1f,%i\n' % (1.9,0))
+# f.close()
+
+# shore = Shoreline(id='shore', file=fileshore)
+# current = ConstantMover('cur',['uo','vo'],uo=0.5/3600.,vo=0.0)
+
+# # unstick
+# p1 = PassiveTracer('p1', nbuff=1000,geod=False,
+#                     movers=[current], stickers=[shore],unstick=1,
+#                     tstart=t1,tend=t1, tstep=0., 
+#                     reln=2,P0=[0,0,0],outfile='shore_x2.out')
+
+# # stick
+# p1s = PassiveTracer('p1s', nbuff=1000,geod=False,
+#                     movers=[current], stickers=[shore],unstick=0,
+#                     tstart=t1,tend=t1, tstep=0., 
+#                     reln=2,P0=[0,0,0],outfile='shore_x2_stick.out')
+
+
+# ercore=ERcore(geod=False)
+# ercore.materials=[p1,p1s]
+# ercore.run(t=datetime.datetime(2000,1,1),tend=datetime.datetime(2000,1,1,12),dt=3600)
+
+# #########################
+# ## See if particle     ##
+# ## keeps moving        ##
+# #########################
+# # NOT MOVING AFTER HITING SHORE - PROBLEM?
+
+# current = ConstantMover('cur',['uo','vo'],uo=0.1/3600.,vo=0.1/3600.)
+
+# # unstick
+# p1 = PassiveTracer('p1', nbuff=1000,geod=False,
+#                     movers=[current], stickers=[shore],unstick=1,
+#                     tstart=t1,tend=t1, tstep=0., 
+#                     reln=2,P0=[1.5,1,0],outfile='shore_x3_p2.out')
+
+# # stick
+# p1s = PassiveTracer('p1s', nbuff=1000,geod=False,
+#                     movers=[current], stickers=[shore],unstick=0,
+#                     tstart=t1,tend=t1, tstep=0., 
+#                     reln=2,P0=[1.5,1,0],outfile='shore_x3_p2_stick.out')
+
+
+# ercore=ERcore(geod=False)
+# ercore.materials=[p1,p1s]
+# ercore.run(t=datetime.datetime(2000,1,1),tend=datetime.datetime(2000,1,1,12),dt=3600)
+
+
+#################################
+## tidal                       ##
+## to see if it keeps moving   ##
+#################################
+
+
 fileshore = 'shore_x2.bnd'
 f = open(fileshore, 'w+')
 f.write('"Map Bounds","1",4\n')
@@ -149,50 +216,55 @@ f.write('%i,%i\n' % (3,0))
 f.write('%.1f,%i\n' % (1.9,0))
 f.close()
 
+
+
+from utils import make_dep,make_curr2d
+x = numpy.arange(4)
+y = numpy.arange(4)
+# xx,yy = numpy.meshgrid(x,y)
+# dep = numpy.ones(xx.shape)
+# dep[:,:2] = 20.
+# dep[:,2:] = 10.
+# print dep
+# filedep = 'dep1.nc'
+# make_dep(x,y,dep,filedep)
+
+tstart = datetime.datetime(2000,1,1)
+tmid   = datetime.datetime(2000,1,1,6)
+tend   = datetime.datetime(2000,1,1,12)
+times = [0,6*3600,13*3600]
+units = tstart.strftime('seconds since %Y-%m-%d %H:%M:%S')
+u = numpy.ones((len(times),len(x),len(y)))
+v = numpy.ones((len(times),len(x),len(y)))
+u[0,:,:] = 1./3600.
+u[1,:,:] = 0.
+u[2,:,:] = -1./3600.
+v[:,:,:] = 0.01/3600.
+filecur='cur.nc'
+make_curr2d (x,y,u,v,times,units,filecur)
+
+#dep=GriddedTopo('depth',['dep'], file=filedep, zinvert=True)
 shore = Shoreline(id='shore', file=fileshore)
-current = ConstantMover('cur',['uo','vo'],uo=0.5/3600.,vo=0.0)
+current=GriddedMover ('cur',['u','v'],file=filecur)
 
-# unstick
+
 p1 = PassiveTracer('p1', nbuff=1000,geod=False,
                     movers=[current], stickers=[shore],unstick=1,
                     tstart=t1,tend=t1, tstep=0., 
-                    reln=2,P0=[0,0,0],outfile='shore_x2.out')
+                    reln=2,P0=[0,0,-16],outfile='shore_x2_tide.out')
 
-# stick
 p1s = PassiveTracer('p1s', nbuff=1000,geod=False,
                     movers=[current], stickers=[shore],unstick=0,
                     tstart=t1,tend=t1, tstep=0., 
-                    reln=2,P0=[0,0,0],outfile='shore_x2_stick.out')
+                    reln=2,P0=[0,0,-16],outfile='shore_x2_tide_stick.out')
 
 
 ercore=ERcore(geod=False)
 ercore.materials=[p1,p1s]
-ercore.run(t=datetime.datetime(2000,1,1),tend=datetime.datetime(2000,1,1,12),dt=3600)
-
-#########################
-## See if particle     ##
-## keeps moving        ##
-#########################
-# NOT MOVING AFTER HITING SHORE - PROBLEM?
-
-current = ConstantMover('cur',['uo','vo'],uo=0.1/3600.,vo=0.1/3600.)
-
-# unstick
-p1 = PassiveTracer('p1', nbuff=1000,geod=False,
-                    movers=[current], stickers=[shore],unstick=1,
-                    tstart=t1,tend=t1, tstep=0., 
-                    reln=2,P0=[1.5,1,0],outfile='shore_x3_p2.out')
-
-# stick
-p1s = PassiveTracer('p1s', nbuff=1000,geod=False,
-                    movers=[current], stickers=[shore],unstick=0,
-                    tstart=t1,tend=t1, tstep=0., 
-                    reln=2,P0=[1.5,1,0],outfile='shore_x3_p2_stick.out')
+ercore.run(t=tstart,tend=tend,dt=3600)
 
 
-ercore=ERcore(geod=False)
-ercore.materials=[p1,p1s]
-ercore.run(t=datetime.datetime(2000,1,1),tend=datetime.datetime(2000,1,1,12),dt=3600)
+
 
 # current=GriddedMover ('cur',['uo','vo'],file='../passive/uds_gsb_test.nc')
 
