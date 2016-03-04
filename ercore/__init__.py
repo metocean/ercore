@@ -212,7 +212,7 @@ class ERcore(object):
                                                   delta.total_seconds()])
     return datetime.datetime.now()
 
-  def run(self,t,tend,dt,keep_sticked=True):
+  def run(self,t,tend,dt,keep_sticked=False):
     """Run Ercore
     Arguments:
         t: Start time as datetime, ncep decimal time or string
