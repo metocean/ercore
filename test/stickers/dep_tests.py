@@ -18,13 +18,13 @@ t2 = datetime.datetime(2000,1,1,1)
 # y = numpy.arange(4)
 # xx,yy = numpy.meshgrid(x,y)
 # dep = numpy.ones(xx.shape)
-# dep[:,:2] = 20.
-# dep[:,2:] = 10.
+# dep[:,:2] = -0.5
+# dep[:,2:] = 0.5
 # print dep
 # filedep = 'dep1.nc'
 # make_dep(x,y,dep,filedep)
 
-# dep=GriddedTopo('depth',['dep'], file=filedep, zinvert=True)
+# dep=GriddedTopo('depth',['dep'], file=filedep)#, zinvert=True)
 # current = ConstantMover('cur',['uo','vo'],uo=0.5/3600.,vo=0)
 
 # # rising particle, start below bottom
@@ -40,7 +40,37 @@ t2 = datetime.datetime(2000,1,1,1)
 # ercore.materials=[p0]
 # ercore.run(t=datetime.datetime(2000,1,1),tend=datetime.datetime(2000,1,1,12),dt=3600)
 
-# ######################
+
+###########################
+## positive to negative z ##
+###########################
+
+from utils import make_dep    
+x = numpy.arange(4)
+y = numpy.arange(4)
+xx,yy = numpy.meshgrid(x,y)
+dep = numpy.ones(xx.shape)
+dep[:,:2] = 0.5
+dep[:,2:] = -0.5
+print dep
+filedep = 'dep2.nc'
+make_dep(x,y,dep,filedep)
+
+dep=GriddedTopo('depth',['dep'], file=filedep, zinvert=True)
+current = ConstantMover('cur',['uo','vo'],uo=-0.5/3600.,vo=0)
+
+p0 = PassiveTracer('p0', nbuff=1000,geod=False,
+                    movers=[current], stickers=[dep],unstick=1,
+                    tstart=t1,tend=t1, tstep=0., 
+                    reln=2,P0=[2.5,0,1],outfile='dep2_p0.out')
+
+
+ercore=ERcore(geod=False)
+ercore.materials=[p0]
+ercore.run(t=datetime.datetime(2000,1,1),tend=datetime.datetime(2000,1,1,12),dt=3600)
+ddd
+
+# #####################
 # ## meet the bottom ##
 # #####################
 
@@ -206,4 +236,7 @@ p1s = PassiveTracer('p1s', nbuff=1000,geod=False,
 ercore=ERcore(geod=False)
 ercore.materials=[p1,p1s]
 ercore.run(t=tstart,tend=tend,dt=3600)
+
+
+
 

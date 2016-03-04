@@ -245,7 +245,7 @@ class _Material:
     if self.np<1:return
     np=self.np
     posi=numpy.where(self.state[:np,None]<0,self.pos[:np,:],self.post[:np,:])
-    for sticker in self.stickers:      
+    for sticker in self.stickers:     
       posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np],t1,t2)
     if self.unstick<=0.:
       self.state[self.state>1]=-1
@@ -279,6 +279,9 @@ class PassiveTracer(_Material):
     try:
 #4th order RungeKutta advection
       kx1=self.movers[0].interp(self.pos[:np,:],t1,imax=imax)
+      print 'kx1 = ', kx1
+      # if kx1[0][1]>0:
+      #   import pdb;pdb.set_trace()
       for mover in self.movers[1:]:
         kx1+=mover.interp(self.pos[:np,:],t1,imax=imax)
       kx1*=dt*self.mfx[:np,:imax]
