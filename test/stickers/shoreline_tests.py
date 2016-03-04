@@ -134,42 +134,67 @@ t2 = datetime.datetime(2000,1,1,1)
 # ## 3x3 wih shoreline on 2 ##
 # ############################
 
-# fileshore = 'shore_x2.bnd'
-# f = open(fileshore, 'w+')
-# f.write('"Map Bounds","1",4\n')
-# f.write('%i,%i\n' % (0,0))
-# f.write('%i,%i\n' % (0,3))
-# f.write('%i,%i\n' % (3,3))
-# f.write('%i,%i\n' % (3,0))
-# f.write('"1","1",5\n')
-# f.write('%.1f,%i\n' % (1.9,0))
-# f.write('%.1f,%i\n' % (1.9,3))
-# f.write('%i,%i\n' % (3,3))
-# f.write('%i,%i\n' % (3,0))
-# f.write('%.1f,%i\n' % (1.9,0))
-# f.close()
+fileshore = 'shore_x2.bnd'
+f = open(fileshore, 'w+')
+f.write('"Map Bounds","1",4\n')
+f.write('%i,%i\n' % (0,0))
+f.write('%i,%i\n' % (0,3))
+f.write('%i,%i\n' % (3,3))
+f.write('%i,%i\n' % (3,0))
+f.write('"1","1",5\n')
+f.write('%.1f,%i\n' % (1.9,0))
+f.write('%.1f,%i\n' % (1.9,3))
+f.write('%i,%i\n' % (3,3))
+f.write('%i,%i\n' % (3,0))
+f.write('%.1f,%i\n' % (1.9,0))
+f.close()
 
-# shore = Shoreline(id='shore', file=fileshore)
-# current = ConstantMover('cur',['uo','vo'],uo=0.5/3600.,vo=0.0)
+shore = Shoreline(id='shore', file=fileshore)
+current = ConstantMover('cur',['uo','vo'],uo=0.5/3600.,vo=0.0)
 
-# # unstick
-# p1 = PassiveTracer('p1', nbuff=1000,geod=False,
-#                     movers=[current], stickers=[shore],unstick=1,
-#                     tstart=t1,tend=t1, tstep=0., 
-#                     reln=2,P0=[0,0,0],outfile='shore_x2.out')
+# unstick
+p1 = PassiveTracer('p1', nbuff=1000,geod=False,
+                    movers=[current], stickers=[shore],unstick=1,
+                    tstart=t1,tend=t1, tstep=0., 
+                    reln=2,P0=[0,0,0],outfile='shore_x2.out')
 
-# # stick
-# p1s = PassiveTracer('p2', nbuff=1000,geod=False,
-#                     movers=[current], stickers=[shore],unstick=0,
-#                     tstart=t1,tend=t1, tstep=0., 
-#                     reln=2,P0=[0,0,0],outfile='shore_x2_stick.out')
-
-
-# ercore=ERcore(geod=False)
-# ercore.materials=[p1,p1s]
-# ercore.run(t=datetime.datetime(2000,1,1),tend=datetime.datetime(2000,1,1,12),dt=3600)
+# stick
+p1s = PassiveTracer('p1s', nbuff=1000,geod=False,
+                    movers=[current], stickers=[shore],unstick=0,
+                    tstart=t1,tend=t1, tstep=0., 
+                    reln=2,P0=[0,0,0],outfile='shore_x2_stick.out')
 
 
+ercore=ERcore(geod=False)
+ercore.materials=[p1,p1s]
+ercore.run(t=datetime.datetime(2000,1,1),tend=datetime.datetime(2000,1,1,12),dt=3600)
+
+#########################
+## See if particle     ##
+## keeps moving        ##
+#########################
+# NOT MOVING AFTER HITING SHORE - PROBLEM?
+
+current = ConstantMover('cur',['uo','vo'],uo=0.1/3600.,vo=0.1/3600.)
+
+# unstick
+p1 = PassiveTracer('p1', nbuff=1000,geod=False,
+                    movers=[current], stickers=[shore],unstick=1,
+                    tstart=t1,tend=t1, tstep=0., 
+                    reln=2,P0=[1.5,1,0],outfile='shore_x3_p2.out')
+
+# stick
+p1s = PassiveTracer('p1s', nbuff=1000,geod=False,
+                    movers=[current], stickers=[shore],unstick=0,
+                    tstart=t1,tend=t1, tstep=0., 
+                    reln=2,P0=[1.5,1,0],outfile='shore_x3_p2_stick.out')
+
+
+ercore=ERcore(geod=False)
+ercore.materials=[p1,p1s]
+ercore.run(t=datetime.datetime(2000,1,1),tend=datetime.datetime(2000,1,1,12),dt=3600)
+
+# current=GriddedMover ('cur',['uo','vo'],file='../passive/uds_gsb_test.nc')
 
 ############
 ## Bridge ##
@@ -185,81 +210,81 @@ t2 = datetime.datetime(2000,1,1,1)
 # 1         |   |
 # 0 --------------------------
 
-fileshore = 'bridge.bnd'
-f = open(fileshore, 'w+')
-f.write('"Map Bounds","1",4\n')
-f.write('%i,%i\n' % (0,0))
-f.write('%i,%i\n' % (0,6))
-f.write('%i,%i\n' % (6,6))
-f.write('%i,%i\n' % (6,0))
-f.write('"0","1",5\n')  # south leg
-f.write('%.1f,%.1f\n' % (2,0))
-f.write('%.1f,%.1f\n' % (3,0))
-f.write('%.1f,%.1f\n' % (3,2))
-f.write('%.1f,%.1f\n' % (2,2))
-f.write('%.1f,%.1f\n' % (2,0))
-f.write('"1","1",5\n') # north leg
-f.write('%.1f,%.1f\n' % (2,4))
-f.write('%.1f,%.1f\n' % (3,4))
-f.write('%.1f,%.1f\n' % (3,6))
-f.write('%.1f,%.1f\n' % (2,6))
-f.write('%.1f,%.1f\n' % (2,4))
-f.close()
+# fileshore = 'bridge.bnd'
+# f = open(fileshore, 'w+')
+# f.write('"Map Bounds","1",4\n')
+# f.write('%i,%i\n' % (0,0))
+# f.write('%i,%i\n' % (0,6))
+# f.write('%i,%i\n' % (6,6))
+# f.write('%i,%i\n' % (6,0))
+# f.write('"0","1",5\n')  # south leg
+# f.write('%.1f,%.1f\n' % (2,0))
+# f.write('%.1f,%.1f\n' % (3,0))
+# f.write('%.1f,%.1f\n' % (3,2))
+# f.write('%.1f,%.1f\n' % (2,2))
+# f.write('%.1f,%.1f\n' % (2,0))
+# f.write('"1","1",5\n') # north leg
+# f.write('%.1f,%.1f\n' % (2,4))
+# f.write('%.1f,%.1f\n' % (3,4))
+# f.write('%.1f,%.1f\n' % (3,6))
+# f.write('%.1f,%.1f\n' % (2,6))
+# f.write('%.1f,%.1f\n' % (2,4))
+# f.close()
 
-# sticks to bridge
-# passes bridge if velocity to high (uo=2/3600)
+# # sticks to bridge
+# # passes bridge if velocity to high (uo=2/3600)
 
-# e.g. passes bridge if L < uo*dt
-# where L is the width of the bridge leg
+# # e.g. passes bridge if L < uo*dt
+# # where L is the width of the bridge leg
 
-shore = Shoreline(id='shore', file=fileshore)
+# shore = Shoreline(id='shore', file=fileshore)
 
-## brigde slow ##
-current = ConstantMover('cur',['uo','vo'],uo=0.5/3600.,vo=0.0)
+# ## brigde slow ##
+# current = ConstantMover('cur',['uo','vo'],uo=0.5/3600.,vo=0.0)
 
-# north leg
-p1 = PassiveTracer('p1', nbuff=1000,geod=False,
-                    movers=[current], stickers=[shore],unstick=1,
-                    tstart=t1,tend=t1, tstep=0., 
-                    reln=2,P0=[0,5,0],outfile='bridge_N.out')
-
-
-p2 = PassiveTracer('p2', nbuff=1000,geod=False,
-                    movers=[current], stickers=[shore],unstick=1,
-                    tstart=t1,tend=t1, tstep=0., 
-                    reln=2,P0=[0,3,0],outfile='bridge_mid.out')
-
-p3 = PassiveTracer('p3', nbuff=1000,geod=False,
-                    movers=[current], stickers=[shore],unstick=1,
-                    tstart=t1,tend=t1, tstep=0., 
-                    reln=2,P0=[0,1,0],outfile='bridge_S.out')
+# # north leg
+# p1 = PassiveTracer('p1', nbuff=1000,geod=False,
+#                     movers=[current], stickers=[shore],unstick=1,
+#                     tstart=t1,tend=t1, tstep=0., 
+#                     reln=2,P0=[0,5,0],outfile='bridge_N.out')
 
 
-ercore=ERcore(geod=False)
-ercore.materials=[p1,p2,p3]
-ercore.run(t=datetime.datetime(2000,1,1),tend=datetime.datetime(2000,1,1,12),dt=3600)
+# p2 = PassiveTracer('p2', nbuff=1000,geod=False,
+#                     movers=[current], stickers=[shore],unstick=1,
+#                     tstart=t1,tend=t1, tstep=0., 
+#                     reln=2,P0=[0,3,0],outfile='bridge_mid.out')
 
-## brigde fast ##
-current = ConstantMover('cur',['uo','vo'],uo=2./3600.,vo=0.0)
-
-# north leg
-p1 = PassiveTracer('p1', nbuff=1000,geod=False,
-                    movers=[current], stickers=[shore],unstick=1,
-                    tstart=t1,tend=t1, tstep=0., 
-                    reln=2,P0=[0,5,0],outfile='bridge2_N.out')
+# p3 = PassiveTracer('p3', nbuff=1000,geod=False,
+#                     movers=[current], stickers=[shore],unstick=1,
+#                     tstart=t1,tend=t1, tstep=0., 
+#                     reln=2,P0=[0,1,0],outfile='bridge_S.out')
 
 
-p2 = PassiveTracer('p2', nbuff=1000,geod=False,
-                    movers=[current], stickers=[shore],unstick=1,
-                    tstart=t1,tend=t1, tstep=0., 
-                    reln=2,P0=[0,3,0],outfile='bridge2_mid.out')
+# ercore=ERcore(geod=False)
+# ercore.materials=[p1,p2,p3]
+# ercore.run(t=datetime.datetime(2000,1,1),tend=datetime.datetime(2000,1,1,12),dt=3600)
 
-p3 = PassiveTracer('p3', nbuff=1000,geod=False,
-                    movers=[current], stickers=[shore],unstick=1,
-                    tstart=t1,tend=t1, tstep=0., 
-                    reln=2,P0=[0,1,0],outfile='bridge2_S.out')
+# ## brigde fast ##
+# current = ConstantMover('cur',['uo','vo'],uo=2./3600.,vo=0.0)
+
+# # north leg
+# p1 = PassiveTracer('p1', nbuff=1000,geod=False,
+#                     movers=[current], stickers=[shore],unstick=1,
+#                     tstart=t1,tend=t1, tstep=0., 
+#                     reln=2,P0=[0,5,0],outfile='bridge2_N.out')
 
 
-ercore=ERcore(geod=False)
-ercore.materials=[p1,p2,p3]
-ercore.run(t=datetime.datetime(2000,1,1),tend=datetime.datetime(2000,1,1,12),dt=3600)
+# p2 = PassiveTracer('p2', nbuff=1000,geod=False,
+#                     movers=[current], stickers=[shore],unstick=1,
+#                     tstart=t1,tend=t1, tstep=0., 
+#                     reln=2,P0=[0,3,0],outfile='bridge2_mid.out')
+
+# p3 = PassiveTracer('p3', nbuff=1000,geod=False,
+#                     movers=[current], stickers=[shore],unstick=1,
+#                     tstart=t1,tend=t1, tstep=0., 
+#                     reln=2,P0=[0,1,0],outfile='bridge2_S.out')
+
+
+# ercore=ERcore(geod=False)
+# ercore.materials=[p1,p2,p3]
+# ercore.run(t=datetime.datetime(2000,1,1),tend=datetime.datetime(2000,1,1,12),dt=3600)
