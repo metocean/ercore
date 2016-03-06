@@ -560,7 +560,7 @@ class GriddedTopo(GridData):
     self.buf0['dhdy']=dhdy
     self.vars.append('dhdy')
 
-  def intersect(self,pos,post,state,t1,t2,unstick):
+  def intersect(self,pos,post,state,t1,t2):
     """Test for intersection of particles with topo
     Arguments:
       pos: previous particle positions
@@ -582,13 +582,10 @@ class GriddedTopo(GridData):
         denom=(dep2[ind]-dep1[ind]+pos[ind,2]-post[ind,2])
         f=(pos[ind,2]-dep1[ind])/denom
         pout[ind,:]=pos[ind,:]+f[:,None]*(post[ind,:]-pos[ind,:])
-      if unstick:
-        state[ind]=1
-      else:
-        state[ind]=-1
+      state[ind]+=1
     return pout
 
-def intersect_free_surface(self,pos,post,state,t1,t2,unstick=True):
+def intersect_free_surface(self,pos,post,state,t1,t2):
   """Test for intersection of particles with free surface
   Arguments:
     pos: previous particle positions

@@ -27,7 +27,7 @@ class Shoreline:
     self.polyi=shoreline.polyi
     self.polyn=shoreline.polyn
 
-  def intersect(self,pos,post,stat,t1,t2,unstick):
+  def intersect(self,pos,post,stat,t1,t2):
     """Check for intersection of particles with shoreline
     Arguments
       pos: Position matrix at time t1
@@ -36,7 +36,7 @@ class Shoreline:
     Returns:
       Matrix of intersection positions
     """
-    poso=numpy.hstack((shoreline.sl_intersect_wrap(pos[:,:2],post[:,:2],stat,unstick),post[:,2:3]))
+    poso=numpy.hstack((shoreline.sl_intersect_wrap(pos[:,:2],post[:,:2],stat,self.refloat),post[:,2:3]))
     return poso
 
 class Boundary:

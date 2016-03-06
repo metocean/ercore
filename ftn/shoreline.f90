@@ -204,11 +204,7 @@
                   else
                     dsx0=sqrt((xi-px(ip))**2+(yi-py(ip))**2)
                     if (dsx0.lt.dsx) then
-                       if (refloat.gt.0) then
-                        psc(ip)=1
-                       else
-                        psc(ip)=-1
-                       endif
+                       psc(ip)=psc(ip)+1
                        pxt(ip)=xi
                        pyt(ip)=yi
                        dsx=dsx0
