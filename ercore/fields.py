@@ -362,6 +362,7 @@ class GriddedTide(GridData):
     GridData.__init__(self,id,[vars[0]+'_amp'],**options)
     self.vars=vars
     fcons=[cons.tostring().rstrip().rstrip('\x00').upper() for cons in self.files[0]['cons'][:]]
+    #fcons=[cons.tostring().rstrip().rstrip('\x00').upper() for cons in self.files[0]['cons'].getValue(0)[:]] 
     consindex=[]
     self.cons=[]
     consreq=options.get('cons',fcons)
