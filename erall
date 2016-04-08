@@ -3,12 +3,13 @@
 import sys
 from optparse import OptionParser
 from ercore import ERcore
-from ercore.materials.biota import Plankton
+from ercore.materials import *
+from ercore.materials.biota import *
 
 usage = "Usage: %prog [options] yaml_file tstart tend"
 parser = OptionParser(usage)
 
-parser.add_option("-d", "--dt", dest="dt",help="Time step (seconds)",default=10)
+parser.add_option("-d", "--dt", dest="dt",help="Time step (seconds)",default=3600,type=float)
 
 (options, args) = parser.parse_args()
 
@@ -17,5 +18,5 @@ if len(args)<3:
   sys.exit(-1)
 
 ercore=ERcore()
-ercore.readYAML(args[0])
+ercore.readYAML(args[0], namespace=globals())
 ercore.run(args[1],args[2],options.dt)
