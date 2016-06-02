@@ -8,10 +8,27 @@ _NCEPT0_=730120.99999
 ncep2dt=lambda t:_DT0_+datetime.timedelta(t-_NCEPT0_)
 dt2ncep=lambda t: (1.+t.toordinal()+t.hour/24.+t.minute/1440.+t.second/86400.) if isinstance(t,datetime.datetime) else t
 
-__key__ = '37869016296302156518474613665606'
+from cryptography.fernet import Fernet
+from cryptography.hazmat import backends
+
+try:
+    from cryptography.hazmat.backends.commoncrypto.backend import backend as be_cc
+except ImportError:
+    be_cc = None
+
+try:
+    from cryptography.hazmat.backends.openssl.backend import backend as be_ossl
+except ImportError:
+    be_ossl = None
+
+backends._available_backends_list = [
+    be for be in (be_cc, be_ossl) if be is not None
+]
+
+__FKEY__ = 'qSueR6IykLXOi1DUhhdyiTurKTpoQoAQNBinvSBcbic='
+
 
 def decrypt_var(var, key, array=None):
-
     if isinstance(array, numpy.ndarray):
         array = array
     else:
@@ -21,10 +38,9 @@ def decrypt_var(var, key, array=None):
        var.is_encrypted == 'False' or not key:
         return array
     else:
-        dkey = re.sub(base64.b64encode(__key__),'',base64.b64decode(key), count=1)
-        nkey = numpy.fromstring(dkey, dtype=numpy.int64)
-        decrypted = array[:]/(nkey*10**-1)
-        return decrypted
+        fernet = Fernet(__FKEY__)
+        nkey = numpy.fromstring(fernet.decrypt(key), dtype='int64')
+        return array[:]/(nkey*10**-1)
 
 def get_summary_report(summary, dt, tout, outdir, materials):
   total_nrel = sum([m.reln for m in materials])

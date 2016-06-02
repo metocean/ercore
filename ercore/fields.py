@@ -186,6 +186,7 @@ class GridData(FieldData):
   geod=True
   surfsub=False
   zinvert=False
+  keystore=[]
   @copydoc(FieldData.__init__)
   def __init__(self,id,vars,**options):
     """  options:
@@ -292,8 +293,18 @@ class GridData(FieldData):
         self.time.extend(time0) #Add times in file to time list
         self.flen.append(len(time0))
         self.timeindex.append(len(self.time)) #Add start time index of next file
+        self.load_keystore(filepath)
       self.flen.append(self.flen[-1])
       self.reset()
+
+  def load_keystore(self, filepath):
+    keystorepath = os.path.join(os.path.dirname(filepath), 'keystore')
+    storename, __ = os.path.splitext(os.path.basename(filepath))
+    if os.path.exists(keystorepath):
+      keystore = shelve.open(keystorepath)
+      if storename in keystore:
+          keys = keystore[storename]
+          self.keystore.append(keys)
 
   def load_files(self, cfile):
     files = []
@@ -319,16 +330,9 @@ class GridData(FieldData):
     self.file1=self.files[0]
     self.buftime=0
 
-  def get_key(self, ncfile, var, varname):
-    keystorepath = os.path.join(os.path.dirname(self.filelist[0]),'keystore')
-    if os.path.exists(keystorepath):
-      keystore = shelve.open(keystorepath)
-      if not hasattr(ncfile, 'storename') or not hasattr(var, 'is_encrypted') or\
-      var.is_encrypted == 'False':
-        return None
-      else:
-        return keystore[str(ncfile.storename)][str(varname)]
-      keystore.close()
+  def get_key(self, fileind, varname):
+    if fileind < len(self.keystore) and varname in self.keystore[fileind]:
+      return self.keystore[fileind][varname]
 
   def get(self,time): #Time is current model time
     """Get data slab for specified time
@@ -360,8 +364,8 @@ class GridData(FieldData):
         var2 = ncfile2.variables[v]
         arr1 = var1[ind0][:]
         arr2 = var2[ind1][:]
-        key1 = self.get_key(ncfile1, var1, v)
-        key2 = self.get_key(ncfile2, var2, v)
+        key1 = self.get_key(self.fileind0, v)
+        key2 = self.get_key(self.fileind1, v)
         self.buf0[v]= decrypt_var(var1, key1, arr1)
         self.buf1[v]= decrypt_var(var2, key2, arr2)
         if numpy.any(self.mask):
@@ -469,8 +473,8 @@ class GriddedTide(GridData):
       varpha = ncfile.variables[vpha]
       arramp = varamp[consindex,:]
       arrpha = varpha[consindex,:]
-      keyamp = self.get_key(ncfile, varamp, vamp)
-      keypha = self.get_key(ncfile, varpha, vpha)
+      keyamp = self.get_key(0, vamp)
+      keypha = self.get_key(0, vpha)
       arramp = decrypt_var(varamp, keyamp, arramp)
       arrpha = decrypt_var(varpha, keypha, arrpha)
       if numpy.any(self.mask):
