@@ -301,7 +301,7 @@ class GridData(FieldData):
     keystorepath = os.path.join(os.path.dirname(filepath), 'keystore')
     storename, __ = os.path.splitext(os.path.basename(filepath))
     if os.path.exists(keystorepath):
-      keystore = shelve.open(keystorepath)
+      keystore = shelve.open(keystorepath, flag='r')
       if storename in keystore:
           keys = keystore[storename]
           self.keystore.append(keys)
