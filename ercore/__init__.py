@@ -33,14 +33,10 @@ def decrypt_var(var, key, array=None):
         array = array
     else:
         array = var[:]
-
-    if not hasattr(var, 'is_encrypted') or \
-       var.is_encrypted == 'False' or not key:
-        return array
+    if numpy.any(key) and hasattr(var,'is_encrypted') and var.is_encrypted:
+        return array[:]/(key*10**-1)
     else:
-        fernet = Fernet(__FKEY__)
-        nkey = numpy.fromstring(fernet.decrypt(key), dtype='int64')
-        return array[:]/(nkey*10**-1)
+        return array
 
 def get_summary_report(summary, dt, tout, outdir, materials):
   total_nrel = sum([m.reln for m in materials])
@@ -157,6 +153,7 @@ class ERcore(object):
   tout=0.
   rkorder=4
   release_id = 0
+  stopped = False
   def __init__(self,**k):
     self.fout={}
     self.outpath=k.get('outpath','.')
@@ -173,9 +170,6 @@ class ERcore(object):
 
   def __enter__(self):
     return self
-
-  def terminate(self):
-    return True if self.running == False else False
 
   def readYAML(self,ctlfile, namespace=globals()):
     """Read a YAML configuration file for an ERcore simulation"""
@@ -236,7 +230,6 @@ class ERcore(object):
         dt: Simulation timestep as seconds
     """
     start_time = self.timestamp('start_time')
-    self.running = True
     t=parsetime(t)
     tend=parsetime(tend)
     outofcompute = -1 if keep_sticked else 0
@@ -253,7 +246,7 @@ class ERcore(object):
     print 'Running ERcore times %f to %f' % (t,tend)
     last_step = self.timestamp('initialize', start_time)
     while ((dt>0) and (t<tend)) or ((dt<0) and (t>tend)):
-      if self.terminate():
+      if self.stopped:
         raise TerminateException('Model has been terminated')
       start_step = datetime.datetime.now()
       i+=1
