@@ -186,7 +186,6 @@ class GridData(FieldData):
   geod=True
   surfsub=False
   zinvert=False
-  keystore=[]
   @copydoc(FieldData.__init__)
   def __init__(self,id,vars,**options):
     """  options:
@@ -195,6 +194,7 @@ class GridData(FieldData):
     """
     #import cdms2,re,glob
     FieldData.__init__(self,id,vars,**options)
+    self.keystore = []
     if 'file' not in options.keys():
       raise ConfigException('Grid data source must specify filename')
 
