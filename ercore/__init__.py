@@ -154,7 +154,8 @@ class ERcore(object):
   rkorder=4
   release_id = 0
   stopped = False
-  def __init__(self,**k):
+  def __init__(self,manager=None,**k):
+    self.manager = manager
     self.fout={}
     self.outpath=k.get('outpath','.')
     self.save_summary = True
@@ -230,7 +231,7 @@ class ERcore(object):
         dt: Simulation timestep as seconds
     """
     start_time = self.timestamp('start_time')
-    t=parsetime(t)
+    t=t0=parsetime(t)
     tend=parsetime(tend)
     outofcompute = -1 if keep_sticked else 0
     iprint=int(self.tout/dt) if self.tout>0 else 1
@@ -251,6 +252,11 @@ class ERcore(object):
       start_step = datetime.datetime.now()
       i+=1
       t2=t+dt
+      if self.manager:
+        r, rt = self.run_n
+        total = (tend-t0)*rt
+        partial = ((tend-t0)*(r-1))+(t-t0)
+        self.manager.progress.emit(self.release_id, (partial/total))
       for e in self.materials:
         if e.tcum>=e.tstep:
           e.tcum-=e.tstep
