@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import datetime,sys,os
 #sys.path.insert(0,os.path.join(os.path.dirname(__file__),'..','..'))
-sys.path.insert(1,'/home/rosa/git/ercore/')
+#sys.path.insert(1,'/home/rosa/git/ercore/')
 from pylab import *
 from ercore._flib_ercore import interp3d,interph,slipvel
 from ercore import ERcore,ncep2dt,dt2ncep
@@ -73,6 +73,8 @@ ercore=ERcore(tout=tout,rkorder=4)
 
 ercore.materials=[particles]
 ercore.run(tstart,tend,tstep)
+import pdb;pdb.set_trace()
+
 plot_particles(particles)
 
 ercore.materials=[particles1]

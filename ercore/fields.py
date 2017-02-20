@@ -1,12 +1,28 @@
 #!/usr/bin/env python
+import os
 import numpy
-from ercore import ERCoreException,ERConfigException,copydoc,ncep2dt
+from ercore import ERCoreException,ERConfigException,copydoc,ncep2dt,dt2ncep
 from _flib_ercore import interph,interp3d,interpz,inpoly
+import datetime
+import netCDF4 as nc
+import glob
+import re
+import shelve
 
 R2D=180./numpy.pi
 D2R=1/R2D
 ARAD=R2D/6367456.
 DMIN=1.e-10
+ALMOST_ZERO = 1.e-6
+
+def slope_correction(p,topo,uu):
+    '''Vertical velocity correction for slope'''
+    frac = numpy.ones(topo.shape[0])
+    ind = (topo[:,0]!=0)
+    frac[ind] = numpy.minimum(abs(p[ind,2]/topo[ind,0]),1)
+    return frac*(uu[:,0]*topo[:,1]+uu[:,1]*topo[:,2])
+
+
 
 class DataException(ERCoreException):
   pass
@@ -78,7 +94,7 @@ class FEInterpolator(object):
     self.tree=cKDTree(numpy.vstack((self.lon,self.lat)).T)
     
   def __call__(self,dat,p):
-    dist,i=self.tree.query(p[:,:2],3)
+    dist,i=self.tree.query(p[:,:2],3, n_jobs=-1)
     if i.max()>=dat.shape[-1]:
       raise DataException('Finite element interpolation out of range')
     dist[dist<DMIN]=DMIN
@@ -132,14 +148,17 @@ class ConstantData(FieldData):
     constant values for each of the variables"""
     FieldData.__init__(self,id,vars,**options)
     if self.is3d:
-      if not options.has_key('levels'):raise ConfigException('Constant 3D data must specify levels')
-      self.lev=numpy.array(map(float,options['levels']))
-      if options.get('levels','depth')=='depth':self.lev=-self.lev
+      if not options.has_key('levels') and not options.has_key('depth'):
+        raise ConfigException('Constant 3D data must specify levels')
+      if options.has_key('levels'):
+        self.lev=numpy.array(map(float,options['levels']))
+      elif options.has_key('depth'):
+        self.lev=-1*numpy.array(map(float,options['depth']))
     self.dat=[]
     for v in self.vars:
       if not options.has_key(v):
         raise ERConfigException('Constant data for variable %s missing' % (v))
-      vin=options[v] if isinstance(options[v],list) else [options[v]]
+      vin=options[v] if hasattr(options[v], '__len__') else [options[v]]
       self.dat.append(numpy.array(map(float,vin)))
     if self.is3d and (len(self.lev)>1) and (self.lev[1]-self.lev[0])<0:
       self.lev=self.lev[::-1]
@@ -173,22 +192,24 @@ class GridData(FieldData):
     """  options:
     file: filename of gridded data file
     zcoord: direction of z-coordinate [up/down] (optional)
-"""
-    import cdms2,re,glob
+    """
+    #import cdms2,re,glob
     FieldData.__init__(self,id,vars,**options)
+    self.keystore = []
     if 'file' not in options.keys():
       raise ConfigException('Grid data source must specify filename')
-    self.filename=options.pop('file')
-    filetmpl=re.sub('%Y|%m|%d|%H','*',self.filename)
-    self.filelist=glob.glob(filetmpl)
-    if len(self.filelist)==0:
+    self.filename = options.pop('file')
+    self.filelist = self.load_files(self.filename)
+    if len(self.filelist) == 0:
       raise ERConfigException('No files found that match template %s' % (filetmpl))
+
     self.filelist.sort()
     self.buf0={}
     self.vars=vars if isinstance(vars,list) else [vars]
     self.time=[]
-    cfile=cdms2.open(self.filelist[0])
-    if cfile['time']:
+    ncfile = nc.Dataset(self.filelist[0])
+    cfile=ncfile.variables
+    if cfile.has_key('time'):
       self.time=[]
       self.buf1={}
       self.bufstore={}
@@ -196,57 +217,99 @@ class GridData(FieldData):
       self.time=None
     for v in self.vars:
       if not cfile[v]:raise DataException('Variable %s not found in grid file %s' % (v,self.filename))
-      if cfile[v].getTime():
+      if self.time is not None and cfile[v].shape[0] == cfile['time'].shape[0]:
         self.buf0[v]=None
         self.buf1[v]=None    
       else:
-        self.buf0[v]=cfile[v][:].asma()
-    lon=cfile[v].getLongitude()
-    lat=cfile[v].getLatitude()
-    nv=cfile['nv']
-    self.lev=None
-    self.is3d=((lon and (len(cfile[v].shape)==4)) or (nv and (len(cfile[v].shape)==3)))
-    if self.is3d:
-      self.lev=cfile[v].getAxis(1)[:]
-      if self.lev is None:
-        raise DataException('3D data file must specify levels')
-    if options.pop('zcoord','up')=='down':
-      if self.is3d:self.lev=-self.lev
-      self.zinvert=True
-    if nv:
-      lon=cfile['lon'][:].filled() if cfile['lon'] else cfile['longitude'][:].filled()
-      lat=cfile['lat'][:].filled() if cfile['lat'] else cfile['latitude'][:].filled()
-      if cfile['mask']:
-        self.mask=numpy.where(cfile['mask'][:].filled()!=1)[0]
-        lon=lon.take(self.mask)
-        lat=lat.take(self.mask)
+        self.buf0[v]=cfile[v][:]
+
+    for vlon,vlat in [('lon','lat'),('longitude','latitude')]:
+      if vlon in cfile.keys() and vlat in cfile.keys():
+        lon, lat = cfile[vlon], cfile[vlat]      
+        break
       else:
-        self.mask=None
+        raise DataException('Dataset needs lon, lat variables')
+   
+    # Check for nv variables for finite elements grids
+    self.nv = True if 'nv' in cfile.keys() else None
+
+    for var in ['zlevels', 'lev', 'levels', 'level']:
+      if var in cfile.keys():
+        self.lev = cfile[var][:]
+        self.is3d = True
+        break
+      else:
+        self.lev = None
+        self.is3d = False
+
+    if options.pop('zcoord','up')=='down':
+      if self.is3d: self.lev=-self.lev
+      self.zinvert=True
+
+    if self.nv:
+      # Is finite element grid
+      lon=lon[:]
+      lat=lat[:]
+      # if cfile.has_key('mask'):
+      #   self.mask=numpy.where(cfile['mask'][:] != False )[0]
+      #   lon=lon.take(self.mask)
+      #   lat=lat.take(self.mask)
+      # else:
+      self.mask=None 
       self.interpolator=FEInterpolator(lon,lat,self.lev,self.geod)
-    elif lon:
+    elif lat and lon:
       self.mask=None # Mask not implemented for standard grids yet
-      self.interpolator=RectInterpolator(lon[0],lat[0],lon[-1],lat[-1],(lon[1]-lon[0]) if len(lon)>1 else 0,(lat[1]-lat[0]) if len(lat)>1 else 0,self.lev,lat if self.geod else None)
+      self.interpolator=RectInterpolator(lon[0],lat[0],lon[-1],lat[-1],
+                                        (lon[1]-lon[0]) if len(lon)>1 else 0,
+                                        (lat[1]-lat[0]) if len(lat)>1 else 0,
+                                        self.lev,
+                                        lat if self.geod else None)
     else:
-      raise DataException('Gridded file %s structure not understood' % (self.filename))
+       raise DataException('Gridded file %s structure not understood' % (self.filename)) 
+
     self.res=min(self.interpolator.x1-self.interpolator.x0,self.interpolator.y1-self.interpolator.y0)
+
     self.__dict__.update(options)
-    cfile.close()
+
+    ncfile.close()
+    
     if self.time is None:
-      self.files=[cdms2.open(self.filelist[0])]
+      bfile = nc.Dataset(self.filelist[0])
+      self.files=[bfile]
     else:
       self.timeindex=[0]
       self.files=[]
       self.flen=[]
-      for cfile in self.filelist:
-        self.files.append(cdms2.open(cfile)) #Open all the files
-        time0=[t.torelative('days since 1-1-1').value for t in self.files[-1]['time'].asRelativeTime()]
-        if (len(self.time)>0) and (time0[0]<self.time[-1]):raise DataException('For templated time files times must be increasing - time in file %s less than preceeding file' % (cfile))
+      for filepath in self.filelist:
+        bfile = nc.Dataset(filepath)
+        self.files.append(bfile) #Open all the files
+        #this way or working out timewill work for selfe files with seconds since model start , where model start is given as time units
+        # need to account for UDS-formatted / CF complinat cases when time is since 1-1-1
+        start_time_str = re.search('(?<=\s)\d.+$', bfile.variables['time'].units).group()   # get the file start time from units 
+        start_time = datetime.datetime.strptime(start_time_str,'%Y-%m-%d %H:%M:%S')         # convert to datetime
+        deltas = [datetime.timedelta(seconds=float(t)) for t in bfile.variables['time'][:]] # deltas is incremental number of sedconds since file start    
+        time0 = [ dt2ncep(start_time+delta) for delta in deltas ] 
+        import pdb;pdb.set_trace()                          #
+        #if (len(self.time)>0) and (time0[0]<self.time[-1]):raise DataException('For templated time files times must be increasing - time in file %s less than preceeding file' % (bfile.filepath())) 
         self.time.extend(time0) #Add times in file to time list
         self.flen.append(len(time0))
         self.timeindex.append(len(self.time)) #Add start time index of next file
+        #self.load_keystore(filepath) # probably related to cryptage so not needed ?
       self.flen.append(self.flen[-1])
       self.reset()
-      
+   
+
+  def load_files(self, cfile):
+    files = []
+    if isinstance(cfile, list):
+      for filename in cfile:
+        filetmpl = re.sub('%Y|%m|%d|%H|%M','*', filename)
+        files.extend(glob.glob(filetmpl))
+    elif isinstance(cfile, (str,unicode)):
+      filetmpl = re.sub('%Y|%m|%d|%H|%M','*', cfile)
+      files.extend(glob.glob(filetmpl))
+    files.sort()
+    return files   
     
   def reset(self):
     """Reset time counter in file"""
@@ -266,6 +329,7 @@ class GridData(FieldData):
     Arguments:
       time: Time as NCEP decimal
     """
+    start = datetime.datetime.now()
     if time is None or self.time is None:
       return [self.buf0[v] for v in self.vars]
     if time==self.buftime:
@@ -284,15 +348,31 @@ class GridData(FieldData):
         ind0=max(0,self.tind-self.timeindex[self.fileind0]-1)
         ind1=min(self.tind-self.timeindex[self.fileind1],self.flen[self.fileind1]-1)
         #print '%s %d %d %d %d' % (v,self.fileind0,self.fileind1,ind0,ind1)
-        self.buf0[v]=self.files[self.fileind0][v][ind0].filled()
-        self.buf1[v]=self.files[self.fileind1][v][ind1].filled()
-        if (self.mask is not None):
-          self.buf0[v]=self.buf0[v].take(self.mask,-1)
-          self.buf1[v]=self.buf1[v].take(self.mask,-1)
+        ncfile1 = self.files[self.fileind0]
+        ncfile2 = self.files[self.fileind1]
+        var1 = ncfile1.variables[v]
+        var2 = ncfile2.variables[v]
+        arr1 = var1[ind0][:]
+        arr2 = var2[ind1][:]
+        #import pdb;pdb.set_trace()
+        #key1 = self.get_key(self.fileind0, v)
+        #key2 = self.get_key(self.fileind1, v)
+        #self.buf0[v]= decrypt_var(var1, key1, arr1)
+        #self.buf1[v]= decrypt_var(var2, key2, arr2)
+        # mimicking decrypt_var(var1, key1, arr1)
+        # if isinstance(array, numpy.ndarray):array = array else : array = var[:]
+        self.buf0[v]= arr1 
+        self.buf1[v]= arr2
+        if numpy.any(self.mask): 
+          self.buf0[v]=self.files[self.fileind0][v][ind0].filled()
+          self.buf1[v]=self.files[self.fileind1][v][ind1].filled()
+
+    import pdb;pdb.set_trace()  
+
     if (self.tind==0) and (time<self.time[0]):
-      print 'Warning: model time before start time of data %s' % self.id
+      print 'Warning: model time (%s) before start time (%s) of data %s' % (ncep2dt(time), ncep2dt(self.time[0]), self.id)
     elif (self.tind==len(self.time)-1) and (time>self.time[-1]):
-      print 'Warning: model time after end time of data %s' % self.id
+      print 'Warning: model time (%s) after end time (%s) of data %s' % (ncep2dt(time), ncep2dt(self.time[-1]), self.id)
     if self.t0==self.t1:
       tfac=0.
     else:
@@ -301,10 +381,14 @@ class GridData(FieldData):
     for v in self.vars:
       dat=(1.-tfac)*self.buf0[v]+tfac*self.buf1[v]
       if self.is3d and self.surfsub:
-        dat=dat[:,:,:]-dat[0,:,:]
+        if self.nv:
+          dat=dat[:,:,:]-dat[0,:,:]
+        else:
+          dat=dat[:,:,:]-dat[0,:,:]
       out.append(dat)
       self.bufstore[v]=dat
     self.buftime=time
+    #print 'GET', self.id, datetime.datetime.now()-start
     return out
   
   @copydoc(FieldData.interp)
@@ -351,7 +435,7 @@ class ConstantTide(ConstantData):
       self.tidestr[iv]=TideStr(amp,pha,icons=self.cons,lat=options.get('lat',0.))
   
   def interp(self,p,time,imax=2):
-    self.dat=[self.tidestr[tide].ts([time]) for tide in self.tidestr] 
+    self.dat=[self.tidestr[tide].ts([time]) for tide in self.tidestr]
     ConstantData.interp(self,time,imax=imax)
     
   
@@ -361,7 +445,7 @@ class GriddedTide(GridData):
     import datetime
     GridData.__init__(self,id,[vars[0]+'_amp'],**options)
     self.vars=vars
-    fcons=[cons.tostring().rstrip().rstrip('\x00').upper() for cons in self.files[0]['cons'][:]]
+    fcons=[cons.tostring().rstrip().rstrip('\x00').upper() for cons in self.files[0].variables['cons'][:]]
     #fcons=[cons.tostring().rstrip().rstrip('\x00').upper() for cons in self.files[0]['cons'].getValue(0)[:]] 
     consindex=[]
     self.cons=[]
@@ -374,17 +458,31 @@ class GriddedTide(GridData):
     self.amp={}
     self.phac={}
     self.phas={}
-    self.tidestr=TideStr(numpy.zeros((self.ncons,1)),numpy.zeros((self.ncons,1)),self.cons,options.get('t0',datetime.datetime.now()),options.get('lat',0.0))
+    lat0 = self.files[0].lat0
+
+    self.tidestr=TideStr(numpy.zeros((self.ncons,1)),numpy.zeros((self.ncons,1)),self.cons,options.get('t0',datetime.datetime.now()),lat0)
     for iv,v in enumerate(self.vars):
       vamp=v+'_amp'
       vpha=v+'_pha'
-      if not self.files[0][vamp]:
+      if not self.files[0].variables[vamp]:
         raise ConfigException('Amplitude data for variable %s missing' % (v))
-      if not self.files[0][vpha]:
+      if not self.files[0].variables[vpha]:
         raise ConfigException('Phase data for variable %s missing' % (v))
-      self.amp[v]=self.files[0][vamp][:].asma()[consindex]
-      self.phac[v]=numpy.cos(self.files[0][vpha][:].asma()[consindex])
-      self.phas[v]=numpy.sin(self.files[0][vpha][:].asma()[consindex])
+      ncfile = self.files[0]
+      varamp = ncfile.variables[vamp]
+      varpha = ncfile.variables[vpha]
+      arramp = varamp[consindex,:]
+      arrpha = varpha[consindex,:]
+      #keyamp = self.get_key(0, vamp)
+      #keypha = self.get_key(0, vpha)
+      #arramp = decrypt_var(varamp, keyamp, arramp)
+      #arrpha = decrypt_var(varpha, keypha, arrpha)
+      if numpy.any(self.mask):
+        arramp = arramp.take(self.mask, -1)
+        arrpha = arrpha.take(self.mask, -1)
+      self.amp[v]=arramp
+      self.phac[v]=numpy.cos(arrpha)
+      self.phas[v]=numpy.sin(arrpha) 
       if (self.amp[v].shape[0]<>self.ncons) or (self.phac[v].shape[0]<>self.ncons):
         raise ConfigException('First dimension of amplitudes and phases must match number of constituents')
   
@@ -417,7 +515,7 @@ class ConstantMover(ConstantData):
       if (not self.is3d) and (self.z0>0):#Log profile for 2D case
         uu[:,:2]=uu[:,:2]*(numpy.log(dz/self.z0))/(numpy.log(topo/self.z0)-1)
       if (imax==3):  #Vertical velocity correction for slope
-        w1=p[:,2]/topo[:,0]*(uu[:,0]*topo[:,1]+uu[:,1]*topo[:,2])
+        w1=slope_correction(p,topo,uu)
         uu[:,2]+=w1
     return uu
 
@@ -466,30 +564,78 @@ class GriddedTopo(GridData):
     self.buf0['dhdy']=dhdy
     self.vars.append('dhdy')
   
-  def intersect(self,pos,post,state):
+  def intersect(self,pos,post,state,t1,t2):
     """Test for intersection of particles with topo
     Arguments:
       pos: previous particle positions
       post: new particle positions
-      state: particle state
+      #   state: particle state
     Returns:
       New particle positions after intersection (state modified in place)
     """
     dep1=self.interp(pos,imax=1)[:,0]
     dep2=self.interp(post,imax=1)[:,0]
-    ind=((post[:,2]<dep2) & (state>0))
+    # -1* to ensure that outputs False if deps are actually the same.
+    ind=((post[:,2]-dep2 < -1*ALMOST_ZERO) & (state>0))
     pout=post[:,:]
     if ind.sum():
-      denom=(dep2[ind]-dep1[ind]+pos[ind,2]-post[ind,2])
-      f=(pos[ind,2]-dep1[ind])/denom
-      pout[ind,:]=pos[ind,:]+f[:,None]*(post[ind,:]-pos[ind,:])
-      state[ind]+=1
-    pout[:,2]=numpy.minimum(pout[:,2],0)
+      if (pos[ind,2] < dep1[ind]).any(): # already under bathy
+        pout[ind,:]=pos[ind,:]
+        pout[ind,2] = dep1[ind]
+      else:
+        denom=(dep2[ind]-dep1[ind]+pos[ind,2]-post[ind,2])
+        f=(pos[ind,2]-dep1[ind])/denom
+        pout[ind,:]=pos[ind,:]+f[:,None]*(post[ind,:]-pos[ind,:])
+        state[ind]+=1 
     return pout
+
+def intersect_free_surface(self,pos,post,state,t1,t2):
+  """Test for intersection of particles with free surface
+  Arguments:
+    pos: previous particle positions
+    post: new particle positions
+  Returns:
+    New particle positions after intersection (state modified in place)
+  """
+  # import pdb; pdb.set_trace()
+  elev1=self.interp(pos,t1,imax=1)[:,0]
+  elev2=self.interp(post,t2,imax=1)[:,0]
+  # to ensure that outputs False if elevs are actually the same.  
+  ind=((post[:,2]-elev2 > ALMOST_ZERO) & (state>0))
+  pout=post[:,:]
+  if ind.sum():
+    if (pos[ind,2] > elev1[ind]).any(): # already above free surface
+      pout[ind,:] = pos[ind,:]
+      pout[ind,2] = elev1[ind]
+    else:
+      denom=(elev2[ind]-elev1[ind]+pos[ind,2]-post[ind,2])
+      f=(pos[ind,2]-elev1[ind])/denom
+      pout[ind,:]=pos[ind,:]+f[:,None]*(post[ind,:]-pos[ind,:])        
+    state[ind]=1
+  return pout
+
+
+class ConstantElevation(ConstantData):
+  @copydoc(ConstantData.__init__)
+  def intersect(self,pos,post,state,t1,t2):
+    return intersect_free_surface(self,pos,post,state,t1,t2)
+
+class GriddedElevation(GridData):
+  @copydoc(GridData.__init__)
+  def intersect(self,pos,post,state,t1,t2):
+    return intersect_free_surface(self,pos,post,state,t1,t2)
+
+
+class TidalElevation(GriddedTide):
+  @copydoc(GridData.__init__)
+  def intersect(self,pos,post,state,t1,t2):
+    return intersect_free_surface(self,pos,post,state,t1,t2)
+
 
 class GriddedMover(GridData):
   z0=0.
   topo=None
+  import pdb;pdb.set_trace
   @copydoc(FieldData.interp)
   def interp(self,p,time=None,imax=2):
     uu=GridData.interp(self,p,time,imax)
@@ -500,7 +646,7 @@ class GriddedMover(GridData):
       if (not self.is3d) and (self.z0>0):#Log profile for 2D case
         uu[:,:2]=uu[:,:2]*(numpy.log(dz[:,numpy.newaxis]/self.z0))/(numpy.log(abs(topo[:,0:1])/self.z0)-1)
       if (imax==3):  #Vertical velocity correction for slope
-        w1=numpy.minimum(p[:,2]/topo[:,0],1)*(uu[:,0]*topo[:,1]+uu[:,1]*topo[:,2])
+        w1=slope_correction(p,topo,uu)
         uu[:,2]+=w1
     return uu
 
@@ -517,7 +663,7 @@ class TidalMover(GriddedTide):
       if (not self.is3d) and (self.z0>0):#Log profile for 2D case
         uu[:,:2]=uu[:,:2]*(numpy.log(dz[:,numpy.newaxis]/self.z0))/(numpy.log(abs(topo[:,0:1])/self.z0)-1)
       if (imax==3): #Vertical velocity correction for slope
-        w1=numpy.minimum(p[:,2]/topo[:,0],1)*(uu[:,0]*topo[:,1]+uu[:,1]*topo[:,2])
+        w1=slope_correction(p,topo,uu)
         uu[:,2]+=w1
     return uu
 
@@ -550,18 +696,18 @@ class GriddedDataGroup(FieldData):
       pmask=pmask|nmask
     return datout
   
-  def intersect(self,pos,post,state):
+  def intersect(self,pos,post,state,t1,t2):
     if len(self.members)==1:#Trivial case of only one member
-      return self.members[0].intersect(pos,post,state)
+      return self.members[0].intersect(pos,post,state,t1,t2)
     pout=post[:,:]
     pmask=self.members[0].interpolator.ingrid(post)
     if pmask.any():
-      pout[pmask,:]=self.members[0].intersect(pos[pmask,:],post[pmask,:],state[pmask])
+      pout[pmask,:]=self.members[0].intersect(pos[pmask,:],post[pmask,:],state[pmask],t1,t2)
     for member in self.members[1:]:
       nmask=member.interpolator.ingrid(post)
       nmask=nmask&~pmask
       if not nmask.any():continue
-      pout[nmask,:]=member.intersect(pos[nmask,:],post[nmask,:],state[nmask])
+      pout[nmask,:]=member.intersect(pos[nmask,:],post[nmask,:],state[nmask],t1,t2)
       pmask=pmask|nmask
     return pout
     

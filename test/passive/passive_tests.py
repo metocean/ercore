@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import datetime,sys,os,copy
-sys.path.insert(0,os.path.join(os.path.dirname(__file__),'..','..'))
+#sys.path.insert(0,os.path.join(os.path.dirname(__file__),'..','..'))
 from pylab import figure,plot,show
 from ercore import ERcore
 from ercore.materials import PassiveTracer,BuoyantTracer
@@ -17,7 +17,7 @@ ercore=ERcore(tout=900.)
 ercore.geod=False
 
 
-figure()
+#figure()
 for rk in range(4,0,-1):
   part=copy.deepcopy(particles)
   ercore.materials=[part]
@@ -25,9 +25,9 @@ for rk in range(4,0,-1):
   ercore.rkorder=rk
   ercore.outpath='rk'+str(rk)
   ercore.run(datetime.datetime(2009,1,1),datetime.datetime(2009,1,2),900)
-  plot(part.pos[:,0],part.pos[:,2],colors[rk-1], marker='o')
+  #plot(part.pos[:,0],part.pos[:,2],colors[rk-1], marker='o')
 
-show()
+#show()
   
 
   
