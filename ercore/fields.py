@@ -283,7 +283,7 @@ class GridData(FieldData):
       for filepath in self.filelist:
         bfile = nc.Dataset(filepath)
         self.files.append(bfile) #Open all the files
-        #this way or working out timewill work for selfe files with seconds since model start , where model start is given as time units
+        #this way or working out time will work for selfe files with seconds since model start , where model start is given as time units
         # need to account for UDS-formatted / CF complinat cases when time is since 1-1-1
         start_time_str = re.search('(?<=\s)\d.+$', bfile.variables['time'].units).group()   # get the file start time from units 
         start_time = datetime.datetime.strptime(start_time_str,'%Y-%m-%d %H:%M:%S')         # convert to datetime
