@@ -31,7 +31,7 @@ def eqnstate(P,T,Mg,Z=1.0):
   return R1*P*Mg/Z/(T+273)
 
 #Base class for all materials - all materials must inherit from this class 
-class _Material:
+class _Material(object):
   """Initialization:
     <MaterialClass>(id,nbuff,movers,reactors,stickers,diffusers,tstart,tend,outfile,**properties)
     Arguments:
@@ -59,6 +59,7 @@ class _Material:
   default_props={}
   status_codes={0:'Not released',1:'Released and active',-1:'Stuck to shoreline or bottom',-2:'Dead'}
   def __init__(self,id,nbuff,movers=[],reactors=[],stickers=[],diffusers=[],tstart=None,tend=None,tstep=0.,tstep_release=0.,outfile=None,P0=[0,0,0],spawn=1,reln=0,R0=1.,Q0=1.,unstick=0.,**prop):
+    super(_Material, self).__init__()
     self.id=id
     self.np=0
     self.ninc=1 #Counter for unique numbering
@@ -83,6 +84,8 @@ class _Material:
     # pre-allocate with a single release position
       self.pos=numpy.array(P0)*numpy.ones((nbuff+1,3))
       self.post=numpy.array(P0)*numpy.ones((nbuff+1,3))
+      self.dep = numpy.ones((nbuff+1))*-999.
+      self.elev = numpy.zeros((nbuff+1)) 
     elif numpy.size(P0[2])==2:
     # P0:single x,y position but range of vertical z level
     # random position allocated within that range
@@ -90,6 +93,8 @@ class _Material:
       P01=[P0[0],P0[1],P0[2][0]]
       self.pos=numpy.array(P01)*numpy.ones((nbuff+1,3))
       self.post=numpy.array(P01)*numpy.ones((nbuff+1,3))
+      self.dep = numpy.ones((nbuff+1))*-999.
+      self.elev = numpy.zeros((nbuff+1)) 
       #thickness of z layer
       dz=abs(P0[2][0]-P0[2][1])
       # depth are supposed to be negative
@@ -111,6 +116,8 @@ class _Material:
       self.pos[:,1]=self.pos[:,1]+radius_lat*rand1*numpy.ones((1,nbuff+1))*numpy.sin(rand2*2*numpy.pi)
       self.post[:,0]=self.pos[:,0]
       self.post[:,1]=self.pos[:,1]
+      self.dep = numpy.ones((nbuff+1))*-999.
+      self.elev = numpy.zeros((nbuff+1)) 
       # Note this will not make a perfect circle, but approximation is likely good enough.
 
     if "polygon" in self.props:
@@ -242,13 +249,15 @@ class _Material:
     
   def fheader(self):
     """Return file header for output"""
-    return 'Time\tid\tx\ty\tz\tstate\tage\tmass\n'
+    #return 'Time\tid\tx\ty\tz\tstate\tage\tmass\n'
+    return 'Time\tid\tx\ty\tz\tstate\tage\tmass\tzbottom\telev\n'
    
   def sfprint(self,t):
     """Return string dump of all particles at specified timestep"""
     str=''
     for i in range(0,self.np):
-      str+="%f\t%d\t%f\t%f\t%f\t%d\t%f\t%f\n" % ((t,self.nid[i])+tuple(self.pos[i])+(self.state[i],self.age[i],self.mass[i]))
+      #str+="%f\t%d\t%f\t%f\t%f\t%d\t%f\t%f\n" % ((t,self.nid[i])+tuple(self.pos[i])+(self.state[i],self.age[i],self.mass[i]))
+      str+="%f\t%d\t%f\t%f\t%f\t%d\t%f\t%f\t%f\t%f\n" % ((t,self.nid[i])+tuple(self.pos[i])+(self.state[i],self.age[i],self.mass[i],self.dep[i],self.elev[i]))
     return str
     
   def release(self,t1,t2,**k):
@@ -273,6 +282,7 @@ class _Material:
       if np>0:self.relsumt-=1.0*np/self._npt
     if np==0:return
     np=int(np)
+    nmax=self.npmax-self.np
 
     # STAGED RELEASE-----------------
     if self.tstep_release>0.0:
@@ -335,16 +345,23 @@ class _Material:
     if self.np<1:return
     np=self.np
     posi=numpy.where(self.state[:np,None]<0,self.pos[:np,:],self.post[:np,:])
-    for sticker in self.stickers:
-      self.post[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np])
-      if self.unstick<=0.:
-        self.state[self.state>1]=-1
+    for sticker in self.stickers:      
+      posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np],t1,t2)
+      if 'GriddedTopo' in sticker.__class__.__name__:
+        self.dep[:self.np]=sticker.interp(posi[:self.np,:],imax=1)[:,0]
+      if 'Elevation' in sticker.__class__.__name__:
+        self.elev[:self.np]=sticker.interp(posi[:self.np,:],t2,imax=1)[:,0]
+    if self.unstick<=0.:
+      self.state[self.state>1]=-1
+    self.post[:self.np,:]=posi[:self.np,:] 
   
   def die(self,t1,t2):
     """Kill particles between times t1 and t2 and remove from simulation"""
     if self.np==0:return
-    dead=(self.age>self.props.get('maxage',1.e20)) | (self.mass<=0.0001*self.mass0)
-    self.state[dead]=-2
+    #dead=(self.age>self.props.get('maxage',1.e20)) | (self.mass<=0.0001*self.mass0)
+    #self.state[dead]=-2
+    dead=(self.age[:self.np]>self.props.get('maxage',1.e20)) | (self.mass[:self.np]<=0.0001*self.mass0)
+    self.state[:self.np][dead]=-2 
     
   
 class PassiveTracer(_Material):
