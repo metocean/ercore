@@ -5,7 +5,9 @@ import gc
 
 _DT0_=datetime.datetime(2000,1,1)
 _NCEPT0_=730120.99999
+# conversion of fraction of days to NCEP/CF convention
 ncep2dt=lambda t:_DT0_+datetime.timedelta(t-_NCEPT0_)
+# conversion of datetime times to fraction of days
 dt2ncep=lambda t: (1.+t.toordinal()+t.hour/24.+t.minute/1440.+t.second/86400.) if isinstance(t,datetime.datetime) else t
 
 def get_summary_report(summary, dt, tout, outdir, materials):

@@ -54,8 +54,10 @@ class RectInterpolator(object):
     
   def __call__(self,dat,p): 
     if self.lev is not None:
+      #import pdb;pdb.set_trace()
       return interp3d(dat,p[:,0],p[:,1],p[:,2],self.x0,self.y0,self.idx,self.idy,self.lev)
     else:
+      #import pdb;pdb.set_trace()
       return interph(dat,p[:,0],p[:,1],self.x0,self.y0,self.idx,self.idy)
     
   def ingrid(self,p):
@@ -232,7 +234,6 @@ class GridData(FieldData):
    
     # Check for nv variables for finite elements grids
     self.nv = True if 'nv' in cfile.keys() else None
-
     for var in ['zlevels', 'lev', 'levels', 'level']:
       if var in cfile.keys():
         self.lev = cfile[var][:]
@@ -272,7 +273,7 @@ class GridData(FieldData):
     self.__dict__.update(options)
 
     ncfile.close()
-    
+
     if self.time is None:
       bfile = nc.Dataset(self.filelist[0])
       self.files=[bfile]
@@ -285,19 +286,26 @@ class GridData(FieldData):
         self.files.append(bfile) #Open all the files
         #this way of working out time will work for selfe files with seconds since model start , where model start is given as time units
         # need to account for UDS-formatted / CF compliant cases when time is since 1-1-1 - use : netCDF4.date2num
-        start_time_str = re.search('(?<=\s)\d.+$', bfile.variables['time'].units).group()   # get the file start time from units 
-        start_time = datetime.datetime.strptime(start_time_str,'%Y-%m-%d %H:%M:%S')         # convert to datetime
-        deltas = [datetime.timedelta(seconds=float(t)) for t in bfile.variables['time'][:]] # deltas is incremental number of sedconds since file start    
-        time0 = [ dt2ncep(start_time+delta) for delta in deltas ] 
-        import pdb;pdb.set_trace()                          #
-        #if (len(self.time)>0) and (time0[0]<self.time[-1]):raise DataException('For templated time files times must be increasing - time in file %s less than preceeding file' % (bfile.filepath())) 
+        #
+        if False: # keeping just for reference - SELFE files should be processed to CF-convention
+          # Case of SELFE time - seconds since model start - SELFE should probably be converted to CF-convention too in the future ..
+          start_time_str = re.search('(?<=\s)\d.+$', bfile.variables['time'].units).group()   # get the file start time from units 
+          start_time = datetime.datetime.strptime(start_time_str,'%Y-%m-%d %H:%M:%S')         # convert to datetime
+          deltas = [datetime.timedelta(seconds=float(t)) for t in bfile.variables['time'][:]] # deltas is incremental number of sedconds since file start    
+          time0 = [ dt2ncep(start_time+delta) for delta in deltas ]                           # convert time to fraction of days - CF-compliant
+        #
+        # CF-compliant netcdf files
+        # time is already as fraction of days - since 1-1-1
+        time0=bfile.variables['time'][:]
+        #import pdb;pdb.set_trace()                          #
+        if (len(self.time)>0) and (time0[0]<self.time[-1]):raise DataException('For templated time files times must be increasing - time in file %s less than preceeding file' % (bfile.filepath())) 
         self.time.extend(time0) #Add times in file to time list
         self.flen.append(len(time0))
         self.timeindex.append(len(self.time)) #Add start time index of next file
         #self.load_keystore(filepath) # probably related to cryptage so not needed ?
       self.flen.append(self.flen[-1])
       self.reset()
-   
+  
 
   def load_files(self, cfile):
     files = []
@@ -327,7 +335,7 @@ class GridData(FieldData):
   def get(self,time): #Time is current model time
     """Get data slab for specified time
     Arguments:
-      time: Time as NCEP decimal
+      time: Time as NCEP decimal days
     """
     start = datetime.datetime.now()
     if time is None or self.time is None:
@@ -366,9 +374,7 @@ class GridData(FieldData):
         if numpy.any(self.mask): 
           self.buf0[v]=self.files[self.fileind0][v][ind0].filled()
           self.buf1[v]=self.files[self.fileind1][v][ind1].filled()
-
-    import pdb;pdb.set_trace()  
-
+    #import pdb;pdb.set_trace()  
     if (self.tind==0) and (time<self.time[0]):
       print 'Warning: model time (%s) before start time (%s) of data %s' % (ncep2dt(time), ncep2dt(self.time[0]), self.id)
     elif (self.tind==len(self.time)-1) and (time>self.time[-1]):
@@ -563,7 +569,11 @@ class GriddedTopo(GridData):
     self.vars.append('dhdx')
     self.buf0['dhdy']=dhdy
     self.vars.append('dhdy')
-  
+    #This is in the case of a 3D grid also used to define a 2D topo
+    # because otherwise it inherits the self.lev and slef.is3d=True, which will fails 
+    # at the future interp
+    self.interpolator.lev=None
+    self.interpolator.is3d=False
   def intersect(self,pos,post,state,t1,t2):
     """Test for intersection of particles with topo
     Arguments:
@@ -635,12 +645,14 @@ class TidalElevation(GriddedTide):
 class GriddedMover(GridData):
   z0=0.
   topo=None
-  import pdb;pdb.set_trace
   @copydoc(FieldData.interp)
   def interp(self,p,time=None,imax=2):
     uu=GridData.interp(self,p,time,imax)
+    print '%s' % (uu[0])
     #Correct for vertical motion
     if self.topo:
+      #import pdb;pdb.set_trace()
+      self.topo.lev=None
       topo=self.topo.interp(p,None,3)
       dz=numpy.maximum(p[:,2]-topo[:,0],self.z0)
       if (not self.is3d) and (self.z0>0):#Log profile for 2D case
