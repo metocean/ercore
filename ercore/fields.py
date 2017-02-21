@@ -283,8 +283,8 @@ class GridData(FieldData):
       for filepath in self.filelist:
         bfile = nc.Dataset(filepath)
         self.files.append(bfile) #Open all the files
-        #this way or working out time will work for selfe files with seconds since model start , where model start is given as time units
-        # need to account for UDS-formatted / CF complinat cases when time is since 1-1-1
+        #this way of working out time will work for selfe files with seconds since model start , where model start is given as time units
+        # need to account for UDS-formatted / CF compliant cases when time is since 1-1-1 - use : netCDF4.date2num
         start_time_str = re.search('(?<=\s)\d.+$', bfile.variables['time'].units).group()   # get the file start time from units 
         start_time = datetime.datetime.strptime(start_time_str,'%Y-%m-%d %H:%M:%S')         # convert to datetime
         deltas = [datetime.timedelta(seconds=float(t)) for t in bfile.variables['time'][:]] # deltas is incremental number of sedconds since file start    

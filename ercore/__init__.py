@@ -123,7 +123,9 @@ class ERcore(object):
   geod=True
   tout=0.
   rkorder=4
-  def __init__(self,**k):
+  release_id = 0
+  stopped = False
+  def __init__(self,manager=None,**k):
     self.manager = manager
     self.fout={}
     self.outpath=k.get('outpath','.')
@@ -182,22 +184,25 @@ class ERcore(object):
     import inspect
     self.materials=[o for o in objects if materials._Material in inspect.getmro(o.__class__)]
 
-    def timestamp(self, section, start=None, avg=True):
+  def timestamp(self, section, start=None, avg=True):
     if self.save_summary:
       if not start:
         self.summary[section] = '%s' % datetime.datetime.now()
       else:
         start = start or datetime.datetime.now()
         delta = datetime.datetime.now()-start
+        total_seconds=(delta.microseconds + (delta.seconds + delta.days * 24 * 3600) * 10**6) / 10**6 
+        # see https://docs.python.org/2/library/datetime.html#datetime.timedelta.total_seconds
         if section not in self.summary or self.summary[section] is None:
-          self.summary[section] = delta.total_seconds()
+          #self.summary[section] = delta.total_seconds() # delta.total_seconds() only works from Python 2.7 onwards
+          self.summary[section] =total_seconds
         else:
-          self.summary[section] = numpy.average([self.summary[section],
-                                                  delta.total_seconds()])
+          #self.summary[section] = numpy.average([self.summary[section],delta.total_seconds()]) # delta.total_seconds() only works from Python 2.7 onwards
+          self.summary[section] = numpy.average([self.summary[section],total_seconds]) 
     return datetime.datetime.now() 
 
 
-  def run(self,t,tend,dt):
+  def run(self,t,tend,dt,keep_sticked=False):
     """Run Ercore
     Arguments:
         t: Start time as datetime, ncep decimal time or string
