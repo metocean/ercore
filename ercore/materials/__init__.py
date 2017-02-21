@@ -345,8 +345,13 @@ class _Material(object):
     if self.np<1:return
     np=self.np
     posi=numpy.where(self.state[:np,None]<0,self.pos[:np,:],self.post[:np,:])
-    for sticker in self.stickers:      
-      posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np],t1,t2)
+    #import pdb;pdb.set_trace()
+    for sticker in self.stickers: # shoreline sticker 
+      if 'Shoreline' in  sticker.__class__.__name__:
+        posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np])
+      else: # 2D sticker 
+        posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np],t1,t2)
+
       if 'GriddedTopo' in sticker.__class__.__name__:
         self.dep[:self.np]=sticker.interp(posi[:self.np,:],imax=1)[:,0]
       if 'Elevation' in sticker.__class__.__name__:

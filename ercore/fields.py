@@ -572,6 +572,7 @@ class GriddedTopo(GridData):
     #This is in the case of a 3D grid also used to define a 2D topo
     # because otherwise it inherits the self.lev and slef.is3d=True, which will fails 
     # at the future interp
+    # there may be a better way to do this
     self.interpolator.lev=None
     self.interpolator.is3d=False
   def intersect(self,pos,post,state,t1,t2):
