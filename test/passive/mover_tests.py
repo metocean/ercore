@@ -42,7 +42,8 @@ P0=[170.5,-46,-10]
 
 dep=GriddedTopo('depth',['dep'],file='uds_gsb_test.nc',zinvert=True)
 currents=GriddedMover('cur',['uo','vo'],is3d=True,file='uds_gsb_test.nc',topo=dep)
-tide=GriddedMover('tide',['ut','vt'],is3d=False,file='uds_gsb_test.nc')
+
+tide=GriddedMover('tide',['ut','vt'],is3d=False,file='uds_gsb_test.nc') #
 
 constantsurf=ConstantMover('constantsurf',['u','v'],u=1.0,v=0,topo=dep)
 constant3D=ConstantMover('constant3D',['u','v'],is3d=True,levels=[0,-10,-30,-40],u=[1.0,0.5,0.0,-0.5],v=[0,0,0,0],topo=dep)
@@ -61,10 +62,12 @@ particles=BuoyantTracer('particlesA',10000,movers=[movergroup],stickers=[shoreli
 
 particles1=BuoyantTracer('particlesA2',10000,movers=[currents],stickers=[shoreline,dep],reln=10,P0=P0,w0=0.0,tstart=tstart, tend=tstart)
 
-particles1t=BuoyantTracer('particlesA2t',10000,movers=[currents,tide],stickers=[shoreline,dep],reln=10,P0=P0,w0=0.0,tstart=tstart, tend=tstart)
+particles2=BuoyantTracer('particlesA2t',10000,movers=[tide],stickers=[shoreline,dep],reln=10,P0=P0,w0=0.0,tstart=tstart, tend=tstart)
+particles2=BuoyantTracer('particlesA2t',10000,movers=[currents,tide],stickers=[shoreline,dep],reln=10,P0=P0,w0=0.0,tstart=tstart, tend=tstart)
 
-particles2=BuoyantTracer('particlesB',10000,movers=[constantsurf,constant3Dsub],stickers=[shoreline,dep],reln=10,P0=P0,w0=0.0,tstart=tstart, tend=tstart)
-particles2=BuoyantTracer('particlesB',10000,movers=[constantsurf],stickers=[shoreline,dep],reln=10,P0=P0,w0=0.0,tstart=tstart, tend=tstart)
+particles3=BuoyantTracer('particlesB',10000,movers=[constantsurf,constant3Dsub],stickers=[shoreline,dep],reln=10,P0=P0,w0=0.0,tstart=tstart, tend=tstart)
+
+particles4=BuoyantTracer('particlesB',10000,movers=[constantsurf],stickers=[shoreline,dep],reln=10,P0=P0,w0=0.0,tstart=tstart, tend=tstart)
 
 
 
@@ -74,18 +77,33 @@ ercore=ERcore(tout=tout,rkorder=4)
 
 ###### start tests #####
 
+ercore.materials=[particles]
+ercore.run(tstart,tend,tstep)
+
+#plot_particles(particles)
+
+
 ercore.materials=[particles1]
 ercore.run(tstart,tend,tstep)
 
-plot_particles(particles)
+#plot_particles(particles)
 
-ercore.materials=[particles1]
+ercore.materials=[particles2]
 ercore.run(tstart,tend,tstep)
-plot_particles(particles1) # same as before
+#plot_particles(particles1) # same as before
 
-ercore.materials=[particles1t]
+ercore.materials=[particles2]
 ercore.run(tstart,tend,tstep)
-plot_particles(particles1t)
+#plot_particles(particles1t)
+
+ercore.materials=[particles3]
+ercore.run(tstart,tend,tstep)
+#plot_particles(particles1t)
+
+ercore.materials=[particles4]
+ercore.run(tstart,tend,tstep)
+#plot_particles(particles1t)
+
 
 ## multiple releases of the same material ##
 

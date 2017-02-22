@@ -217,12 +217,14 @@ class GridData(FieldData):
       self.bufstore={}
     else:
       self.time=None
+
     for v in self.vars:
       if not cfile[v]:raise DataException('Variable %s not found in grid file %s' % (v,self.filename))
       if self.time is not None and cfile[v].shape[0] == cfile['time'].shape[0]:
         self.buf0[v]=None
         self.buf1[v]=None    
       else:
+        # load variable data
         self.buf0[v]=cfile[v][:]
 
     for vlon,vlat in [('lon','lat'),('longitude','latitude')]:
@@ -234,8 +236,10 @@ class GridData(FieldData):
    
     # Check for nv variables for finite elements grids
     self.nv = True if 'nv' in cfile.keys() else None
+
     for var in ['zlevels', 'lev', 'levels', 'level']:
-      if var in cfile.keys():
+      #if var in cfile.keys(): # This will not be correct where both 2d and 3d data are read from a single netcdf file (e.g. reading 3d current and 2D topo, or 2D tidal currents)
+      if var in cfile[vars[0]].dimensions: 
         self.lev = cfile[var][:]
         self.is3d = True
         break
@@ -445,7 +449,7 @@ class ConstantTide(ConstantData):
     ConstantData.interp(self,time,imax=imax)
     
   
-class GriddedTide(GridData):
+class GriddedTide(GridData): # Tidal consituent grid
   def __init__(self,id,vars,**options):
     from ercore.lib.tide import TideStr
     import datetime
@@ -573,8 +577,9 @@ class GriddedTopo(GridData):
     # because otherwise it inherits the self.lev and slef.is3d=True, which will fails 
     # at the future interp
     # there may be a better way to do this
-    self.interpolator.lev=None
-    self.interpolator.is3d=False
+    #self.interpolator.lev=None 
+    #self.interpolator.is3d=False
+    #***** can be removed since now taken care of at netcdf reading time
   def intersect(self,pos,post,state,t1,t2):
     """Test for intersection of particles with topo
     Arguments:
@@ -648,12 +653,12 @@ class GriddedMover(GridData):
   topo=None
   @copydoc(FieldData.interp)
   def interp(self,p,time=None,imax=2):
+    #import pdb;pdb.set_trace()
     uu=GridData.interp(self,p,time,imax)
-    print '%s' % (uu[0])
+    #print '%s' % (uu[0])
     #Correct for vertical motion
+
     if self.topo:
-      #import pdb;pdb.set_trace()
-      self.topo.lev=None
       topo=self.topo.interp(p,None,3)
       dz=numpy.maximum(p[:,2]-topo[:,0],self.z0)
       if (not self.is3d) and (self.z0>0):#Log profile for 2D case
