@@ -62,7 +62,7 @@ particles=BuoyantTracer('particlesA',10000,movers=[movergroup],stickers=[shoreli
 
 particles1=BuoyantTracer('particlesA2',10000,movers=[currents],stickers=[shoreline,dep],reln=10,P0=P0,w0=0.0,tstart=tstart, tend=tstart)
 
-particles2=BuoyantTracer('particlesA2t',10000,movers=[tide],stickers=[shoreline,dep],reln=10,P0=P0,w0=0.0,tstart=tstart, tend=tstart)
+#particles2=BuoyantTracer('particlesA2t',10000,movers=[tide],stickers=[shoreline,dep],reln=10,P0=P0,w0=0.0,tstart=tstart, tend=tstart)
 particles2=BuoyantTracer('particlesA2t',10000,movers=[currents,tide],stickers=[shoreline,dep],reln=10,P0=P0,w0=0.0,tstart=tstart, tend=tstart)
 
 particles3=BuoyantTracer('particlesB',10000,movers=[constantsurf,constant3Dsub],stickers=[shoreline,dep],reln=10,P0=P0,w0=0.0,tstart=tstart, tend=tstart)

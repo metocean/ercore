@@ -238,7 +238,7 @@ class GridData(FieldData):
     self.nv = True if 'nv' in cfile.keys() else None
 
     for var in ['zlevels', 'lev', 'levels', 'level']:
-      #if var in cfile.keys(): # This will not be correct where both 2d and 3d data are read from a single netcdf file (e.g. reading 3d current and 2D topo, or 2D tidal currents)
+      #if var in cfile.keys(): >> This will not be correct where both 2d and 3d data are read from a single netcdf file (e.g. reading 3d current and 2D topo, or 2D tidal currents)
       if var in cfile[vars[0]].dimensions: 
         self.lev = cfile[var][:]
         self.is3d = True

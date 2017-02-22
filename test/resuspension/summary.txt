@@ -1,0 +1,27 @@
+
+===============================================
+  ErCore Model Summary
+--------------------------------------------
+  Directory output :          .
+  Model time step:            900.0s
+  Output frequency:           3600.0s
+  Materials:                  10 - particles (BuoyantTracer)
+  Total particles released:   10
+--------------------------------------------
+  Time Summary
+--------------------------------------------
+  Start time:              2017-02-22 16:46:05.261605
+  End time:                2017-02-22 16:46:05.772526
+  Initialization time:     0.00000s
+  Avg. step time:          0.00000s
+  Avg. release time:       0.00000s
+  Avg. react time:         0.00000s
+  Avg. advect time:        0.00000s
+  Avg. diffuse time:       0.00000s
+  Avg. stick time:         0.00000s
+  Avg. ageing time:        0.00000s
+  Avg. dieing time:        0.00000s
+  Total modeling time:     0:00:00
+===============================================
+
++

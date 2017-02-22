@@ -76,6 +76,7 @@ class _Material(object):
     self.props['P0']=P0
     self.props['spawn']=spawn
     self.props.update(prop)
+    import pdb;pdb.set_trace()
     # Release Options
     #
     # Initialization of particle position vector 
@@ -467,7 +468,7 @@ class Drifter(PassiveTracer):
     if len(self.reactors)==0:return
     np=self.np
     dt=86400.*(t2-t1)
-#Windage with cross and down-wind ranges
+    ul#Windage with cross and down-wind ranges
     wvec=0.5*(self.reactors[0].interp(self.pos[:np],t1,imax=2)+self.reactors[0].interp(self.post[:np],t2,imax=2))
     wsp=((wvec**2).sum(1))**0.5
     wdir=numpy.arctan2(wvec[:,1],wvec[:,0])
