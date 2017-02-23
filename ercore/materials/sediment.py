@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from ercore.material import *
+from ercore.materials import *
 from ercore.lib import dens
 
 #Class for sediment
@@ -12,6 +12,7 @@ class Sediment(BuoyantTracer):
   """
   default_props={'d0':None,'rho_s':2650}
   def initialize(self,t1,t2):
+    import pdb;pdb.set_trace()
     BuoyantTracer.initialize(self,t1,t2)
     if self.props.get('d0'):
       w0=0.0005*(props.get('rho_s')-dens(35,20))*props.get('d0')**2 #This is calculate for sea water with 35 PPT and 20C

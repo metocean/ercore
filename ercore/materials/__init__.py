@@ -45,7 +45,7 @@ class _Material(object):
       tend: Ending time for release
       tstep: Timestep of release
       outfile: Filename of output file
-      P0: Initial position of release
+      P0: Initial position of release - Note the convention of particle vertical level Z is negative downards, where sea surface=0m i.e. -10 s 10 m below sea surface
       spawn: Number of spawned particles (per day)
       reln: Number of particles per release
       R0: Total release of material
@@ -76,7 +76,7 @@ class _Material(object):
     self.props['P0']=P0
     self.props['spawn']=spawn
     self.props.update(prop)
-    import pdb;pdb.set_trace()
+    #import pdb;pdb.set_trace()
     # Release Options
     #
     # Initialization of particle position vector 
@@ -367,7 +367,13 @@ class _Material(object):
     #dead=(self.age>self.props.get('maxage',1.e20)) | (self.mass<=0.0001*self.mass0)
     #self.state[dead]=-2
     dead=(self.age[:self.np]>self.props.get('maxage',1.e20)) | (self.mass[:self.np]<=0.0001*self.mass0)
-    self.state[:self.np][dead]=-2 
+    self.state[:self.np][dead]=-2
+
+  def resuspend_deposit(self,t1,t2):
+    """Performs some check on bed shear stress levels and resuspend/deposit accordingly
+    more explanatiosn here **** 
+    """ 
+
     
   
 class PassiveTracer(_Material):
@@ -435,11 +441,13 @@ class PassiveTracer(_Material):
       self.post[:np,:imax]+=numpy.random.uniform(-diff,diff,size=(np,imax))*self.mfx[:np,:imax] #self.mfx=map factors i.e. meters to lat/lon
       # correction for vertical diffusion resulting in above sea-surface Zlevel
       self.post[:np,2]=numpy.minimum(self.post[:np,2],0.0)
+
+
     
     
 class BuoyantTracer(PassiveTracer):
   __doc__=PassiveTracer.__doc__+"""
-    w0: Rise velocity (m/s) [-ve for sinking]
+    w0: Rise velocity (m/s) [ negative w0  sinking, positive w0 > buoyant]
   """
   default_props={'w0':0.0}
   

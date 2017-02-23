@@ -54,10 +54,10 @@ class RectInterpolator(object):
     
   def __call__(self,dat,p): 
     if self.lev is not None:
-      #import pdb;pdb.set_trace()
+      import pdb;pdb.set_trace()
       return interp3d(dat,p[:,0],p[:,1],p[:,2],self.x0,self.y0,self.idx,self.idy,self.lev)
     else:
-      #import pdb;pdb.set_trace()
+      import pdb;pdb.set_trace()
       return interph(dat,p[:,0],p[:,1],self.x0,self.y0,self.idx,self.idy)
     
   def ingrid(self,p):
@@ -248,6 +248,7 @@ class GridData(FieldData):
         self.is3d = False
 
     if options.pop('zcoord','up')=='down':
+      # maybe force inout of zcoord to reduce confusion ?
       if self.is3d: self.lev=-self.lev
       self.zinvert=True
 
@@ -653,13 +654,14 @@ class GriddedMover(GridData):
   topo=None
   @copydoc(FieldData.interp)
   def interp(self,p,time=None,imax=2):
-    #import pdb;pdb.set_trace()
+    
     uu=GridData.interp(self,p,time,imax)
     #print '%s' % (uu[0])
     #Correct for vertical motion
-
     if self.topo:
       topo=self.topo.interp(p,None,3)
+      uu1masb=GridData.interp(self,numpy.vstack((p[:,0],p[:,1],p[:,2]+5)).T,time,imax)
+      import pdb;pdb.set_trace()
       dz=numpy.maximum(p[:,2]-topo[:,0],self.z0)
       if (not self.is3d) and (self.z0>0):#Log profile for 2D case
         uu[:,:2]=uu[:,:2]*(numpy.log(dz[:,numpy.newaxis]/self.z0))/(numpy.log(abs(topo[:,0:1])/self.z0)-1)
@@ -667,6 +669,30 @@ class GriddedMover(GridData):
         w1=slope_correction(p,topo,uu)
         uu[:,2]+=w1
     return uu
+  #function to compute bed shear stress - using z0 for friction for now  
+  def bedshearstress(self,p,time=None,imax=2):
+    rhow=1027 # default volumic mass for seawater
+    if self.topo: # topo needed to define bedshear stress
+      topo=self.topo.interp(p,None,3)
+      if (not self.is3d) and (self.z0>0): # mover is 2D-depth averaged current
+        u2dhim=GridData.interp(self,p,time,imax)    
+      elif (self.is3d) and (self.z0>0):
+        import pdb;pdb.set_trace()
+        #calculate imaginary "depth-averaged current" which has a logarithmic
+        #velocity profile, and a velocity at the bottom level point equivalent
+        #to that calculated by the model for 3D current and waves.
+        # consistent with DELFT3D
+        #
+        # Here instead of looking for closest "good" level at each particle position, we interpolate currents to 1m above seabed
+        lev_asb=1.0
+        uu1masb=GridData.interp(self,numpy.vstack((p[:,0],p[:,1],topo[:,0]+lev_asb)).T,time,imax)
+        # now invert to estimate the "virtual" depth-averaged velocity
+        u2dhim = (uu1masb / topo[:,0] * ((topo[:,0]+z0rou)*numpy.log(1+topo[:,0]/z0rou) - topo[:,0])) / log(1+lev_asb/z0rou)
+        #u2dhim = (umod / h1 * ((h1+z0rou)*log(1.0_fp+h1/z0rou) - h1)) / log(1.0_fp+zumod/z0rou) - delft3d bedbc1993.f90
+    #Cd=(0.4./(numpy.log(topo./z0)-1))**2 #drag coefficient as a function of z0 following Soulsby/Van Rijn e.g. see Delft3d Manual
+    #Cd=(0.4./(log(depth./z0)-1)).^2;%drag coeff following Soulsby Van Rijn See Delft3d Manual
+    #Now compute the bed shear stress
+
 
 class TidalMover(GriddedTide):
   z0=0.
