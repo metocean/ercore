@@ -123,7 +123,7 @@ class Plume(_Material):
     self.age[:]=0.
     return nt
     
-#This is currently set up so that the plume should be able to evolve and terminate inside a single master timestep
+  #This is currently set up so that the plume should be able to evolve and terminate inside a single master timestep
   def advect(self,t1,t2,order=4):
     for np in range(1,self.nt+1):
       self.np=np

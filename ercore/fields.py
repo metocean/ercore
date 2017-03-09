@@ -54,10 +54,8 @@ class RectInterpolator(object):
     
   def __call__(self,dat,p): 
     if self.lev is not None:
-      import pdb;pdb.set_trace()
       return interp3d(dat,p[:,0],p[:,1],p[:,2],self.x0,self.y0,self.idx,self.idy,self.lev)
     else:
-      import pdb;pdb.set_trace()
       return interph(dat,p[:,0],p[:,1],self.x0,self.y0,self.idx,self.idy)
     
   def ingrid(self,p):
@@ -193,7 +191,8 @@ class GridData(FieldData):
   def __init__(self,id,vars,**options):
     """  options:
     file: filename of gridded data file
-    zcoord: direction of z-coordinate [up/down] (optional)
+    zcoord: direction of z-coordinate [up/down] (optional, default is 'up')
+    **'up' means positive up and 'down' means positive down
     """
     #import cdms2,re,glob
     FieldData.__init__(self,id,vars,**options)
@@ -246,9 +245,10 @@ class GridData(FieldData):
       else:
         self.lev = None
         self.is3d = False
-
     if options.pop('zcoord','up')=='down':
-      # maybe force inout of zcoord to reduce confusion ?
+      # maybe force input of zcoord to reduce confusion ?
+      print 'Initialization - Inverting vertical levels of %s -  %s'  % (self.id,self.file)
+      #import pdb;pdb.set_trace()
       if self.is3d: self.lev=-self.lev
       self.zinvert=True
 
@@ -569,18 +569,13 @@ class GriddedTopo(GridData):
     GridData.__init__(self,id,vars,**options)
     v=self.vars[0]
     if self.zinvert:self.buf0[v]=-self.buf0[v]
+    # we should probably be consistent with GriddedMover and use zcoords rather than zinvert ?
     dhdy,dhdx=self.interpolator.grad(self.buf0[v])
     self.buf0['dhdx']=dhdx
     self.vars.append('dhdx')
     self.buf0['dhdy']=dhdy
     self.vars.append('dhdy')
-    #This is in the case of a 3D grid also used to define a 2D topo
-    # because otherwise it inherits the self.lev and slef.is3d=True, which will fails 
-    # at the future interp
-    # there may be a better way to do this
-    #self.interpolator.lev=None 
-    #self.interpolator.is3d=False
-    #***** can be removed since now taken care of at netcdf reading time
+
   def intersect(self,pos,post,state,t1,t2):
     """Test for intersection of particles with topo
     Arguments:
@@ -590,20 +585,25 @@ class GriddedTopo(GridData):
     Returns:
       New particle positions after intersection (state modified in place)
     """
-    dep1=self.interp(pos,imax=1)[:,0]
-    dep2=self.interp(post,imax=1)[:,0]
+
+    dep1=self.interp(pos,imax=1)[:,0]  # particle depths at t1
+    dep2=self.interp(post,imax=1)[:,0] # particle depths at t2
     # -1* to ensure that outputs False if deps are actually the same.
-    ind=((post[:,2]-dep2 < -1*ALMOST_ZERO) & (state>0))
+
+    # identify active particles (state=1) that will reach the seabed at t2 (post)
+    ind=((post[:,2]-dep2 < -1*ALMOST_ZERO) & (state>0)) 
     pout=post[:,:]
     if ind.sum():
-      if (pos[ind,2] < dep1[ind]).any(): # already under bathy
+      if (pos[ind,2] < dep1[ind]).any():
+        # particles were already under bathy at t1 
         pout[ind,:]=pos[ind,:]
-        pout[ind,2] = dep1[ind]
+        pout[ind,2] = dep1[ind] # reset particle depth as dep1
       else:
+        #import pdb; pdb.set_trace()
         denom=(dep2[ind]-dep1[ind]+pos[ind,2]-post[ind,2])
         f=(pos[ind,2]-dep1[ind])/denom
         pout[ind,:]=pos[ind,:]+f[:,None]*(post[ind,:]-pos[ind,:])
-        state[ind]+=1 
+        state[ind]+=1
     return pout
 
 def intersect_free_surface(self,pos,post,state,t1,t2):
@@ -660,38 +660,58 @@ class GriddedMover(GridData):
     #Correct for vertical motion
     if self.topo:
       topo=self.topo.interp(p,None,3)
-      uu1masb=GridData.interp(self,numpy.vstack((p[:,0],p[:,1],p[:,2]+5)).T,time,imax)
-      import pdb;pdb.set_trace()
-      dz=numpy.maximum(p[:,2]-topo[:,0],self.z0)
-      if (not self.is3d) and (self.z0>0):#Log profile for 2D case
+      #import pdb;pdb.set_trace()
+      dz=numpy.maximum(p[:,2]-topo[:,0],self.z0) # particle depth above seabed (positive)
+      if (not self.is3d) and (self.z0>0):#Log profile for 2D depth averaged currents
+        # use of standard log profile to extrapolate depth-averaged current to particls depths p[:,2]
         uu[:,:2]=uu[:,:2]*(numpy.log(dz[:,numpy.newaxis]/self.z0))/(numpy.log(abs(topo[:,0:1])/self.z0)-1)
       if (imax==3):  #Vertical velocity correction for slope
         w1=slope_correction(p,topo,uu)
         uu[:,2]+=w1
+      # we should probably apply a log profile for the 3D case for the region from the last wet bin to bottom
     return uu
-  #function to compute bed shear stress - using z0 for friction for now  
+  #function to compute bed shear stress - using z0 for friction for now 
+  # could be an independant function, but will GridData be recognized ?
   def bedshearstress(self,p,time=None,imax=2):
+    """Computation of bed shear stress
+    Arguments:
+      self : expected to include fields topo,is3d,lev (if applicable) 
+      p: particle positions
+      uses interp function from GridData
+    Returns:
+      current-related bed shear stress
+    """
+    
     rhow=1027 # default volumic mass for seawater
     if self.topo: # topo needed to define bedshear stress
-      topo=self.topo.interp(p,None,3)
-      if (not self.is3d) and (self.z0>0): # mover is 2D-depth averaged current
-        u2dhim=GridData.interp(self,p,time,imax)    
-      elif (self.is3d) and (self.z0>0):
-        import pdb;pdb.set_trace()
-        #calculate imaginary "depth-averaged current" which has a logarithmic
-        #velocity profile, and a velocity at the bottom level point equivalent
-        #to that calculated by the model for 3D current and waves.
-        # consistent with DELFT3D
-        #
-        # Here instead of looking for closest "good" level at each particle position, we interpolate currents to 1m above seabed
-        lev_asb=1.0
-        uu1masb=GridData.interp(self,numpy.vstack((p[:,0],p[:,1],topo[:,0]+lev_asb)).T,time,imax)
-        # now invert to estimate the "virtual" depth-averaged velocity
-        u2dhim = (uu1masb / topo[:,0] * ((topo[:,0]+z0rou)*numpy.log(1+topo[:,0]/z0rou) - topo[:,0])) / log(1+lev_asb/z0rou)
-        #u2dhim = (umod / h1 * ((h1+z0rou)*log(1.0_fp+h1/z0rou) - h1)) / log(1.0_fp+zumod/z0rou) - delft3d bedbc1993.f90
-    #Cd=(0.4./(numpy.log(topo./z0)-1))**2 #drag coefficient as a function of z0 following Soulsby/Van Rijn e.g. see Delft3d Manual
-    #Cd=(0.4./(log(depth./z0)-1)).^2;%drag coeff following Soulsby Van Rijn See Delft3d Manual
-    #Now compute the bed shear stress
+      topo=self.topo.interp(p,None,3)     
+      if (not self.is3d) and (self.z0>0): # mover is a 2D-depth averaged current
+        u2dhim=GridData.interp(self,p,time,imax)
+        u2dhim_mag=(u2dhim[:,0]**2+u2dhim[:,1]**2)**0.5
+        # Drag coefficient for 2D case using water depth and z0 (see COHERENS manual eq.7.2, or Delft3d)
+        Cdrag=( 0.4 /(numpy.log(abs(topo[:,0] /self.z0))-1) )**2
+        #Now compute the bed shear stress [N/m2] 
+        tau_cur=rhow*Cdrag*u2dhim_mag**2    
+      elif (self.is3d) and (self.z0>0):   # mover is a 3D current field
+        #import pdb;pdb.set_trace()
+        # Assume the first grid point above the bed is assumed to be the top of the logarithmic boundary layer
+        # the log profile extends from than last wet bin level, to the bottom
+        # see COHERENS manual eq 7.1/7.2
+
+        # find closest "wet" vertical levels at each particle locations
+        bin_lev=numpy.zeros(len(p[:,0]))
+        for lev in self.lev:
+          bin_lev[topo[:,0]<=lev]=lev
+        #vertical height from last wet vertical bin to seabed
+        zb=bin_lev-topo[:,0]
+        #current computed at last wet vertical bin
+        uub=GridData.interp(self,numpy.vstack((p[:,0],p[:,1],bin_lev)).T,time,imax)
+        uub_mag=(uub[:,0]**2+uub[:,1]**2)**0.5
+        # Drag coefficient for 3D case using zb and z0 (see COHERENS manual eq.7.2, or Delft3d)
+        Cdrag=( 0.4 /(numpy.log(abs(zb /self.z0))-1) )**2 
+         #Now compute the bed shear stress [N/m2]
+        tau_cur=rhow*Cdrag*uub_mag**2       
+    return tau_cur,topo
 
 
 class TidalMover(GriddedTide):
@@ -710,6 +730,47 @@ class TidalMover(GriddedTide):
         w1=slope_correction(p,topo,uu)
         uu[:,2]+=w1
     return uu
+  # need to find a better way to do this rather than reproducing code (same for interp function)
+  def bedshearstress(self,p,time=None,imax=2):
+    """Computation of bed shear stress
+    Arguments:
+      self : expected to include fields topo,is3d,lev (if applicable) 
+      p: particle positions
+      uses interp function from GridData
+    Returns:
+      current-related bed shear stress
+    """
+    rhow=1027 # default volumic mass for seawater
+    if self.topo: # topo needed to define bedshear stress
+      topo=self.topo.interp(p,None,3)     
+      if (not self.is3d) and (self.z0>0): # mover is a 2D-depth averaged current
+        u2dhim=GridData.interp(self,p,time,imax)
+        u2dhim_mag=(u2dhim[:,0]**2+u2dhim[:,1]**2)**0.5
+        # Drag coefficient for 2D case using water depth and z0 (see COHERENS manual eq.7.2, or Delft3d)
+        Cdrag=( 0.4 /(numpy.log(abs(topo[:,0] /self.z0))-1) )**2
+        #Now compute the bed shear stress [N/m2] 
+        tau_cur=rhow*Cdrag*u2dhim_mag**2    
+      elif (self.is3d) and (self.z0>0):   # mover is a 3D current field
+        #import pdb;pdb.set_trace()
+        # Assume the first grid point above the bed is assumed to be the top of the logarithmic boundary layer
+        # the log profile extends from than last wet bin level, to the bottom
+        # see COHERENS manual eq 7.1/7.2
+
+        # find closest "wet" vertical levels at each particle locations
+        bin_lev=numpy.zeros(len(p[:,0]))
+        for lev in self.lev:
+          bin_lev[topo[:,0]<=lev]=lev
+        #vertical height from last wet vertical bin to seabed
+        zb=bin_lev-topo
+        #current computed at last wet vertical bin
+        uub=GridData.interp(self,numpy.vstack((p[:,0],p[:,1],bin_lev)).T,time,imax)
+        uub_mag=(uu1masb[:,0]**2+uu1masb[:,1]**2)**0.5
+        # Drag coefficient for 3D case using zb and z0 (see COHERENS manual eq.7.2, or Delft3d)
+        Cdrag=( 0.4 /(numpy.log(abs(zb /self.z0))-1) )**2 
+         #Now compute the bed shear stress [N/m2]
+        tau_cur=rhow*Cdrag*uub_mag**2       
+    return tau_cur
+
 
 class GriddedReactor(GridData):
   pass

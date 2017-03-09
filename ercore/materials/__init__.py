@@ -352,7 +352,6 @@ class _Material(object):
         posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np])
       else: # 2D sticker 
         posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np],t1,t2)
-
       if 'GriddedTopo' in sticker.__class__.__name__:
         self.dep[:self.np]=sticker.interp(posi[:self.np,:],imax=1)[:,0]
       if 'Elevation' in sticker.__class__.__name__:
