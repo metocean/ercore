@@ -670,48 +670,6 @@ class GriddedMover(GridData):
         uu[:,2]+=w1
       # we should probably apply a log profile for the 3D case for the region from the last wet bin to bottom
     return uu
-  #function to compute bed shear stress - using z0 for friction for now 
-  # could be an independant function, but will GridData be recognized ?
-  def bedshearstress(self,p,time=None,imax=2):
-    """Computation of bed shear stress
-    Arguments:
-      self : expected to include fields topo,is3d,lev (if applicable) 
-      p: particle positions
-      uses interp function from GridData
-    Returns:
-      current-related bed shear stress
-    """
-    
-    rhow=1027 # default volumic mass for seawater
-    if self.topo: # topo needed to define bedshear stress
-      topo=self.topo.interp(p,None,3)     
-      if (not self.is3d) and (self.z0>0): # mover is a 2D-depth averaged current
-        u2dhim=GridData.interp(self,p,time,imax)
-        u2dhim_mag=(u2dhim[:,0]**2+u2dhim[:,1]**2)**0.5
-        # Drag coefficient for 2D case using water depth and z0 (see COHERENS manual eq.7.2, or Delft3d)
-        Cdrag=( 0.4 /(numpy.log(abs(topo[:,0] /self.z0))-1) )**2
-        #Now compute the bed shear stress [N/m2] 
-        tau_cur=rhow*Cdrag*u2dhim_mag**2    
-      elif (self.is3d) and (self.z0>0):   # mover is a 3D current field
-        #import pdb;pdb.set_trace()
-        # Assume the first grid point above the bed is assumed to be the top of the logarithmic boundary layer
-        # the log profile extends from than last wet bin level, to the bottom
-        # see COHERENS manual eq 7.1/7.2
-
-        # find closest "wet" vertical levels at each particle locations
-        bin_lev=numpy.zeros(len(p[:,0]))
-        for lev in self.lev:
-          bin_lev[topo[:,0]<=lev]=lev
-        #vertical height from last wet vertical bin to seabed
-        zb=bin_lev-topo[:,0]
-        #current computed at last wet vertical bin
-        uub=GridData.interp(self,numpy.vstack((p[:,0],p[:,1],bin_lev)).T,time,imax)
-        uub_mag=(uub[:,0]**2+uub[:,1]**2)**0.5
-        # Drag coefficient for 3D case using zb and z0 (see COHERENS manual eq.7.2, or Delft3d)
-        Cdrag=( 0.4 /(numpy.log(abs(zb /self.z0))-1) )**2 
-         #Now compute the bed shear stress [N/m2]
-        tau_cur=rhow*Cdrag*uub_mag**2       
-    return tau_cur,topo
 
 
 class TidalMover(GriddedTide):
@@ -730,47 +688,6 @@ class TidalMover(GriddedTide):
         w1=slope_correction(p,topo,uu)
         uu[:,2]+=w1
     return uu
-  # need to find a better way to do this rather than reproducing code (same for interp function)
-  def bedshearstress(self,p,time=None,imax=2):
-    """Computation of bed shear stress
-    Arguments:
-      self : expected to include fields topo,is3d,lev (if applicable) 
-      p: particle positions
-      uses interp function from GridData
-    Returns:
-      current-related bed shear stress
-    """
-    rhow=1027 # default volumic mass for seawater
-    if self.topo: # topo needed to define bedshear stress
-      topo=self.topo.interp(p,None,3)     
-      if (not self.is3d) and (self.z0>0): # mover is a 2D-depth averaged current
-        u2dhim=GridData.interp(self,p,time,imax)
-        u2dhim_mag=(u2dhim[:,0]**2+u2dhim[:,1]**2)**0.5
-        # Drag coefficient for 2D case using water depth and z0 (see COHERENS manual eq.7.2, or Delft3d)
-        Cdrag=( 0.4 /(numpy.log(abs(topo[:,0] /self.z0))-1) )**2
-        #Now compute the bed shear stress [N/m2] 
-        tau_cur=rhow*Cdrag*u2dhim_mag**2    
-      elif (self.is3d) and (self.z0>0):   # mover is a 3D current field
-        #import pdb;pdb.set_trace()
-        # Assume the first grid point above the bed is assumed to be the top of the logarithmic boundary layer
-        # the log profile extends from than last wet bin level, to the bottom
-        # see COHERENS manual eq 7.1/7.2
-
-        # find closest "wet" vertical levels at each particle locations
-        bin_lev=numpy.zeros(len(p[:,0]))
-        for lev in self.lev:
-          bin_lev[topo[:,0]<=lev]=lev
-        #vertical height from last wet vertical bin to seabed
-        zb=bin_lev-topo
-        #current computed at last wet vertical bin
-        uub=GridData.interp(self,numpy.vstack((p[:,0],p[:,1],bin_lev)).T,time,imax)
-        uub_mag=(uu1masb[:,0]**2+uu1masb[:,1]**2)**0.5
-        # Drag coefficient for 3D case using zb and z0 (see COHERENS manual eq.7.2, or Delft3d)
-        Cdrag=( 0.4 /(numpy.log(abs(zb /self.z0))-1) )**2 
-         #Now compute the bed shear stress [N/m2]
-        tau_cur=rhow*Cdrag*uub_mag**2       
-    return tau_cur
-
 
 class GriddedReactor(GridData):
   pass
