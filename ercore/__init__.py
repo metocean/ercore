@@ -215,7 +215,8 @@ class ERcore(object):
     #t=parsetime(t)
     t=t0=parsetime(t)
     tend=parsetime(tend)
-    outofcompute = -1 if keep_sticked else 0
+    #outofcompute = -1 if keep_sticked else 0
+    outofcompute = -1 # this set the flag value for particle that needs to be removed from the computational pool
     iprint=int(self.tout/dt) if self.tout>0 else 1
     print iprint
     dt/=86400.
@@ -272,9 +273,10 @@ class ERcore(object):
         e.tcum+=86400.*abs(dt)
         if i%iprint==0:
           self.fout[e.id].write(e.sfprint(t2))
-          last_time = self.timestamp('write output', last_time) 
+          last_time = self.timestamp('write output', last_time)
+          # remove particles flagged with state<=outofcompute (stuck to seabed,shoreline etc...)  outofcompute=-1
           #ind=(e.state<0)
-          ind=(e.state<outofcompute)  
+          ind=(e.state<=outofcompute)  
           nind=ind.sum()
           if nind:e._reset(ind) #Recycle particles
           if nind>0:print '%d %s particles removed' % (nind,e.id)

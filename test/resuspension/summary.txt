@@ -5,13 +5,13 @@
   Directory output :          .
   Model time step:            900.0s
   Output frequency:           3600.0s
-  Materials:                  10 - particles (Sediment)
+  Materials:                  10 - particles2 (Sediment)
   Total particles released:   10
 --------------------------------------------
   Time Summary
 --------------------------------------------
-  Start time:              2017-03-09 16:57:51.725233
-  End time:                2017-03-09 16:57:53.303580
+  Start time:              2017-03-10 15:40:05.346034
+  End time:                2017-03-10 15:40:20.294620
   Initialization time:     0.00000s
   Avg. step time:          0.00000s
   Avg. release time:       0.00000s
@@ -21,7 +21,7 @@
   Avg. stick time:         0.00000s
   Avg. ageing time:        0.00000s
   Avg. dieing time:        0.00000s
-  Total modeling time:     0:00:01
+  Total modeling time:     0:00:14
 ===============================================
 
 +

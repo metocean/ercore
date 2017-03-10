@@ -44,7 +44,7 @@ class Sediment(BuoyantTracer):
     tau_crit_eros: critical bed shear stress for erosion in N/m2 (default=0.2)
     tau_crit_deposition: critical bed shear stress for deposition in N/m2 (default=1000 - deposition always possible)
   """
-  default_props={'d0':None,'rho_s':2650,'tau_crit_eros':0.2,'tau_crit_depos':1000}
+  default_props={'d0':None,'rho_s':2650,'tau_crit_eros':0.2,'tau_crit_depos':1000.0}
   def initialize(self,t1,t2):
     #import pdb;pdb.set_trace()
     BuoyantTracer.initialize(self,t1,t2)
@@ -54,6 +54,7 @@ class Sediment(BuoyantTracer):
     #new array to facilitate bookkeeping of successive particle deposition/erosion  
     self.on_seabed=numpy.tile(0,self.npmax+1)
     #self.on_seabed is true when a particle is deposited on the seabed, false otherwise
+    self.seabedlayer_thick=0.2 # thickness of seabed layer used for resuspension
   
   def react(self,t1,t2):
     pass
@@ -66,79 +67,109 @@ class Sediment(BuoyantTracer):
     posi=numpy.where(self.state[:np,None]<0,self.pos[:np,:],self.post[:np,:])
     #import pdb;pdb.set_trace()
     for sticker in self.stickers: 
-      # check for interestion with stickers
+      # check for intersection with stickers
       if 'Shoreline' in  sticker.__class__.__name__: # shoreline sticker 
         # Returns matrix of intersection positions, how does it affect state ? 
         posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np])
-      else: # 2D sticker 
+        if self.unstick<=0.: # by default unstick is 0.0
+          self.state[self.state>1]=-1 # this way particles will be removed from computation
+        else:
+          self.state[self.state>1]=1 # this way particles will be set back to active
+          # posi is the position of intersection with shoreline
+          posi[self.state>1,:]=self.pos[self.state>1,:] # set posi back to the position particles were before sticking
+        self.post[:self.np,:]=posi[:self.np,:]
+      else: # 2D sticker (e.g. GriddedTopo)
         posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np],t1,t2)
 
+      # additional checks for GriddedTopo and Elevation cases
       if 'GriddedTopo' in sticker.__class__.__name__:
         self.dep[:self.np]=sticker.interp(posi[:self.np,:],imax=1)[:,0] # get depths at particles that touched seabed        
-        
         #DEPOSITION
         ind=(self.state[:np]==2)
-        state_tmp=self.state[:np]
-        on_seabed_tmp=self.on_seabed[:np]
-        import pdb;pdb.set_trace()
         if ind.sum():
+          state_tmp=self.state[:np]
+          state_tmp_init=self.state[:np]
+          on_seabed_tmp=self.on_seabed[:np]
+          on_seabed_tmp_init=self.on_seabed[:np]
           # At this stage,particle that touched the seabed were already re-suspended to a small height above seabed  (in posi)
           # Get bed shear stress at these locations i.e. self.post, and t2
           tau_cur,tau_cw,tau_max,topo = self.bedshearstress_cw(self.post[:np,:],t2) #at all active particles
           tau = numpy.maximum.reduce([tau_cur,tau_cw]) # maybe we should use taumax in presence of waves?    
-          # deposition on the seabed if tau<=tau_crit_depos 
-          id_depos=(tau<=self.props.get('tau_crit_depos') & tau<=self.props.get('tau_crit_eros')) & ind
-          posi[ind & id_depos,2]=topo[ind & id_depos,0]+0.001 # set particle depths to seabed depth+1 mm -the other ones are left suspended in water column
-          state_tmp[ind & id_depos]=0 # de-activate these particles these should stay in place, no advection/settling 
-          on_seabed_tmp[ind & id_depos]=1 # flag deposited particle in bot_layer arrray
-          state_tmp[ind & ~id_depos]=1    # the other particles are left re-suspended in water column (already done in sticker.intersect), and state is set back from 2 to 1 - 
+          # deposition on the seabed if tau<=tau_crit_depos and tau<=tau_crit_eros 
+          
+          id_depos=numpy.logical_and( tau<=self.props.get('tau_crit_depos') , tau<=self.props.get('tau_crit_eros') , ind )
+          posi[id_depos,2]=topo[id_depos,0] # set particle depths to seabed depth+1 mm -the other ones are left suspended in water column
+          state_tmp[id_depos]=0 # de-activate these particles these should stay in place, no advection/settling - these will NOT be output though
+          on_seabed_tmp[id_depos]=1 # flag deposited particle in on_seabed arrray
+          state_tmp[~id_depos]=1    # the other particles are left re-suspended in water column (already done in sticker.intersect), and state is set back from 2 to 1 
+          # resuspended within the seabed layer - for now 20 cm thick
+          posi[~id_depos,2]=posi[~id_depos,2]+self.seabedlayer_thick*numpy.random.uniform(0.0,1.0,numpy.size(posi[~id_depos,2]))
           #update top-copy array
           self.state[:np]=state_tmp # update the top state array
           self.on_seabed[:np]=on_seabed_tmp # flag de-activated particles following deposition on seabed
           self.post[:self.np,:]=posi[:self.np,:] # update top post array
-
-          print tau
-          print id_depos
-          print 'topo = %s' % (topo[ind & id_depos,0])
-          print 'posi = %s' % (posi[ind & id_depos,2])
-          print 'on_seabed_tmp = %s' % bot_layer_tmp
-          print 'state_tmp = %s' % state_tmp
+          
+          print 'DEPOSITION check start'
+          print 'nb part that touched bottom and deposited=%s' % (id_depos.sum())
+          print 'nb part that touched bottom and were resuspended =%s' % ( (~id_depos).sum() )
+          print 'tau = %s' % (tau)
+          print 'tau_depos_crit = %s' % (self.props.get('tau_crit_depos'))
+          print 'on_seabed_tmp before check = %s' % on_seabed_tmp_init
+          print 'on_seabed_tmp after check = %s' % on_seabed_tmp
+          print 'state_tmp before check= %s' % state_tmp_init
+          print 'state_tmp after check= %s' % state_tmp
+          print 'DEPOSITION check end'
+          import pdb;pdb.set_trace()
 
         # RE-SUSPENSION
         ind=(self.on_seabed[:np]==1)
-        state_tmp=self.state[:np]
-        on_seabed_tmp=self.on_seabed[:np]
         if ind.sum():
-          import pdb;pdb.set_trace() 
+          state_tmp=self.state[:np]
+          state_tmp_init=self.state[:np]
+          on_seabed_tmp=self.on_seabed[:np]
+          on_seabed_tmp_init=self.on_seabed[:np]
           # Get bed shear stress at these locations i.e. self.post, and t2
           tau_cur,tau_cw,taumax,topo = self.bedshearstress_cw(self.post[:np,:],t2) #at all active particles
           tau = numpy.maximum.reduce([tau_cur,tau_cw]) # maybe we should use taumax in presence of waves? 
-          id_eros=(tau>=self.props.get('tau_crit_eros')) & ind
-          state_tmp[ind & id_eros]=1 # re-activate particles
-          print 'on_seabed_tmp = %s' % bot_layer_tmp
-          on_seabed_tmp[ind & id_eros]=0 # not in the bottom layer anymore
-          # re-suspend in the water column - within a 1m thick layer above the seabed (normally distributed)
-          posi[ind & id_eros,2]=posi[ind & id_eros,2]+numpy.random.uniform(0.0,1.0,numpy.size(posi[ind & id_eros,2])) # random number between 0-1
+          id_eros=numpy.logical_and( tau>=self.props.get('tau_crit_eros') , ind )
+          state_tmp[id_eros]=1 # re-activate particles
+          on_seabed_tmp[id_eros]=0 # not in the bottom layer anymore
+          #state_tmp[~id_eros]=0 
+          #on_seabed_tmp[~id_eros]=1 
+          # re-suspend in the water column - within a 20cm thick layer above the seabed (normally distributed)
+          posi[id_eros,2]=posi[id_eros,2]+self.seabedlayer_thick*numpy.random.uniform(0.0,1.0,numpy.size(posi[id_eros,2])) # random number between 0-1
           
-          self.boton_seabedlayer[:np]=on_seabed_tmp
+          self.on_seabed[:np]=on_seabed_tmp
           self.state[:np]=state_tmp # update the top state array
           self.post[:self.np,:]=posi[:self.np,:]
-
-          print tau
-          print self.props.get('tau_crit_eros')
-          print id_eros
-          print 'topo = %s' % (topo)
-          print 'posi = %s' %  posi[:self.np,:]
-          print 'bot_layer_tmp = %s' % bot_layer_tmp
-          print 'state_tmp = %s' % state_tmp
+          
+          print 'RESUSPENSION check start'
+          print 'nb part that were deposited=%s' % (ind.sum())
+          print 'nb part that  were deposited and were resuspended =%s' % ( (id_eros).sum() )
+          print 'tau = %s' % (tau)
+          print 'tau_eros_crit = %s' % (self.props.get('tau_crit_eros'))
+          print 'on_seabed_tmp before check = %s' % on_seabed_tmp_init
+          print 'on_seabed_tmp after check = %s' % on_seabed_tmp
+          print 'state_tmp before check= %s' % state_tmp_init
+          print 'state_tmp after check= %s' % state_tmp
+          print 'RESUSPENSION check end'
+          import pdb;pdb.set_trace()
 
         if (self.state[:np]==2).any():
           import pdb;pdb.set_trace() #there should NOT be any state==2
+        
+
+
+
 
       if 'Elevation' in sticker.__class__.__name__:
         self.elev[:self.np]=sticker.interp(posi[:self.np,:],t2,imax=1)[:,0]
+        self.post[:self.np,:]=posi[:self.np,:] 
+
+
 
     #if self.unstick<=0.:
+    # print self.state[self.state>1]
     #  self.state[self.state>1]=-1
     #self.post[:self.np,:]=posi[:self.np,:] 
   

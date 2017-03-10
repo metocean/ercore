@@ -585,11 +585,9 @@ class GriddedTopo(GridData):
     Returns:
       New particle positions after intersection (state modified in place)
     """
-
     dep1=self.interp(pos,imax=1)[:,0]  # particle depths at t1
     dep2=self.interp(post,imax=1)[:,0] # particle depths at t2
     # -1* to ensure that outputs False if deps are actually the same.
-
     # identify active particles (state=1) that will reach the seabed at t2 (post)
     ind=((post[:,2]-dep2 < -1*ALMOST_ZERO) & (state>0)) 
     pout=post[:,:]
@@ -599,7 +597,6 @@ class GriddedTopo(GridData):
         pout[ind,:]=pos[ind,:]
         pout[ind,2] = dep1[ind] # reset particle depth as dep1
       else:
-        #import pdb; pdb.set_trace()
         denom=(dep2[ind]-dep1[ind]+pos[ind,2]-post[ind,2])
         f=(pos[ind,2]-dep1[ind])/denom
         pout[ind,:]=pos[ind,:]+f[:,None]*(post[ind,:]-pos[ind,:])
@@ -668,9 +665,8 @@ class GriddedMover(GridData):
       if (imax==3):  #Vertical velocity correction for slope
         w1=slope_correction(p,topo,uu)
         uu[:,2]+=w1
-      # we should probably apply a log profile for the 3D case for the region from the last wet bin to bottom
+      # we should probably apply a log profile for the 3D case for the region from the last wet bin to bottom ? 
     return uu
-
 
 class TidalMover(GriddedTide):
   z0=0.

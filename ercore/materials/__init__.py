@@ -346,19 +346,30 @@ class _Material(object):
     if self.np<1:return
     np=self.np
     posi=numpy.where(self.state[:np,None]<0,self.pos[:np,:],self.post[:np,:])
-    #import pdb;pdb.set_trace()
+    # check for intersection with stickers
     for sticker in self.stickers: # shoreline sticker 
       if 'Shoreline' in  sticker.__class__.__name__:
         posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np])
       else: # 2D sticker 
         posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np],t1,t2)
+
+      # additional checks for GriddedTopo and Elevation cases
       if 'GriddedTopo' in sticker.__class__.__name__:
         self.dep[:self.np]=sticker.interp(posi[:self.np,:],imax=1)[:,0]
       if 'Elevation' in sticker.__class__.__name__:
         self.elev[:self.np]=sticker.interp(posi[:self.np,:],t2,imax=1)[:,0]
-    if self.unstick<=0.:
-      self.state[self.state>1]=-1
-    self.post[:self.np,:]=posi[:self.np,:] 
+
+      if self.unstick<=0.: # by default unstick is 0.0
+         self.state[self.state>1]=-1 # this way particles will be removed from computation
+      else:
+        self.state[self.state>1]=1 # this way particles will be set back to active
+        # posi is the position of intersection with shoreline
+        posi[self.state>1,:]=self.pos[self.state>1,:] # set posi back to the position particles were before sticking
+      self.post[:self.np,:]=posi[:self.np,:]
+
+    #if self.unstick<=0.:
+    # self.state[self.state>1]=-1
+    #self.post[:self.np,:]=posi[:self.np,:] 
   
   def die(self,t1,t2):
     """Kill particles between times t1 and t2 and remove from simulation"""
