@@ -28,14 +28,14 @@ tstep  = 900.
 tout   = 3600.
 tau_crit_eros = 0.1  # for now need to be explicitely specified - could be included in the function based on d50
 tau_crit_depos = 1000.0  # for now need to be explicitely specified - could be included in the function based on d50
-n_part=10
+n_part=5
 
 # CASE 1 : discrete release - low critical shear stress for erosion so that resuspension always occurs
 particles=Sediment('particles',10000,movers=[currents],stickers=[dep,shoreline],diffusers=[diff],reln=n_part,P0=P0,w0=-10e-3,tstart=tstart,tend=tstart,tau_crit_eros=.01,unstick=0.0)
 # CASE 2 : discrete release - high critical shear stress for erosion so that resuspension never occurs
 particles1=Sediment('particles1',10000,movers=[currents],stickers=[dep,shoreline],diffusers=[diff],reln=n_part,P0=P0,w0=-10e-3,tstart=tstart,tend=tstart,tau_crit_eros=10.0,unstick=0.0)
 # CASE 3 : continuous release - low critical shear stress for erosion so that resuspension always occurs
-particles2=Sediment('particles2',10000,movers=[currents],stickers=[dep,shoreline],diffusers=[diff],reln=10,P0=P0,w0=-10e-3,tstart=tstart,tend=tend,tau_crit_eros=0.2,unstick=0.0)
+particles2=Sediment('particles2',10000,movers=[currents],stickers=[dep,shoreline],diffusers=[diff],reln=5,P0=P0,w0=-10e-3,tstart=tstart,tend=tstart,tau_crit_eros=0.15,unstick=0.0)
 
 ercore=ERcore(tout=tout,rkorder=4)
 

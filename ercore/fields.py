@@ -647,7 +647,7 @@ class TidalElevation(GriddedTide):
 
 
 class GriddedMover(GridData):
-  z0=0.
+  z0=0.001 # setting default z0 to 0.001 m - must be >0 otherwise the log profile is not used  
   topo=None
   @copydoc(FieldData.interp)
   def interp(self,p,time=None,imax=2):
@@ -669,7 +669,7 @@ class GriddedMover(GridData):
     return uu
 
 class TidalMover(GriddedTide):
-  z0=0.
+  z0=0.001
   topo=None
   @copydoc(FieldData.interp)
   def interp(self,p,time=None,imax=2):

@@ -91,29 +91,29 @@ class Sediment(BuoyantTracer):
           state_tmp_init=self.state[:np]
           on_seabed_tmp=self.on_seabed[:np]
           on_seabed_tmp_init=self.on_seabed[:np]
+          state_tmp[ind]=1 # set considered particle's state back to 1 so that they stay in the computational pool
           # At this stage,particle that touched the seabed were already re-suspended to a small height above seabed  (in posi)
           # Get bed shear stress at these locations i.e. self.post, and t2
           tau_cur,tau_cw,tau_max,topo = self.bedshearstress_cw(self.post[:np,:],t2) #at all active particles
           tau = numpy.maximum.reduce([tau_cur,tau_cw]) # maybe we should use taumax in presence of waves?    
           # deposition on the seabed if tau<=tau_crit_depos and tau<=tau_crit_eros 
-          
           id_depos=numpy.logical_and( tau<=self.props.get('tau_crit_depos') , tau<=self.props.get('tau_crit_eros') , ind )
-          posi[id_depos,2]=topo[id_depos,0] # set particle depths to seabed depth+1 mm -the other ones are left suspended in water column
-          state_tmp[id_depos]=0 # de-activate these particles these should stay in place, no advection/settling - these will NOT be output though
-          on_seabed_tmp[id_depos]=1 # flag deposited particle in on_seabed arrray
-          state_tmp[~id_depos]=1    # the other particles are left re-suspended in water column (already done in sticker.intersect), and state is set back from 2 to 1 
-          # resuspended within the seabed layer - for now 20 cm thick
+          on_seabed_tmp[id_depos]=1 # flag deposited particles in on_seabed arrray - this will allows later identification for stopping advection/settling
+          #if deposition occurs set particle depths to seabed depth
+          posi[id_depos,2]=topo[id_depos,0] 
+          # if not deposition occurs, resuspend within a bottom layer of thickness self.seabedlayer_thick (0.2 m for now) (normally distributed)
           posi[~id_depos,2]=posi[~id_depos,2]+self.seabedlayer_thick*numpy.random.uniform(0.0,1.0,numpy.size(posi[~id_depos,2]))
           #update top-copy array
           self.state[:np]=state_tmp # update the top state array
-          self.on_seabed[:np]=on_seabed_tmp # flag de-activated particles following deposition on seabed
+          self.on_seabed[:np]=on_seabed_tmp # flag particle that deposited on the seabed
           self.post[:self.np,:]=posi[:self.np,:] # update top post array
           
           print 'DEPOSITION check start'
           print 'nb part that touched bottom and deposited=%s' % (id_depos.sum())
           print 'nb part that touched bottom and were resuspended =%s' % ( (~id_depos).sum() )
           print 'tau = %s' % (tau)
-          print 'tau_depos_crit = %s' % (self.props.get('tau_crit_depos'))
+          print 'tau_depos_crit < %s , tau_eros_crit < %s' % (self.props.get('tau_crit_depos'),self.props.get('tau_crit_eros'))
+          print 'id_depos = %s' % (id_depos)
           print 'on_seabed_tmp before check = %s' % on_seabed_tmp_init
           print 'on_seabed_tmp after check = %s' % on_seabed_tmp
           print 'state_tmp before check= %s' % state_tmp_init
@@ -132,11 +132,9 @@ class Sediment(BuoyantTracer):
           tau_cur,tau_cw,taumax,topo = self.bedshearstress_cw(self.post[:np,:],t2) #at all active particles
           tau = numpy.maximum.reduce([tau_cur,tau_cw]) # maybe we should use taumax in presence of waves? 
           id_eros=numpy.logical_and( tau>=self.props.get('tau_crit_eros') , ind )
-          state_tmp[id_eros]=1 # re-activate particles
-          on_seabed_tmp[id_eros]=0 # not in the bottom layer anymore
-          #state_tmp[~id_eros]=0 
-          #on_seabed_tmp[~id_eros]=1 
-          # re-suspend in the water column - within a 20cm thick layer above the seabed (normally distributed)
+          state_tmp[id_eros]=1 # re-activate particles - they should already have state=1 
+          on_seabed_tmp[id_eros]=0 # particles are not deposited on the seabed anymore
+          # if  resuspension occurs, resuspend within a bottom layer of thickness self.seabedlayer_thick (0.2 m for now) (normally distributed)
           posi[id_eros,2]=posi[id_eros,2]+self.seabedlayer_thick*numpy.random.uniform(0.0,1.0,numpy.size(posi[id_eros,2])) # random number between 0-1
           
           self.on_seabed[:np]=on_seabed_tmp
@@ -147,7 +145,8 @@ class Sediment(BuoyantTracer):
           print 'nb part that were deposited=%s' % (ind.sum())
           print 'nb part that  were deposited and were resuspended =%s' % ( (id_eros).sum() )
           print 'tau = %s' % (tau)
-          print 'tau_eros_crit = %s' % (self.props.get('tau_crit_eros'))
+          print 'tau_eros_crit > %s' % (self.props.get('tau_crit_eros'))
+          print 'id_eros = %s' % (id_eros)
           print 'on_seabed_tmp before check = %s' % on_seabed_tmp_init
           print 'on_seabed_tmp after check = %s' % on_seabed_tmp
           print 'state_tmp before check= %s' % state_tmp_init
@@ -172,6 +171,14 @@ class Sediment(BuoyantTracer):
     # print self.state[self.state>1]
     #  self.state[self.state>1]=-1
     #self.post[:self.np,:]=posi[:self.np,:] 
+
+  def advect(self,t1,t2,order=4):
+    if self.np==0:return
+    PassiveTracer.advect(self,t1,t2,order)
+    self.post[:self.np,2]+=86400.*(t2-t1)*self.w0[:self.np]
+    # No advection/settling for particles deposited on the seabed
+    if hasattr(self, 'on_seabed'):
+      self.post[self.on_seabed,:]=self.pos[self.on_seabed,:]   
   
   def diffuse(self,t1,t2):
     BuoyantTracer.diffuse(self,t1,t2)
