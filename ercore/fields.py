@@ -654,12 +654,12 @@ class GriddedMover(GridData):
     
     uu=GridData.interp(self,p,time,imax)
     #print '%s' % (uu[0])
-    #Correct for vertical motion
+    #Correct for vertical motion   
     if self.topo:
       topo=self.topo.interp(p,None,3)
       #import pdb;pdb.set_trace()
       dz=numpy.maximum(p[:,2]-topo[:,0],self.z0) # particle depth above seabed (positive)
-      if (not self.is3d) and (self.z0>0):#Log profile for 2D depth averaged currents
+      if (not self.is3d) and (self.z0>0.0):#Log profile for 2D depth averaged currents
         # use of standard log profile to extrapolate depth-averaged current to particls depths p[:,2]
         uu[:,:2]=uu[:,:2]*(numpy.log(dz[:,numpy.newaxis]/self.z0))/(numpy.log(abs(topo[:,0:1])/self.z0)-1)
       if (imax==3):  #Vertical velocity correction for slope
@@ -678,7 +678,7 @@ class TidalMover(GriddedTide):
     if self.topo:
       topo=self.topo.interp(p,None,3)
       dz=numpy.maximum(p[:,2]-topo[:,0],self.z0)
-      if (not self.is3d) and (self.z0>0):#Log profile for 2D case
+      if (not self.is3d) and (self.z0>0.0):#Log profile for 2D case
         uu[:,:2]=uu[:,:2]*(numpy.log(dz[:,numpy.newaxis]/self.z0))/(numpy.log(abs(topo[:,0:1])/self.z0)-1)
       if (imax==3): #Vertical velocity correction for slope
         w1=slope_correction(p,topo,uu)

@@ -91,6 +91,8 @@ class Sediment(BuoyantTracer):
           state_tmp_init=self.state[:np]
           on_seabed_tmp=self.on_seabed[:np]
           on_seabed_tmp_init=self.on_seabed[:np]
+          depth_tmp=self.pos[:np,2]
+          depth_tmp_init=self.pos[:np,2]
           state_tmp[ind]=1 # set considered particle's state back to 1 so that they stay in the computational pool
           # At this stage,particle that touched the seabed were already re-suspended to a small height above seabed  (in posi)
           # Get bed shear stress at these locations i.e. self.post, and t2
@@ -108,18 +110,23 @@ class Sediment(BuoyantTracer):
           self.on_seabed[:np]=on_seabed_tmp # flag particle that deposited on the seabed
           self.post[:self.np,:]=posi[:self.np,:] # update top post array
           
-          print 'DEPOSITION check start'
-          print 'nb part that touched bottom and deposited=%s' % (id_depos.sum())
-          print 'nb part that touched bottom and were resuspended =%s' % ( (~id_depos).sum() )
-          print 'tau = %s' % (tau)
-          print 'tau_depos_crit < %s , tau_eros_crit < %s' % (self.props.get('tau_crit_depos'),self.props.get('tau_crit_eros'))
-          print 'id_depos = %s' % (id_depos)
-          print 'on_seabed_tmp before check = %s' % on_seabed_tmp_init
-          print 'on_seabed_tmp after check = %s' % on_seabed_tmp
-          print 'state_tmp before check= %s' % state_tmp_init
-          print 'state_tmp after check= %s' % state_tmp
-          print 'DEPOSITION check end'
-          import pdb;pdb.set_trace()
+          # print 'DEPOSITION check start'
+          # print 'nb part that touched bottom and deposited=%s' % (id_depos.sum())
+          # print 'nb part that touched bottom and were resuspended =%s' % ( (~id_depos).sum() )
+          # print 'tau = %s' % (tau)
+          # print 'tau_depos_crit < %s , tau_eros_crit < %s' % (self.props.get('tau_crit_depos'),self.props.get('tau_crit_eros'))
+          # print 'id_depos = %s' % (id_depos)
+          # print 'on_seabed_tmp before check = %s' % on_seabed_tmp_init
+          # print 'on_seabed_tmp after check = %s' % on_seabed_tmp
+          # print 'state_tmp before check= %s' % state_tmp_init
+          # print 'state_tmp after check= %s' % state_tmp
+          # print 'depth POS= %s' % self.pos[:np,2]
+          # print 'depth POST= %s' % self.post[:np,2]
+          # print 'depth POSI= %s' % posi[:np,2]
+          # print 'depth after check= %s' % posi[:,2]
+          # print 'TOPO= %s' % topo[:,0]
+          # print 'DEPOSITION check end'
+          # #import pdb;pdb.set_trace()
 
         # RE-SUSPENSION
         ind=(self.on_seabed[:np]==1)
@@ -136,49 +143,62 @@ class Sediment(BuoyantTracer):
           on_seabed_tmp[id_eros]=0 # particles are not deposited on the seabed anymore
           # if  resuspension occurs, resuspend within a bottom layer of thickness self.seabedlayer_thick (0.2 m for now) (normally distributed)
           posi[id_eros,2]=posi[id_eros,2]+self.seabedlayer_thick*numpy.random.uniform(0.0,1.0,numpy.size(posi[id_eros,2])) # random number between 0-1
-          
+          # ensure deposited particles stay on seabed
+          posi[~id_eros,2]=topo[~id_eros,0]
           self.on_seabed[:np]=on_seabed_tmp
           self.state[:np]=state_tmp # update the top state array
           self.post[:self.np,:]=posi[:self.np,:]
           
-          print 'RESUSPENSION check start'
-          print 'nb part that were deposited=%s' % (ind.sum())
-          print 'nb part that  were deposited and were resuspended =%s' % ( (id_eros).sum() )
-          print 'tau = %s' % (tau)
-          print 'tau_eros_crit > %s' % (self.props.get('tau_crit_eros'))
-          print 'id_eros = %s' % (id_eros)
-          print 'on_seabed_tmp before check = %s' % on_seabed_tmp_init
-          print 'on_seabed_tmp after check = %s' % on_seabed_tmp
-          print 'state_tmp before check= %s' % state_tmp_init
-          print 'state_tmp after check= %s' % state_tmp
-          print 'RESUSPENSION check end'
-          import pdb;pdb.set_trace()
+          # print 'RESUSPENSION check start'
+          # print 'nb part that were deposited=%s' % (ind.sum())
+          # print 'nb part that  were deposited and were resuspended =%s' % ( (id_eros).sum() )
+          # print 'tau = %s' % (tau)
+          # print 'tau_eros_crit > %s' % (self.props.get('tau_crit_eros'))
+          # print 'id_eros = %s' % (id_eros)
+          # print 'on_seabed_tmp before check = %s' % on_seabed_tmp_init
+          # print 'on_seabed_tmp after check = %s' % on_seabed_tmp
+          # print 'state_tmp before check= %s' % state_tmp_init
+          # print 'state_tmp after check= %s' % state_tmp
+          # print 'RESUSPENSION check end'
+          #import pdb;pdb.set_trace()
 
         if (self.state[:np]==2).any():
           import pdb;pdb.set_trace() #there should NOT be any state==2
         
-
-
-
-
       if 'Elevation' in sticker.__class__.__name__:
         self.elev[:self.np]=sticker.interp(posi[:self.np,:],t2,imax=1)[:,0]
         self.post[:self.np,:]=posi[:self.np,:] 
 
-
-
     #if self.unstick<=0.:
     # print self.state[self.state>1]
-    #  self.state[self.state>1]=-1
+    #  self.state[self.state>1]=-1c
     #self.post[:self.np,:]=posi[:self.np,:] 
 
   def advect(self,t1,t2,order=4):
     if self.np==0:return
-    PassiveTracer.advect(self,t1,t2,order)
-    self.post[:self.np,2]+=86400.*(t2-t1)*self.w0[:self.np]
-    # No advection/settling for particles deposited on the seabed
+    #print 'before POS %s' % self.pos[:self.np,:]
+    #print 'before POST %s' % self.post[:self.np,:]
+    PassiveTracer.advect(self,t1,t2,order) # general advection of all particles
     if hasattr(self, 'on_seabed'):
-      self.post[self.on_seabed,:]=self.pos[self.on_seabed,:]   
+      if self.on_seabed.sum():
+        # if there are some particles deposited
+        #import pdb;pdb.set_trace()
+        on_seabed_tmp=self.on_seabed[:self.np]
+        on_seabed_id=numpy.where(on_seabed_tmp==1)
+        not_on_seabed_id=numpy.where(on_seabed_tmp==0)
+        # "cancel" advection of deposited particles (set self.post to self.pos)
+        self.post[numpy.nonzero(self.on_seabed),:]=self.pos[numpy.nonzero(self.on_seabed),:]
+        # add vertical settling to suspended particles only
+        z_tmp=self.post[:self.np,2]
+        w0_tmp=self.w0[:self.np]
+        z_tmp[not_on_seabed_id]=z_tmp[not_on_seabed_id]+86400.*(t2-t1)*w0_tmp[not_on_seabed_id]
+        #z_tmp[on_seabed_id]=z_tmp[on_seabed_id] # not necessary, no settling applied
+        self.post[:self.np,2]=z_tmp
+      else:
+        # if no particles deposited - same as in BuoyantTracer.advect
+        self.post[:self.np,2]+=86400.*(t2-t1)*self.w0[:self.np]
+    #print 'after POS %s' % self.pos[:self.np,:]
+    #print 'after POST %s' % self.post[:self.np,:]
   
   def diffuse(self,t1,t2):
     BuoyantTracer.diffuse(self,t1,t2)
