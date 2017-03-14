@@ -653,7 +653,10 @@ class GriddedMover(GridData):
   def interp(self,p,time=None,imax=2):
     
     uu=GridData.interp(self,p,time,imax)
-    #print '%s' % (uu[0])
+    #import pdb;pdb.set_trace()
+    #print '%s' % (uu[-1,:])
+    #print '%s' % (time)
+    #print '%s' % (p[-1,:])
     #Correct for vertical motion   
     if self.topo:
       topo=self.topo.interp(p,None,3)

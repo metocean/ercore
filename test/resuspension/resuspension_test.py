@@ -18,7 +18,7 @@ currents=GriddedMover('cur',['uo','vo'],is3d=True,file='../passive/uds_gsb_test.
 # tide=GriddedMover('tide',['ut','vt'],is3d=False,file='../passive/uds_gsb_test.nc') #
 #shoreline=Shoreline('shoreline','../passive/shoreline2.bnd')
 shoreline=Shoreline('shoreline','otago_shoreline2.bnd')
-#diff=ConstantDiffuser('diff',['diffx','diffy','diffz'],diffx=0.1,diffy=0.1,diffz=1.0e-6)
+diff=ConstantDiffuser('diff',['diffx','diffy','diffz'],diffx=0.1,diffy=0.1,diffz=1.0e-6)
 
 #import pdb; pdb.set_trace()
 
@@ -34,16 +34,25 @@ n_part=2
 particles0=Sediment('particles0',10000,movers=[currents],stickers=[dep,shoreline],diffusers=[],reln=n_part,P0=P0,w0=-10e-3,tstart=tstart,tend=tstart,tau_crit_eros=.01,unstick=0.0)
 # CASE 2 : discrete release - high critical shear stress for erosion so that resuspension never occurs
 particles1=Sediment('particles1',10000,movers=[currents],stickers=[dep,shoreline],diffusers=[],reln=n_part,P0=P0,w0=-10e-3,tstart=tstart,tend=tstart,tau_crit_eros=10.0,unstick=0.0)
-# CASE 3 : continuous release - low critical shear stress for erosion so that resuspension always occurs
-tend   = datetime.datetime(2009,1,10)
-particles2=Sediment('particles2',10000,movers=[currents],stickers=[dep,shoreline],diffusers=[],reln=n_part*1000,P0=P0,w0=-1e-3,tstart=tstart,tend=tend,tau_crit_eros=0.15,unstick=0.0)
+# CASE 3 : continuous release - high critical shear stress for erosion so that resuspension never occurs
+tstart = datetime.datetime(2009,1,5)
+tend   = datetime.datetime(2009,1,15)
+P0=[170.5,-46,-0.5]
+particles2=Sediment('particles2',10000,movers=[currents],stickers=[dep,shoreline],diffusers=[diff],reln=480*2,P0=P0,w0=-1e-3,tstart=tstart,tend=tend,tau_crit_eros=10.0,unstick=0.0)
+# CASE 4 : continuous release - low critical shear stress for erosion so that resuspension always occurs
+particles3=Sediment('particles3',10000,movers=[currents],stickers=[dep,shoreline],diffusers=[diff],reln=480*2,P0=P0,w0=-1e-3,tstart=tstart,tend=tend,tau_crit_eros=0.15,unstick=0.0)
 
 ercore=ERcore(tout=tout,rkorder=4)
 
 ###### start tests #####
 currents.reset()
-ercore.materials=[particles0]
+ercore.materials=[particles2]
 ercore.run(tstart,tend,tstep)
+
+currents.reset()
+ercore.materials=[particles3]
+ercore.run(tstart,tend,tstep)
+import pdb;pdb.set_trace()
 
 currents.reset()
 ercore.materials=[particles1]
@@ -53,4 +62,3 @@ currents.reset()
 ercore.materials=[particles2]
 ercore.run(tstart,tend,tstep)
 
-import pdb;pdb.set_trace()
