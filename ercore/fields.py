@@ -568,7 +568,7 @@ class GriddedTopo(GridData):
     self.buf0['dhdy']=dhdy
     self.vars.append('dhdy')
 
-  def intersect(self,pos,post,state,t1,t2):
+  def intersect(self,pos,post,state,t1,t2,unstick):
     """Test for intersection of particles with topo
     Arguments:
       pos: previous particle positions
@@ -583,14 +583,20 @@ class GriddedTopo(GridData):
     ind=((post[:,2]-dep2 < -1*ALMOST_ZERO) & (state>0))
     pout=post[:,:]
     if ind.sum():
-      if (pos[ind,2] < dep1[ind]).any(): # already under bathy
+      if unstick > 0:
+        # Flow without stick but limit to dep
+        pout[ind,2] = dep2[ind]+(ALMOST_ZERO*1000)
+      elif (pos[ind,2] < dep1[ind]).any():
+        # already under bathy
         pout[ind,:]=pos[ind,:]
         pout[ind,2] = dep1[ind]
       else:
+        # Caculate intersect point
         denom=(dep2[ind]-dep1[ind]+pos[ind,2]-post[ind,2])
         f=(pos[ind,2]-dep1[ind])/denom
         pout[ind,:]=pos[ind,:]+f[:,None]*(post[ind,:]-pos[ind,:])
       state[ind]+=1
+      
     return pout
 
 def intersect_free_surface(self,pos,post,state,t1,t2):
@@ -601,20 +607,14 @@ def intersect_free_surface(self,pos,post,state,t1,t2):
   Returns:
     New particle positions after intersection (state modified in place)
   """
-  # import pdb; pdb.set_trace()
   elev1=self.interp(pos,t1,imax=1)[:,0]
   elev2=self.interp(post,t2,imax=1)[:,0]
-  # to ensure that outputs False if elevs are actually the same.  
-  ind=((post[:,2]-elev2 > ALMOST_ZERO) & (state>0))
+  # to ensure that outputs False if elevs are actually the same.
+  # elev2 != 0 because if elev == 0 it's considered masked elevation
+  ind=((post[:,2]-elev2 > ALMOST_ZERO) & (state>0) & (elev2 != 0))
   pout=post[:,:]
   if ind.sum():
-    if (pos[ind,2] > elev1[ind]).any(): # already above free surface
-      pout[ind,:] = pos[ind,:]
-      pout[ind,2] = elev1[ind]
-    else:
-      denom=(elev2[ind]-elev1[ind]+pos[ind,2]-post[ind,2])
-      f=(pos[ind,2]-elev1[ind])/denom
-      pout[ind,:]=pos[ind,:]+f[:,None]*(post[ind,:]-pos[ind,:])        
+    pout[ind,2] = elev2[ind]
     state[ind]=1
   return pout
 

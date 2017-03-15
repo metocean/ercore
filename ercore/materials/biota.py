@@ -110,3 +110,18 @@ class Plankton(BuoyantTracer):
         return False
     
   
+  def die(self,t1,t2):
+    """Kill particles between times t1 and t2 and remove from simulation. For 
+    biota, mass are number of individuals so will die if mass < 1.
+    """
+    if self.np==0:return
+    dead=(self.age[:self.np]>self.props.get('maxage',1.e20)) | (self.mass[:self.np]<1)
+    self.state[:self.np][dead]=-2
+
+  def sfprint(self,t):
+    """Return string dump of all particles at specified timestep"""
+    str=''
+    # Mass as integer as we are considering number of individuals
+    for i in range(0,self.np):
+      str+="%f\t%d\t%f\t%f\t%f\t%d\t%f\t%d\t%f\n" % ((t,self.nid[i])+tuple(self.pos[i])+(self.state[i],self.age[i],int(self.mass[i]), self.dep[i]))
+    return str

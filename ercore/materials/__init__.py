@@ -63,7 +63,6 @@ class _Material(object):
     self.pos=numpy.array(P0)*numpy.ones((nbuff+1,3))
     self.post=numpy.array(P0)*numpy.ones((nbuff+1,3))
     self.dep = numpy.ones((nbuff+1))*-999.
-    self.elev = numpy.zeros((nbuff+1))
     self.reln=reln #Particles per release
     self.R=R0 #Total release of material
     self.Q=Q0 # Flux of material per day
@@ -172,13 +171,13 @@ class _Material(object):
 
   def fheader(self):
     """Return file header for output"""
-    return 'Time\tid\tx\ty\tz\tstate\tage\tmass\tzbottom\telev\n'
+    return 'Time\tid\tx\ty\tz\tstate\tage\tmass\tzbottom\n'
 
   def sfprint(self,t):
     """Return string dump of all particles at specified timestep"""
     str=''
     for i in range(0,self.np):
-      str+="%f\t%d\t%f\t%f\t%f\t%d\t%f\t%f\t%f\t%f\n" % ((t,self.nid[i])+tuple(self.pos[i])+(self.state[i],self.age[i],self.mass[i],self.dep[i],self.elev[i]))
+      str+="%f\t%d\t%f\t%f\t%f\t%f\t%f\n" % ((t,self.nid[i])+tuple(self.pos[i])+(self.state[i],self.age[i],self.mass[i],self.dep[i]))
     return str
 
   def release(self,t1,t2,**k):
@@ -247,11 +246,12 @@ class _Material(object):
     np=self.np
     posi=numpy.where(self.state[:np,None]<0,self.pos[:np,:],self.post[:np,:])
     for sticker in self.stickers:      
-      posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np],t1,t2)
       if 'GriddedTopo' in sticker.__class__.__name__:
+        posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np],t1,t2,
+                                           unstick=self.unstick)
         self.dep[:self.np]=sticker.interp(posi[:self.np,:],imax=1)[:,0]
-      if 'Elevation' in sticker.__class__.__name__:
-        self.elev[:self.np]=sticker.interp(posi[:self.np,:],t2,imax=1)[:,0]
+      else:
+        posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np],t1,t2) 
     if self.unstick<=0.:
       self.state[self.state>1]=-1
     self.post[:self.np,:]=posi[:self.np,:]
