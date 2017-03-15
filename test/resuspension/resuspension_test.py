@@ -37,7 +37,7 @@ particles1=Sediment('particles1',10000,movers=[currents],stickers=[dep,shoreline
 # CASE 3 : continuous release - high critical shear stress for erosion so that resuspension never occurs
 tstart = datetime.datetime(2009,1,5)
 tend   = datetime.datetime(2009,1,15)
-P0=[170.5,-46,-0.5]
+P0=[170.5,-46,-1.0]
 particles2=Sediment('particles2',10000,movers=[currents],stickers=[dep,shoreline],diffusers=[diff],reln=480*2,P0=P0,w0=-1e-3,tstart=tstart,tend=tend,tau_crit_eros=10.0,unstick=0.0)
 # CASE 4 : continuous release - low critical shear stress for erosion so that resuspension always occurs
 particles3=Sediment('particles3',10000,movers=[currents],stickers=[dep,shoreline],diffusers=[diff],reln=480*2,P0=P0,w0=-1e-3,tstart=tstart,tend=tend,tau_crit_eros=0.15,unstick=0.0)

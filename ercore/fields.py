@@ -454,10 +454,11 @@ class GriddedTide(GridData): # Tidal consituent grid
   def __init__(self,id,vars,**options):
     from ercore.lib.tide import TideStr
     import datetime
+    
     GridData.__init__(self,id,[vars[0]+'_amp'],**options)
     self.vars=vars
-    fcons=[cons.tostring().rstrip().rstrip('\x00').upper() for cons in self.files[0].variables['cons'][:]]
-    #fcons=[cons.tostring().rstrip().rstrip('\x00').upper() for cons in self.files[0]['cons'].getValue(0)[:]] 
+    fcons=[cons.tostring().rstrip().rstrip('\x00').upper() for cons in self.files[0].variables['cons'][:]] # ercore_nc
+    
     consindex=[]
     self.cons=[]
     consreq=options.get('cons',fcons)
@@ -469,8 +470,11 @@ class GriddedTide(GridData): # Tidal consituent grid
     self.amp={}
     self.phac={}
     self.phas={}
-    lat0 = self.files[0].lat0
-
+    #import pdb;pdb.set_trace() 
+    #lat0 = self.files[0].lat0 # this fails if lat0 is not an attribute of netcdf file
+    lat0 = numpy.mean(self.files[0].variables['lat'][:]) # do mean of latitude instead, is that what it is meant to be ? 
+    # if lat==0.0  the nodal phase modulation u, and nodal amplitude correction f returned by tide.py will be 0
+    # what about t0 ?
     self.tidestr=TideStr(numpy.zeros((self.ncons,1)),numpy.zeros((self.ncons,1)),self.cons,options.get('t0',datetime.datetime.now()),lat0)
     for iv,v in enumerate(self.vars):
       vamp=v+'_amp'
