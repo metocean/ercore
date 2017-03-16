@@ -109,23 +109,24 @@ class Sediment(BuoyantTracer):
           self.on_seabed[:np]=on_seabed_tmp 
           self.post[:self.np,:]=posi[:self.np,:]
 
-          # print 'DEPOSITION check start'
-          # print 'nb part that touched bottom and deposited=%s' % (id_depos.sum())
-          # print 'nb part that touched bottom and were resuspended =%s' % ( (~id_depos).sum() )
-          # print 'tau = %s' % (tau)
-          # print 'tau_depos_crit < %s , tau_eros_crit < %s' % (self.props.get('tau_crit_depos'),self.props.get('tau_crit_eros'))
-          # print 'id_depos = %s' % (id_depos)
-          # print 'on_seabed_tmp before check = %s' % on_seabed_tmp_init
-          # print 'on_seabed_tmp after check = %s' % on_seabed_tmp
-          # print 'state_tmp before check= %s' % state_tmp_init
+          print 'DEPOSITION check start'
+          print 'nb part that touched bottom and deposited=%s' % (len(id_depos[0]))
+          print 'nb part that touched bottom and were resuspended =%s' % (len(id_no_depos[0]))
+          print 'id_depos = %s' % (id_depos)
+          print 'tau = %s' % (tau)
+          print 'tau at deposition location = %s' % (tau[id_depos])
+          print 'tau at resuspension location = %s' % (tau[id_no_depos])               
+          print 'tau_depos_crit < %s , tau_eros_crit < %s' % (self.props.get('tau_crit_depos'),self.props.get('tau_crit_eros'))
+          print 'id_no_depos = %s' % (id_no_depos)
+          print 'on_seabed_tmp after check = %s' % on_seabed_tmp
           # print 'state_tmp after check= %s' % state_tmp
-          # print 'depth POS= %s' % self.pos[:np,2]
-          # print 'depth POST= %s' % self.post[:np,2]
-          # print 'depth POSI= %s' % posi[:np,2]
-          # print 'depth after check= %s' % posi[:,2]
-          # print 'TOPO= %s' % topo[:,0]
-          # print 'DEPOSITION check end'
-          # #import pdb;pdb.set_trace()
+          print 'depth POS= %s' % self.pos[:np,2]
+          print 'depth POST= %s' % self.post[:np,2]
+          print 'depth POSI= %s' % posi[:np,2]
+          print 'depth after check= %s' % posi[:,2]
+          print 'TOPO= %s' % topo[:,0]
+          print 'DEPOSITION check end'
+          import pdb;pdb.set_trace()
 
         # RE-SUSPENSION
         if (self.on_seabed[:np]==1).sum():
@@ -135,6 +136,7 @@ class Sediment(BuoyantTracer):
           # Get bed shear stresses at these locations i.e. self.post, and t2
           tau_cur,tau_cw,taumax,topo = self.bedshearstress_cw(self.post[:np,:],t2) #at all active particles
           tau = numpy.maximum.reduce([tau_cur,tau_cw]) # maybe we should use taumax in presence of waves? 
+
           # erosion/resuspension if tau>tau_crit_eros and on_seabed=1
           id_eros=numpy.where(numpy.logical_and( tau>=self.props.get('tau_crit_eros') , self.on_seabed[:np]==1 ))
           id_no_eros=numpy.where(numpy.logical_and( tau<self.props.get('tau_crit_eros') , self.on_seabed[:np]==1 ))
@@ -148,25 +150,28 @@ class Sediment(BuoyantTracer):
           self.state[:np]=state_tmp # update the top state array
           self.post[:self.np,:]=posi[:self.np,:]
 
-          # print 'RESUSPENSION check start'
-          # print 'nb part that were deposited=%s' % (ind.sum())
-          # print 'nb part that  were deposited and were resuspended =%s' % ( (id_eros).sum() )
-          # print 'tau = %s' % (tau)
-          # print 'tau_eros_crit > %s' % (self.props.get('tau_crit_eros'))
-          # print 'id_eros = %s' % (id_eros)
-          # print 'on_seabed_tmp before check = %s' % on_seabed_tmp_init
-          # print 'on_seabed_tmp after check = %s' % on_seabed_tmp
-          # print 'state_tmp before check= %s' % state_tmp_init
-          # print 'state_tmp after check= %s' % state_tmp
-          # print 'RESUSPENSION check end'
-          #import pdb;pdb.set_trace()
+          print 'RESUSPENSION check start'
+          print 'nb part that were deposited and were NOT resuspended=%s' % (len(id_no_eros[0]))
+          print 'nb part that  were deposited and were resuspended =%s' % ( len(id_eros[0]) )
+          print 'tau = %s' % (tau)
+          print 'tau where resuspension = %s' % (tau[id_eros])
+          print 'tau where NO resuspension = %s' % (tau[id_no_eros])          
+          print 'tau_eros_crit > %s' % (self.props.get('tau_crit_eros'))
+          print 'id_no_eros = %s' % (id_no_eros)
+          print 'id_eros = %s' % (id_eros)
+          print 'on_seabed_tmp after check = %s' % on_seabed_tmp
+          print 'state_tmp after check= %s' % state_tmp
+          print 'RESUSPENSION check end'
+          import pdb;pdb.set_trace()
 
         if (self.state[:np]==2).any():
           import pdb;pdb.set_trace() #there should NOT be any state==2
+        if (self.post[:self.np,2]<=self.dep[:self.np]).any():
+          import pdb;pdb.set_trace()
         
       if 'Elevation' in sticker.__class__.__name__:
         self.elev[:self.np]=sticker.interp(posi[:self.np,:],t2,imax=1)[:,0]
-        self.post[:self.np,:]=posi[:self.np,:] 
+        self.post[:self.np,:]=posi[:self.np,:]
 
     #if self.unstick<=0.:
     # print self.state[self.state>1]
@@ -216,13 +221,17 @@ class Sediment(BuoyantTracer):
       if mover.topo: # topo needed to define bedshear stress
         topo=mover.topo.interp(p,None,3)     
         if (not mover.is3d) and (mover.z0>0): # mover is a 2D-depth averaged current
-          u2dhim=mover.interp(p,time,imax)
-          #u2dhim=mover.interp(self,p,time,imax)
+          # temporarily set mover.z0 to 0.0 so that mover.interp yields the un-corrected depth-averaged current (direct interpolation, no log profile )
+          # not super elegant, probably a better way to do this - anyway to access GriddedTide or GriddedData from here ?
+          z0_tmp=copy.copy(mover.z0)
+          mover.z0=0.0
+          u2dhim=mover.interp(p,time,imax)   #u2dhim=mover.interp(self,p,time,imax)        
+          mover.z0=z0_tmp
           u2dhim_mag=(u2dhim[:,0]**2+u2dhim[:,1]**2)**0.5
           # Drag coefficient for 2D case using water depth and z0 (see COHERENS manual eq.7.2, or Delft3d)
           Cdrag=( 0.4 /(numpy.log(abs(topo[:,0] /mover.z0))-1) )**2
           #Now compute the bed shear stress [N/m2] 
-          tau_cur+=rhow*Cdrag*u2dhim_mag**2    
+          tau_cur+=rhow*Cdrag*u2dhim_mag**2             
         elif (mover.is3d) and (mover.z0>0):   # mover is a 3D current field
           #import pdb;pdb.set_trace()
           # Assume the first grid point above the bed is assumed to be the top of the logarithmic boundary layer
@@ -270,4 +279,6 @@ class Sediment(BuoyantTracer):
     else:
       tau_max=tau_cur
       tau_cw=tau_cur
+    # if (tau_cur==0).any():
+    #   import pdb;pdb.set_trace()
     return tau_cur,tau_cw,tau_max,topo
