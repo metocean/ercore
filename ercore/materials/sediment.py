@@ -103,7 +103,7 @@ class Sediment(BuoyantTracer):
           #if deposition occurs set particle depths to seabed depth
           posi[id_depos,2]=topo[id_depos,0] 
           # if not deposition occurs, resuspend within a bottom layer of thickness self.seabedlayer_thick (0.2 m for now) (normally distributed)
-          posi[id_no_depos,2]=posi[id_no_depos,2]+self.seabedlayer_thick*numpy.random.uniform(0.0,1.0,numpy.size(posi[id_no_depos,2]))
+          posi[id_no_depos,2]=topo[id_no_depos,2]+self.seabedlayer_thick*numpy.random.uniform(0.0,1.0,numpy.size(topo[id_no_depos,2]))
           #update top-copy arrays
           self.state[:np]=state_tmp 
           self.on_seabed[:np]=on_seabed_tmp 
@@ -126,7 +126,10 @@ class Sediment(BuoyantTracer):
           print 'depth after check= %s' % posi[:,2]
           print 'TOPO= %s' % topo[:,0]
           print 'DEPOSITION check end'
-          import pdb;pdb.set_trace()
+          #import pdb;pdb.set_trace()
+
+          # if (self.post[:self.np,2]<topo[:,0]).any():
+          #   import pdb;pdb.set_trace()
 
         # RE-SUSPENSION
         if (self.on_seabed[:np]==1).sum():
@@ -142,7 +145,7 @@ class Sediment(BuoyantTracer):
           id_no_eros=numpy.where(numpy.logical_and( tau<self.props.get('tau_crit_eros') , self.on_seabed[:np]==1 ))
           on_seabed_tmp[id_eros]=0 # particles are not deposited on the seabed anymore
           # if  resuspension occurs, resuspend within a bottom layer of thickness self.seabedlayer_thick (0.2 m for now) (normally distributed)
-          posi[id_eros,2]=posi[id_eros,2]+self.seabedlayer_thick*numpy.random.uniform(0.0,1.0,numpy.size(posi[id_eros,2])) # random number between 0-1
+          posi[id_eros,2]=topo[id_eros,2]+self.seabedlayer_thick*numpy.random.uniform(0.0,1.0,numpy.size(topo[id_eros,2])) # random number between 0-1
           # ensure previously deposited particles stay on seabed
           posi[id_no_eros,2]=topo[id_no_eros,0]
 
@@ -162,12 +165,16 @@ class Sediment(BuoyantTracer):
           print 'on_seabed_tmp after check = %s' % on_seabed_tmp
           print 'state_tmp after check= %s' % state_tmp
           print 'RESUSPENSION check end'
-          import pdb;pdb.set_trace()
+          #import pdb;pdb.set_trace()
 
-        if (self.state[:np]==2).any():
-          import pdb;pdb.set_trace() #there should NOT be any state==2
-        if (self.post[:self.np,2]<=self.dep[:self.np]).any():
-          import pdb;pdb.set_trace()
+          # if (self.post[:self.np,2]<topo[:,0]).any():
+          #   import pdb;pdb.set_trace()
+
+        # if (self.state[:np]==2).any():
+        #   import pdb;pdb.set_trace() #there should NOT be any state==2
+
+      # if (self.post[:self.np,2]<self.dep[:self.np]).any():
+      #    import pdb;pdb.set_trace()
         
       if 'Elevation' in sticker.__class__.__name__:
         self.elev[:self.np]=sticker.interp(posi[:self.np,:],t2,imax=1)[:,0]
