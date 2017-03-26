@@ -94,7 +94,7 @@ class Sediment(BuoyantTracer):
           # At this stage,particle that touched the seabed were already re-suspended to a small height above seabed  (in posi)
           # Get bed shear stresses at these locations i.e. self.post, and t2
           tau_cur,tau_cw,tau_max,topo = self.bedshearstress_cw(self.post[:np,:],t2) #at all active particles
-          tau = numpy.maximum.reduce([tau_cur,tau_cw]) # maybe we should use taumax in presence of waves?    
+          tau = numpy.maximum.reduce([tau_cur,tau_max]) # maybe we should use taumax in presence of waves?    
           # deposition on the seabed if state==2 and tau<=tau_crit_depos and tau<=tau_crit_eros and 
           id_depos=numpy.where(numpy.logical_and.reduce(( tau<=self.props.get('tau_crit_depos') , tau<=self.props.get('tau_crit_eros') , self.state[:np]==2 )))
           id_no_depos=numpy.where( numpy.logical_and( numpy.logical_or( tau>self.props.get('tau_crit_depos') , tau>=self.props.get('tau_crit_eros') ), self.state[:np]==2 ) )
@@ -108,14 +108,14 @@ class Sediment(BuoyantTracer):
           self.state[:np]=state_tmp 
           self.on_seabed[:np]=on_seabed_tmp 
           self.post[:self.np,:]=posi[:self.np,:]
-          if (self.post[:self.np,2]>0).any():
-            import pdb;pdb.set_trace()
+          # if (self.post[:self.np,2]>0).any():
+          #   import pdb;pdb.set_trace()
 
-          # print 'DEPOSITION check start'
-          # print 'nb part that touched bottom and deposited=%s' % (len(id_depos[0]))
-          # print 'nb part that touched bottom and were resuspended =%s' % (len(id_no_depos[0]))
+          print 'DEPOSITION check start'
+          print 'nb part that touched bottom and deposited=%s' % (len(id_depos[0]))
+          print 'nb part that touched bottom and were resuspended =%s' % (len(id_no_depos[0]))
           # print 'id_depos = %s' % (id_depos)
-          # print 'tau = %s' % (tau)
+          #print 'tau = %s' % (tau)
           # print 'tau at deposition location = %s' % (tau[id_depos])
           # print 'tau at resuspension location = %s' % (tau[id_no_depos])               
           # print 'tau_depos_crit < %s , tau_eros_crit < %s' % (self.props.get('tau_crit_depos'),self.props.get('tau_crit_eros'))
@@ -127,7 +127,7 @@ class Sediment(BuoyantTracer):
           # print 'depth POSI= %s' % posi[:np,2]
           # print 'depth after check= %s' % posi[:,2]
           # print 'TOPO= %s' % topo[:,0]
-          # print 'DEPOSITION check end'
+          print 'DEPOSITION check end'
           #import pdb;pdb.set_trace()
 
           # if (self.post[:self.np,2]<topo[:,0]).any():
@@ -140,7 +140,7 @@ class Sediment(BuoyantTracer):
           ind=numpy.where(on_seabed_tmp==1) # id of particles previously deposited on seabed
           # Get bed shear stresses at these locations i.e. self.post, and t2
           tau_cur,tau_cw,taumax,topo = self.bedshearstress_cw(self.post[:np,:],t2) #at all active particles
-          tau = numpy.maximum.reduce([tau_cur,tau_cw]) # maybe we should use taumax in presence of waves? 
+          tau = numpy.maximum.reduce([tau_cur,tau_max]) # maybe we should use taumax in presence of waves? 
 
           # erosion/resuspension if tau>tau_crit_eros and on_seabed=1
           id_eros=numpy.where(numpy.logical_and( tau>=self.props.get('tau_crit_eros') , self.on_seabed[:np]==1 ))
@@ -154,21 +154,23 @@ class Sediment(BuoyantTracer):
           self.on_seabed[:np]=on_seabed_tmp
           self.state[:np]=state_tmp # update the top state array
           self.post[:self.np,:]=posi[:self.np,:]
-          if (self.post[:self.np,2]>0).any():
-            import pdb;pdb.set_trace()
+          # if (self.post[:self.np,2]>0).any():
+          #import pdb;pdb.set_trace()
 
-          # print 'RESUSPENSION check start'
-          # print 'nb part that were deposited and were NOT resuspended=%s' % (len(id_no_eros[0]))
-          # print 'nb part that  were deposited and were resuspended =%s' % ( len(id_eros[0]) )
-          # print 'tau = %s' % (tau)
-          # print 'tau where resuspension = %s' % (tau[id_eros])
-          # print 'tau where NO resuspension = %s' % (tau[id_no_eros])          
+          print 'RESUSPENSION check start'
+          #print 'nb part that were deposited and were NOT resuspended=%s' % (len(id_no_eros[0]))
+          print 'nb part that  were deposited and were resuspended =%s' % ( len(id_eros[0]) )
+          #print 'tau = %s' % (tau)
+          print 'np = %s' % (self.np)
+          print 'sum on_seabed = %s' % (numpy.sum(on_seabed_tmp))
+          #print 'tau where resuspension = %s' % (tau[id_eros])
+          #print 'tau where NO resuspension = %s' % (tau[id_no_eros])          
           # print 'tau_eros_crit > %s' % (self.props.get('tau_crit_eros'))
           # print 'id_no_eros = %s' % (id_no_eros)
           # print 'id_eros = %s' % (id_eros)
           # print 'on_seabed_tmp after check = %s' % on_seabed_tmp
           # print 'state_tmp after check= %s' % state_tmp
-          # print 'RESUSPENSION check end'
+          print 'RESUSPENSION check end'
           #import pdb;pdb.set_trace()
 
           # if (self.post[:self.np,2]<topo[:,0]).any():
@@ -246,7 +248,7 @@ class Sediment(BuoyantTracer):
         elif (mover.is3d) and (mover.z0>0):   # mover is a 3D current field
           #import pdb;pdb.set_trace()
           # Assume the first grid point above the bed is assumed to be the top of the logarithmic boundary layer
-          # the log profile extends from than last wet bin level, to the bottom
+          # the log profile extends from that last wet bin level, to the bottom
           # see COHERENS manual eq 7.1/7.2
   
           # find closest "wet" vertical levels at each particle locations
@@ -278,7 +280,7 @@ class Sediment(BuoyantTracer):
       topo= self.movers[0].topo.interp(p,None,3)
       w=2*numpy.pi/tp
       kh = qkhfs( w, topo[:,0] ) # dispersion relationship
-      Adelta = hs/(2.*numpy.sinh(k*topo[:,0])) # peak wave orbital excursion
+      Adelta = hs/(2*numpy.sinh(kh)) # peak wave orbital excursion
       Udelta = (numpy.pi*hs)/(tp*numpy.sinh(kh))  # peak wave orbital velocity
       fw = numpy.exp(-5.977+5.213*(Adelta/ksw)**-0.194)  # wave-related friction coefficient (van Rijn)
       fw = numpy.min(fw,0.3)

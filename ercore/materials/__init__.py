@@ -99,14 +99,22 @@ class _Material(object):
       #thickness of z layer
       dz=abs(P0[2][0]-P0[2][1])
       # depth are supposed to be negative
-      # import pdb; pdb.set_trace() 
-      zz=numpy.random.random(nbuff+1)
+       
+      # generate random number in batches of 10 to make sure "random" distribution is good even for small nb of particle released
+      # NOT SUFFICIENT - THIS NEED TO BE FIXED 
+      #- the random release probably needs to be set when new particles are introduced, otherwise the same initial depths keep being used
+      zz=numpy.tile(0.,nbuff+1)
+      zz[0: int(10*numpy.floor(nbuff/10)) ]=numpy.tile( numpy.random.random(10) , int(numpy.floor(nbuff/10)) )
+      zz[ int(10*numpy.floor(nbuff/10)) :nbuff+1]=numpy.random.random(nbuff+1 -int(numpy.floor(nbuff/10))*10)
+      # Before this was simply
+      #zz=numpy.random.random(nbuff+1)
       self.pos[:,2]=min(P0[2])+dz*zz
       self.post[:,2]=min(P0[2])+dz*zz
       
     if "circular_radius" in self.props:
       #release in a circle rather than at a single X,Y point location
       #1 deg lat = 110 km, 1 deg lon= 111.32km*cos(lat) 
+      # Note this will not make a perfect circle, but approximation is likely good enough.
       deg_in_m_lon=111320.0*numpy.cos(-numpy.pi*P0[1]/180)
       deg_in_m_lat=110574.0
       radius_lon=self.props['circular_radius']/deg_in_m_lon
@@ -118,17 +126,30 @@ class _Material(object):
       self.post[:,0]=self.pos[:,0]
       self.post[:,1]=self.pos[:,1]
       self.dep = numpy.ones((nbuff+1))*-999.
-      self.elev = numpy.zeros((nbuff+1)) 
-      # Note this will not make a perfect circle, but approximation is likely good enough.
-
+      self.elev = numpy.zeros((nbuff+1))  
+      # Particles release depths may need to be updated according to water depths at new locations within the circle
+      for sticker in stickers:
+        if 'GriddedTopo' in sticker.__class__.__name__:
+           topo=sticker.interp(self.pos,imax=1)# get depths new particles locations within the release circle         
+           self.pos[:,2] = numpy.maximum.reduce([self.pos[:,2],topo[:,0] +0.1])
+           self.post[:,2] = self.pos[:,2]
+           if (self.pos[:,2]<topo[:,0]).any() : import pdb;pdb.set_trace() 
+               
     if "polygon" in self.props:
-     # release in a polygon shape
-     poly=Polygon(self.props['polygon'])
-     point_in_poly = get_random_point_in_polygon(nbuff,poly)
-     self.pos[:,0]=point_in_poly[:,0]
-     self.pos[:,1]=point_in_poly[:,1]
-     self.post[:,0]=self.pos[:,0]
-     self.post[:,1]=self.pos[:,1]
+      # release in a polygon shape
+      poly=Polygon(self.props['polygon'])
+      point_in_poly = get_random_point_in_polygon(nbuff,poly)
+      self.pos[:,0]=point_in_poly[:,0]
+      self.pos[:,1]=point_in_poly[:,1]
+      self.post[:,0]=self.pos[:,0]
+      self.post[:,1]=self.pos[:,1]
+      # Particles release depths may need to be updated according to water depths at new locations within the polygons
+      for sticker in stickers:
+        if 'GriddedTopo' in sticker.__class__.__name__:
+           topo=sticker.interp(self.pos,imax=1)# get depths new particles locations within the release circle         
+           self.pos[:,2] = numpy.maximum.reduce([self.pos[:,2],topo[:,0] +0.1])
+           self.post[:,2] = self.pos[:,2]
+           if (self.pos[:,2]<topo[:,0]).any() : import pdb;pdb.set_trace() 
  
 
 
@@ -378,12 +399,6 @@ class _Material(object):
     #self.state[dead]=-2
     dead=(self.age[:self.np]>self.props.get('maxage',1.e20)) | (self.mass[:self.np]<=0.0001*self.mass0)
     self.state[:self.np][dead]=-2
-
-  def resuspend_deposit(self,t1,t2):
-    """Performs some check on bed shear stress levels and resuspend/deposit accordingly
-    more explanatiosn here **** 
-    """ 
-
     
   
 class PassiveTracer(_Material):
