@@ -111,14 +111,14 @@ class Sediment(BuoyantTracer):
           # if (self.post[:self.np,2]>0).any():
           #   import pdb;pdb.set_trace()
 
-          print 'DEPOSITION check start'
-          print 'nb part that touched bottom and deposited=%s' % (len(id_depos[0]))
-          print 'nb part that touched bottom and were resuspended =%s' % (len(id_no_depos[0]))
+          #print 'DEPOSITION check start'
+          #print 'nb part that touched bottom and deposited=%s' % (len(id_depos[0]))
+          #print 'nb part that touched bottom and were resuspended =%s' % (len(id_no_depos[0]))
           # print 'id_depos = %s' % (id_depos)
           #print 'tau = %s' % (tau)
           # print 'tau at deposition location = %s' % (tau[id_depos])
           # print 'tau at resuspension location = %s' % (tau[id_no_depos])               
-          # print 'tau_depos_crit < %s , tau_eros_crit < %s' % (self.props.get('tau_crit_depos'),self.props.get('tau_crit_eros'))
+          # print 'tau_depos_-crit < %s , tau_eros_crit < %s' % (self.props.get('tau_crit_depos'),self.props.get('tau_crit_eros'))
           # print 'id_no_depos = %s' % (id_no_depos)
           # print 'on_seabed_tmp after check = %s' % on_seabed_tmp
           # # print 'state_tmp after check= %s' % state_tmp
@@ -127,7 +127,7 @@ class Sediment(BuoyantTracer):
           # print 'depth POSI= %s' % posi[:np,2]
           # print 'depth after check= %s' % posi[:,2]
           # print 'TOPO= %s' % topo[:,0]
-          print 'DEPOSITION check end'
+          #print 'DEPOSITION check end'
           #import pdb;pdb.set_trace()
 
           # if (self.post[:self.np,2]<topo[:,0]).any():
@@ -139,7 +139,7 @@ class Sediment(BuoyantTracer):
           on_seabed_tmp=self.on_seabed[:np].copy()
           ind=numpy.where(on_seabed_tmp==1) # id of particles previously deposited on seabed
           # Get bed shear stresses at these locations i.e. self.post, and t2
-          tau_cur,tau_cw,taumax,topo = self.bedshearstress_cw(self.post[:np,:],t2) #at all active particles
+          tau_cur,tau_cw,tau_max,topo = self.bedshearstress_cw(self.post[:np,:],t2) #at all active particles
           tau = numpy.maximum.reduce([tau_cur,tau_max]) # maybe we should use taumax in presence of waves? 
 
           # erosion/resuspension if tau>tau_crit_eros and on_seabed=1
@@ -157,12 +157,12 @@ class Sediment(BuoyantTracer):
           # if (self.post[:self.np,2]>0).any():
           #import pdb;pdb.set_trace()
 
-          print 'RESUSPENSION check start'
+          # print 'RESUSPENSION check start'
           #print 'nb part that were deposited and were NOT resuspended=%s' % (len(id_no_eros[0]))
-          print 'nb part that  were deposited and were resuspended =%s' % ( len(id_eros[0]) )
+          #print 'nb part that  were deposited and were resuspended =%s' % ( len(id_eros[0]) )
           #print 'tau = %s' % (tau)
-          print 'np = %s' % (self.np)
-          print 'sum on_seabed = %s' % (numpy.sum(on_seabed_tmp))
+          #print 'np = %s' % (self.np)
+          #print 'sum on_seabed = %s' % (numpy.sum(on_seabed_tmp))
           #print 'tau where resuspension = %s' % (tau[id_eros])
           #print 'tau where NO resuspension = %s' % (tau[id_no_eros])          
           # print 'tau_eros_crit > %s' % (self.props.get('tau_crit_eros'))
@@ -170,7 +170,7 @@ class Sediment(BuoyantTracer):
           # print 'id_eros = %s' % (id_eros)
           # print 'on_seabed_tmp after check = %s' % on_seabed_tmp
           # print 'state_tmp after check= %s' % state_tmp
-          print 'RESUSPENSION check end'
+          #print 'RESUSPENSION check end'
           #import pdb;pdb.set_trace()
 
           # if (self.post[:self.np,2]<topo[:,0]).any():

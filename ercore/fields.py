@@ -676,7 +676,7 @@ class GriddedMover(GridData):
     return uu
 
 class TidalMover(GriddedTide):
-  z0=0.001
+  z0=0.001 # default z0
   topo=None
   @copydoc(FieldData.interp)
   def interp(self,p,time=None,imax=2):

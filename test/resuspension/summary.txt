@@ -3,25 +3,25 @@
   ErCore Model Summary
 --------------------------------------------
   Directory output :          .
-  Model time step:            900.0s
-  Output frequency:           900.0s
-  Materials:                  960 - particles3 (Sediment)
-  Total particles released:   960
+  Model time step:            360.0s
+  Output frequency:           360.0s
+  Materials:                  1200 - lyt_test_site1_random_bottom_cylinder_r60_class1 (BuoyantTracer)
+  Total particles released:   1200
 --------------------------------------------
   Time Summary
 --------------------------------------------
-  Start time:              2017-03-14 17:28:06.455476
-  End time:                2017-03-14 17:28:27.875865
+  Start time:              2017-03-28 15:06:45.555007
+  End time:                2017-03-28 15:10:58.163797
   Initialization time:     0.00000s
-  Avg. step time:          0.00000s
+  Avg. step time:          1.00000s
   Avg. release time:       0.00000s
   Avg. react time:         0.00000s
-  Avg. advect time:        0.00000s
+  Avg. advect time:        1.00000s
   Avg. diffuse time:       0.00000s
   Avg. stick time:         0.00000s
   Avg. ageing time:        0.00000s
   Avg. dieing time:        0.00000s
-  Total modeling time:     0:00:23
+  Total modeling time:     0:04:14.500000
 ===============================================
 
 +

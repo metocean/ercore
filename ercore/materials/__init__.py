@@ -15,8 +15,8 @@ PI2=2*numpy.pi
 
 def get_random_point_in_polygon(nbuff,poly):
      (minx, miny, maxx, maxy) = poly.bounds
-     matrix=numpy.zeros(shape=(nbuff+1,2))
-     for np in range(0,nbuff+1):
+     matrix=numpy.zeros(shape=(nbuff,2))
+     for np in range(0,nbuff):
         while matrix[np,0]==0:
                 Xp=(maxx-minx)*numpy.random.random(1)+minx
                 Yp=(maxy-miny)*numpy.random.random(1)+miny
@@ -26,6 +26,26 @@ def get_random_point_in_polygon(nbuff,poly):
                         matrix[np,1]=Yp
      return matrix
 
+def get_random_point_in_circle(nbuff,P0,radius):
+  """
+  define 'nbuff' random points within a circle of 
+  center 'P0' [1x3] ([lon,lat,z] as input in Material class) 
+  'radius' in meters
+  """      
+  #1 deg lat = 110 km, 1 deg lon= 111.32km*cos(lat) 
+  # Note this will not make a perfect circle, but approximation is likely good enough.
+  matrix=numpy.zeros(shape=(nbuff,2))
+  lat_rad=numpy.pi*P0[1]/180 # latitude in radians
+  deg_in_m_lat=111132.92-559.82 * numpy.cos(2* lat_rad)+1.175*numpy.cos(4*lat_rad)
+  deg_in_m_lon=111412.84 * numpy.cos(lat_rad)- 93.5 * numpy.cos(3*lat_rad)
+  #https://knowledge.safe.com/articles/725/calculating-accurate-length-in-meters-for-lat-long.html
+  radius_lon=radius/deg_in_m_lon
+  radius_lat=radius/deg_in_m_lat
+  rand_angle=numpy.random.uniform(0.0,1.0,nbuff)
+  rand_radius=numpy.random.uniform(0.0,1.0,nbuff)    
+  matrix[:,0]=P0[0]+radius_lon*rand_radius*numpy.ones((1,nbuff))*numpy.cos(rand_angle*2*numpy.pi)
+  matrix[:,1]=P0[1]+radius_lat*rand_radius*numpy.ones((1,nbuff))*numpy.sin(rand_angle*2*numpy.pi)
+  return matrix
 
 def eqnstate(P,T,Mg,Z=1.0):
   return R1*P*Mg/Z/(T+273)
@@ -99,30 +119,15 @@ class _Material(object):
       #thickness of z layer
       dz=abs(P0[2][0]-P0[2][1])
       # depth are supposed to be negative
-       
-      # generate random number in batches of 10 to make sure "random" distribution is good even for small nb of particle released
-      # NOT SUFFICIENT - THIS NEED TO BE FIXED 
-      #- the random release probably needs to be set when new particles are introduced, otherwise the same initial depths keep being used
-      zz=numpy.tile(0.,nbuff+1)
-      zz[0: int(10*numpy.floor(nbuff/10)) ]=numpy.tile( numpy.random.random(10) , int(numpy.floor(nbuff/10)) )
-      zz[ int(10*numpy.floor(nbuff/10)) :nbuff+1]=numpy.random.random(nbuff+1 -int(numpy.floor(nbuff/10))*10)
-      # Before this was simply
-      #zz=numpy.random.random(nbuff+1)
+      zz=numpy.random.random(nbuff+1)
       self.pos[:,2]=min(P0[2])+dz*zz
       self.post[:,2]=min(P0[2])+dz*zz
       
     if "circular_radius" in self.props:
       #release in a circle rather than at a single X,Y point location
-      #1 deg lat = 110 km, 1 deg lon= 111.32km*cos(lat) 
-      # Note this will not make a perfect circle, but approximation is likely good enough.
-      deg_in_m_lon=111320.0*numpy.cos(-numpy.pi*P0[1]/180)
-      deg_in_m_lat=110574.0
-      radius_lon=self.props['circular_radius']/deg_in_m_lon
-      radius_lat=self.props['circular_radius']/deg_in_m_lat
-      rand1=numpy.random.random(nbuff+1)
-      rand2=numpy.random.random(nbuff+1)
-      self.pos[:,0]=self.pos[:,0]+radius_lon*rand1*numpy.ones((1,nbuff+1))*numpy.cos(rand2*2*numpy.pi)
-      self.pos[:,1]=self.pos[:,1]+radius_lat*rand1*numpy.ones((1,nbuff+1))*numpy.sin(rand2*2*numpy.pi)
+      point_in_circle = get_random_point_in_circle(nbuff+1,self.props['P0'],self.props['circular_radius'])
+      self.pos[:,0]=point_in_circle[:,0]
+      self.pos[:,1]=point_in_circle[:,1]
       self.post[:,0]=self.pos[:,0]
       self.post[:,1]=self.pos[:,1]
       self.dep = numpy.ones((nbuff+1))*-999.
@@ -139,7 +144,7 @@ class _Material(object):
     if "polygon" in self.props:
       # release in a polygon shape
       poly=Polygon(self.props['polygon'])
-      point_in_poly = get_random_point_in_polygon(nbuff,poly)
+      point_in_poly = get_random_point_in_polygon(nbuff+1,poly)
       self.pos[:,0]=point_in_poly[:,0]
       self.pos[:,1]=point_in_poly[:,1]
       self.post[:,0]=self.pos[:,0]
@@ -246,11 +251,14 @@ class _Material(object):
     return Particle(self.pos[ind,:],self.state[ind],self.age[ind],self.mass[ind],self.props)
     
   def _reset(self,i0):
-    """Reset and shuffle arrays after particles removed"""
+    """Reset and shuffle arrays after particles removed
+    i0 is a boolean array which is True for active particles / False otherwise
+    """
     if len(self.arrays)==0:
       for a in dir(self):
         if isinstance(getattr(self,a),numpy.ndarray):
           self.arrays.append(getattr(self,a))
+    # i0 is an integer array
     if isinstance(i0,int):
       for a in self.arrays:
         a[:-i0]=a[i0:]
@@ -258,17 +266,33 @@ class _Material(object):
       self.np-=i0
       return True
     else:
+    # i0 is a boolean array
       nind=i0.sum()
     if nind==0:return False
-    # update the number of active particles. nind = nb of part with state<0
+    
+    # update the number of active particles. nind = nb of part with state<0, which need to be removed
     self.np-=nind
-    self.np=max(self.np,0) #make sure this does not become <0
+    self.np=max(self.np,0) #make sure np does not become <0
+    
+    # define indices of initial particles position/depth to use to backfill the shuffled array
+    if numpy.size(self.props['P0'][2])==2: #then release depth is random within a range
+      # generate nind array indices, picked randomly within the range [self.np+nind:end]
+      fill_id=numpy.random.randint(self.np+nind, len(self.pos[:,0]), nind) 
+    else:
+      # generate nind array indices, picked within the range [self.np+nind:end]
+      #fill_id=numpy.arange(len(self.pos[:,0])-nind+1,len(self.pos[:,0]),1,'int')
+      fill_id=-1 # using -1 replicate the last particle position/depth of the arrays - i.e. a[-1]
     for a in self.arrays:
-      a[:-nind]=a[~i0] # shuffle arrays accounting for dead particles
-      #repeat the last line of the updated array to backfill
-      #a[self.np:self.np+nind]=a[-1]
-      # repeat the last "nind" lines of the updated array to backfill
-      a[self.np:self.np+nind]=a[-nind-1:-1]
+      # shuffle arrays removing the dead particles 
+      a[:-nind]=a[~i0]
+      a[self.np:self.np+nind]=a[fill_id]  # fill the locations of removed particles with new ones - indices fill_id defined above depending on release type (fixed or within vertical range)    
+      #a[self.np:self.np+nind]=a[-1]  # in ercore_nc branch
+      #a[self.np:self.np+nind]=a[-nind-1:-1] # in master branch
+      # these dont work properly in case of random release within a poly and/or vertical range
+    print self.pos[self.np:self.np+nind,2]
+
+      
+
     return True
     
   def fheader(self):
