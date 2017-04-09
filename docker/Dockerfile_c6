@@ -10,6 +10,9 @@ RUN yum -y install epel-release &&\
                    python-shapely &&\
     yum clean all
 
+RUN pip install --upgrade pip &&\
+    pip install PyYaml
+
 COPY ercore-2.0.tar.gz /tmp/ercore-2.0.tar.gz
 
 RUN echo "-----------------Install Ercore-----------------" &&\
