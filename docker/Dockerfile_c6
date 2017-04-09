@@ -6,7 +6,8 @@ RUN yum -y install epel-release &&\
     yum -y update &&\
     yum -y groupinstall 'Development Tools' &&\
     yum -y install netcdf-devel hdf-devel libpng12-devel nco \
-                   ipython python-pip numpy-f2py netcdf4-python &&\
+                   ipython python-pip numpy-f2py netcdf4-python \
+                   python-shapely &&\
     yum clean all
 
 COPY ercore-2.0.tar.gz /tmp/ercore-2.0.tar.gz
@@ -15,13 +16,16 @@ RUN echo "-----------------Install Ercore-----------------" &&\
     cd /tmp &&\
     tar -zvxf ercore-2.0.tar.gz &&\
     cd /tmp/ercore-2.0 &&\
-    python setup.py install 
+    pip install -r requirements.txt &&\
+    python setup.py install &&\ 
+    cp -p erbio /usr/local/bin/ &&\
+    cp -p eroil /usr/local/bin/ &&\
+    cp -p ersar /usr/local/bin/ &&\
+    cp -p erall /usr/local/bin/ &&\
+    chmod +x /usr/local/bin/er*
 
 RUN adduser -ms /bin/bash -u 1001 newuser &&\
     echo newuser:particles | chpasswd &&\
     gpasswd -a newuser wheel
-
-
-
 
  

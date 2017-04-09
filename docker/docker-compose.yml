@@ -7,8 +7,9 @@ services:
             context: .
             dockerfile: Dockerfile_c7
         tty: true
+        dns: 8.8.8.8
         volumes:
-            - /Users/rosa/Documents/MSL/git/ercore:/home/newuser/ercore
+            - /home/metocean/ercore:/home/newuser/ercore
         environment:
            - DISPLAY=192.168.1.7:0
         user: newuser
