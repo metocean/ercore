@@ -22,3 +22,12 @@ services:
         build:
             context: .
             dockerfile: Dockerfile_c6
+        tty: true
+        dns: 8.8.8.8
+        volumes:
+            - /home/metocean/ercore:/home/newuser/ercore
+        environment:
+           - DISPLAY=192.168.1.7:0
+        user: newuser
+        container_name : ercore_c6
+        # mem_limit: 4000000000
