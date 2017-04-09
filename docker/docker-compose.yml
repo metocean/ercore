@@ -1,0 +1,23 @@
+version: '2'
+
+services:
+    ercore_c7:
+        image: rosatrancoso/ercore:c7
+        build:
+            context: .
+            dockerfile: Dockerfile_c7
+        tty: true
+        volumes:
+            - /Users/rosa/Documents/MSL/git/ercore:/home/newuser/ercore
+        environment:
+           - DISPLAY=192.168.1.7:0
+        user: newuser
+        container_name : ercore_c7
+        # mem_limit: 4000000000
+
+
+    ercore_c6:
+        image: rosatrancoso/ercore:c6
+        build:
+            context: .
+            dockerfile: Dockerfile_c6
