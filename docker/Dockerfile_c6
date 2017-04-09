@@ -1,0 +1,22 @@
+FROM centos:centos6
+MAINTAINER Rosa Trancoso <rosa@metocean.co.nz>
+
+RUN yum -y install epel-release &&\
+    yum -y install git vim sudo tar unzip wget &&\
+    yum -y update &&\
+    yum clean all
+
+RUN yum -y groupinstall 'Development Tools'
+
+RUN yum -y install netcdf-devel hdf-devel libpng12-devel nco \
+                   ipython python-pip numpy-f2py netcdf4-python 
+
+
+COPY ercore-2.0.tar.gz /tmp/ercore-2.0.tar.gz
+
+RUN echo "-----------------Install Ercore-----------------" &&\
+    cd /tmp &&\
+    tar -zvxf ercore-2.0.tar.gz &&\
+    cd /tmp/ercore-2.0 &&\
+    python setup.py install 
+ 
