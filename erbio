@@ -5,7 +5,17 @@ from optparse import OptionParser
 from ercore import ERcore
 from ercore.materials.biota import Plankton
 
-usage = "Usage: %prog [options] yaml_file tstart tend"
+usage = """
+
+Usage: %prog [options] yaml_file tstart tend
+
+tstart and tend can be:
+ - datetime
+ - ncep decimal time
+ - string (%Y%m%d_%Hz or '%Y-%m-%d %H:%M:%S')
+
+"""
+
 parser = OptionParser(usage)
 
 parser.add_option("-d", "--dt", dest="dt",help="Time step (seconds)",default=10)
