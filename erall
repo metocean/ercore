@@ -5,6 +5,7 @@ from optparse import OptionParser
 from ercore import ERcore
 from ercore.fields import *
 from ercore.materials import *
+from ercore.shoreline import * 
 
 usage = """
 
