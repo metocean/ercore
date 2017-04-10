@@ -1,11 +1,12 @@
 #!/usr/bin python
-import datetime, copy
-# import matplotlib.pyplot as plt 
+import datetime, copy, os
 from ercore import ERcore
 from ercore.materials import BuoyantTracer
 from ercore.fields import ConstantMover,VariableDiffuser
 
-
+plot = True
+if plot:
+    import matplotlib.pyplot as plt 
 
 # class _Material(object):
 #   """Initialization:
@@ -30,44 +31,55 @@ from ercore.fields import ConstantMover,VariableDiffuser
       
 #     Properties:
 
-# def __init__(self,id,nbuff,movers=[],reactors=[],stickers=[],diffusers=[],tstart=None,tend=None,tstep=0.,tstep_release=0.,outfile=None,P0=[0,0,0],spawn=1,reln=0,R0=1.,Q0=1.,unstick=0.,**prop):
+# def __init__(self,id,nbuff,movers=[],reactors=[],stickers=[],diffusers=[],tstart=None,tend=None,tstep=0.,tstep_release=0.,outfile=None,P0=[0,0,0],spawn=1,reln=0,:=1.,Q0=1.,unstick=0.,**prop):
 
 
 
 tstart = datetime.datetime(2009,1,1)
 tend   = datetime.datetime(2009,1,2)
-tstep  = 900.
-tout   = 3600.
+tstep  = 900.  # model time step
+tout   = 900.  # output frequency
+reln   = 10    # number of particles per release
 
 current = ConstantMover('cur',['uo','vo'],uo=1.0,vo=0.0)
 diff    = VariableDiffuser('diff',['diffx','diffy','diffz'],diffz=0.001,P0=[0,0,0])
 
-
 particles = BuoyantTracer(id = 'particles', nbuff = 10000, 
-                          movers=[current], diffusers = [],
+                          movers=[current], diffusers = [diff],
                           tstart = tstart,tend = tend, tstep=0.,
                           P0 = [0,0,0], 
-                          reln = 1000, 
-                          w0 = -0.1)
+                          reln = reln,
+                          w0 = -0.1)  # positive upwards
+
+ercore=ERcore(tout=tout, geod = False)
+
+if plot:
+    colors=['b+','r+','g+','m+']
 
 
-ercore=ERcore(tout=900., geod = False)
-
-
-colors=['b+','r+','g+','m+']
-# plt.figure()
 for rk in range(4,0,-1):
-    print 'Running rk%i' % rk 
+    print 'Running rk%i' % rk
     part=copy.deepcopy(particles)
     ercore.materials = [part]
     if not os.path.isdir('rk'+str(rk)):os.mkdir('rk'+str(rk))
     ercore.rkorder = rk
     ercore.outpath = 'rk'+str(rk)
     ercore.run(t = tstart ,tend = tend ,dt = tstep)
-  #plot(part.pos[:,0],part.pos[:,2],colors[rk-1], marker='o')
+    
+    if plot: 
+        # import pdb;pdb.set_trace()
+        # last time stamp
+        fig,axs = plt.subplots(1,2, figsize=(10,4))
+        ax = axs[0]
+        ax.plot(part.pos[:reln,0],part.pos[:reln,1],colors[rk-1], marker='o')
+        ax.set_xlabel('x'); ax.set_ylabel('y')
+        ax = axs[1]
+        ax.plot(part.pos[:reln,0],part.pos[:reln,2],colors[rk-1], marker='o')
+        ax.set_xlabel('x'); ax.set_ylabel('z')
+        fig.suptitle('rk%i - hours since start = %.3f ' % (rk, part.tcum/3600.))
 
-#show()
-  
+plt.show()
+    
 
   
 

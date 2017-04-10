@@ -1,0 +1,34 @@
+movers:
+    class: ConstantMover
+    id: cur
+    vars: [uo, vo]
+    uo: 1.0
+    vo: 0.0
+    topo: fake_topo
+
+stickers:
+    class: ConstantTopo
+    id: fake_topo
+    vars: dep 
+    dep: -999
+    #zinvert: true
+
+diffusers:
+    class: VariableDiffuser
+    id: diff
+    diffz: 0.001
+    P0: [0,0,0]
+    vars: [diffx, diffy, diffz]
+
+materials:
+    class: BuoyantTracer
+    id: particles
+    nbuff: 10000
+    movers: [cur]
+    #diffusers: [diff]
+    tstart: '2009-01-01 01:00:00'
+    tend:   '2009-01-02 01:00:00' 
+    tstep: 0
+    P0: [0,0,0]
+    reln: 10
+    w0: -0.1
