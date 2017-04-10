@@ -2,7 +2,7 @@ version: '2'
 
 services:
     ercore_c7:
-        image: rosatrancoso/ercore:c7
+        image: ercore_c7:v2.1
         build:
             context: .
             dockerfile: Dockerfile_c7
@@ -16,18 +16,3 @@ services:
         container_name : ercore_c7
         # mem_limit: 4000000000
 
-
-    ercore_c6:
-        image: rosatrancoso/ercore:c6
-        build:
-            context: .
-            dockerfile: Dockerfile_c6
-        tty: true
-        dns: 8.8.8.8
-        volumes:
-            - /home/metocean/ercore:/home/newuser/ercore
-        environment:
-           - DISPLAY=192.168.1.7:0
-        user: newuser
-        container_name : ercore_c6
-        # mem_limit: 4000000000
