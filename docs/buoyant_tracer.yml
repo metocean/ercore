@@ -1,0 +1,36 @@
+movers:
+    class:  ConstantMover
+    id:     cur
+    vars:   [uo, vo]
+    uo:     1.0
+    vo:     0.0
+    topo:   bathy
+
+stickers:
+    class:  ConstantTopo
+    id:     bathy
+    vars:   dep 
+    dep:    -999
+
+diffusers:
+    class:  ConstantDiffuser
+    id:     diff
+    diffx:  0.0
+    diffy:  0.0
+    diffz:  0.001
+    vars:   [diffx, diffy, diffz]
+
+materials:
+    class:      BuoyantTracer
+    id:         particles
+    nbuff:      10000
+    movers:     [cur]
+    diffusers:  [diff]
+    tstart:     '2009-01-01 00:00:00'
+    tend:       '2009-01-02 00:00:00' 
+    P0:         [0,0,0]
+    reln:       24
+    w0:         -0.1
+
+
+

@@ -14,31 +14,41 @@
 \usepackage{fancyvrb}
 \usepackage{parskip} % remove indent start of paragrapha and add space
 
+\usepackage{hyperref}  % url
+
+\usepackage{listings}
 
 \title{ERCore User Manual}
 \author{MetOcean Solutions Ltd.}
 
 \begin{document}
 \maketitle
+\tableofcontents
 
 \section{Introduction}
-
+\label{sec:intro}
 This is a user manual. For techincal description see the other document.
 
-ERCore is a lagrangian model that for every model time step computes positions of a number of particles. Each particle can have the following status:
+ERCore is a lagrangian model that for every model time step computes positions of a number of particles. These particles can be of different \textit{materials} (passive tracers, oil, plankton, etc..), can be released from different locations and durations, can be moved by different \textit{fields} (currents, tide, wind, etc..) and can be intersected by boundaries like bottom, shoreline, surface elevation. When intersected, particles can be "glued" to the boundary (or sticked) as for the case of oil in shorelines, or sediments sedimented in the bottom. That is why we call these interesectors \textit{stickers} even though we can choose their degree of stickyness.
+
+\subsection{Quickstart}
+\label{ssec:quickstart}
+To run the model, you need to define essentially four \hl{parameters}:
 
 \begin{itemize}
-\item 0: Not released
-\item 1: Released and active
-\item -1: Stuck to shoreline or bottom
-\item -2: Dead
+\item \texttt{movers}: a list of fields that will advect particles (e.g. currents)
+\item \texttt{diffusers}: a list of fields that will diffuse particles (e.g. diffusion coefficients)
+\item \texttt{stickers}: a list of fields that intercept particle (e.g. shoreline, depth)
+\item \texttt{materials}: a list of release configurations (particle type, release point and duration)
 \end{itemize}
- 
-whereas status 0 and -2 will \hl{never} appear in the output files.
 
-For each model time step, new particle positions are computed from the "active" pool (status 1) and stored in an array with ($\texttt{nbuff}\times 3$)  where colums are x, y and z coordinates. This buffef array should be big enough to accomodate all particles in the computational pool, but small enough to maintain memory and performance. With that in mind, the model reuses array position of "dead" particles (status -2).  \texttt{nbuff} is defined for each release (see table \ref{tb:material}). 
+The example below (Listing \ref{lst:example}) provides an example of a Yaml config file that configures a buoyant tracer (\texttt{class}) release at coordinates \texttt{P0}, moving with a rightward current of 1 $m/s$ and downwards (negative) settling velocity of $0.1$ $m/s$. 
 
-\subsection{Coordinates}
+\lstinputlisting[caption=config.yml,basicstyle=\small, label=lst:example]{buoyant_tracer.yml}
+
+
+
+\subsection{Coordinate system}
 \label{ssec:coords}
 
 ERCore can use any system of coordinates, provided they are consistent in all input and configuraton data. See zinvert = True..
@@ -76,20 +86,26 @@ Input dates can be either:
 \section{Materials}
 \label{sec:materials}
 
+\subsection{Base configuration}
 
-ERCore allows for releases of different particle types, called "materials". The base class, from which all materials inherit, defines the basic options for a release, as listed in table~\ref{tb:material}. 
+ERCore allows for releases of different particle types, called \textit{materials}. The options for the base class, from which all materials inherit, are listed in table~\ref{tb:material}. 
 
 \begin{table}[!htp]
 \centering
-\caption{Common options for all materials. *Note: particle vertical level Z is positive upwards with sea surface = 0, i.e. -10 is 10 m below sea surface.}
+\caption{Common options for all materials. *Particle vertical level Z is positive upwards with sea surface = 0, i.e. -10 is 10 m below sea surface.
+**\url{http://toblerity.org/shapely/manual.html\#polygons}.
+}
 \label{tb:material}
 \begin{tabular}{@{}llll@{}}
 \toprule
 Keyword & Type & Default & Description                         \\ 
 \midrule
 id          & str  &        & Unique id for release                \\
-outfile     & str & None & Filename of output file \\
-P0          & [float,float,float] & [0,0,0] & Initial position of release*  \\
+outfile     & str & ercore.$<id>$.out & Filename of output file \\
+P0          & [float,float[,float]] & [0,0,0] & Initial position of release $[x,y,z]$*  \\
+circular\_radius & float & & Release particles in a circle shape centered \\
+                            & & & at \texttt{P0} with radius (in meters) \\ 
+polygon &[(float,float[,float]), ...] & & Release particles in a polygon shape** \\
 \midrule
 movers      & list & []     & List of mover id strings             \\
 reactors    & list & []     & List of reactor id strings \\
@@ -100,28 +116,68 @@ unstick     & boolean & 0     & \\
 \midrule
 tstart      & datetime/int & 0 & Starting time for release \\
 tend        & datetime/int & 1.e10 & Ending time for release \\
-tstep       & float & 0. & \hl{Timestep of release} \\
-\hl{tstep\_release} & float & 0. & \\
-nbuff       & int  &        & Total number of particles in buffer  \\
+nbuff       & int  &       & Maximum number of particles (buffer) \\
+reln        & int  & 0     & Total number of particles to be released  \\
+tstep\_release & float &   & Periodic release of particles (in hours) \\
+\midrule
+\hl{R0}          & float & 1. & Total release of material  \\
+\hl{Q0}          & float & 1. & Flux of material (per day)  \\
 \hl{spawn}       & int & 1 &  Number of spawned particles (per day)  \\
-reln        & int & 0 & Number of particles per release  \\
-R0          & float & 1. & Total release of material  \\
-Q0          & float & 1. & Flux of material (per day)  \\
+
 \midrule
 is3d        & boolean & True  & \\
 geod        & boolean & False  & \\
 \bottomrule
 \end{tabular}
 \end{table}
-
 \FloatBarrier
 
 
+\texttt{nrel} is the total number of particles to be released over the current material time interval (e.g. if \texttt{tstart} and \texttt{tend} cover 1 day, and \texttt{nrel} = 24, the model will release 1 particle per hour). For staged or periodic releases, \texttt{tstep\_release} can be used (e.g. if 3 hours, the same amount of particles will be released as before, but accumulated every 3 hours).
 
-\subsection{PassiveTracer}
+Each particle can have the following status:
+
+\begin{itemize}
+\item 0: Not released
+\item 1: Released and active
+\item -1: Stuck to shoreline or bottom
+\item -2: Dead
+\end{itemize}
+ 
+whereas status 0 and -2 will \hl{never} appear in the output files.
+
+For each model time step, new particle positions are computed from the \textit{active} pool (status 1) and stored in an array with size ($\texttt{nbuff}\times 3$)  where colums are x, y and z coordinates. This buffer array should be big enough to accomodate all particles in the computational pool, but small enough to maintain memory and performance. With that in mind, the model reuses array position of \textit{dead} particles (status -2). 
+
+
+The choice of \texttt{nbuff} is also defined for each material, and should be consistent with the \texttt{nrel} and the simulation characteristics (currents magnitude, stickers, simulation length, etc.) so that it can provide enough buffer size for all the computational pool. If there is no more buffer, a warning will be printed (\textit{Warning: particles exhausted for  $<id>$})
+
+\bigskip
+
+\hl{TO DO particle mass here}
+
+\bigskip
+
+Each release can originate from a:
+
+\begin{itemize} 
+\item \textbf{Point}: defined by coordinates $[x,y,z]$ in \texttt{P0}, 
+\item \textbf{Circle}: shape centered in  \texttt{P0} with radius \texttt{circular\_radius} in meters, or
+\item \textbf{Polygon}: defined by \texttt{polygon} keyword as an ordered sequence of $(x, y[, z])$ point tuples, e.g. [(x0,y0), (x1,y1), (x2,y2), ..., (x0,y0)] for a closed polygon.
+\end{itemize}
+
+For circular and polygon options, \texttt{nbuff} random points are defined within the shape.
+
+Particles release depths are updated according to bathymetry at new locations within the shape. This means that if a particle is located below bathymetry ($z < zbottom$, it's new vertical position will be $ z = zbottom+0.1$ 
+
+
+\subsection{Passive tracer}
 \label{ssec:passive}
 
 The most simple material is the inert passive tracer (\texttt{class PassiveTracer}), which can only be advected and diffused, without other sinks and sources. \texttt{PassiveTracer} particles enter the computational pool by being released, and can leave by either being transported out of the spatial domain or by interception with shoreline or depth ("stickers", see section \ref{sec:stickers}).
 
+\subsection{Buoyant tracer}
+\label{ssec:buoyant}
+
+A \texttt{BuywantTracer} is simply a passive tracer with settling velocity $w0$. Note that positive direction is upwards, so a downward settling velocity will be negative. 
 
 \end{document}
