@@ -2,7 +2,7 @@ version: '2'
 
 services:
     ercore_c7:
-        image: ercore_c7:v2.1
+        image: ercore_c7:2.1
         build:
             context: .
             dockerfile: Dockerfile_c7
