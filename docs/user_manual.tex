@@ -1,63 +1,97 @@
 \documentclass[a4paper]{article}
 \renewcommand{\familydefault}{\sfdefault}
+
+%% Language and font encodings
 \usepackage[english]{babel}
 \usepackage[utf8x]{inputenc}
+\usepackage[T1]{fontenc}
+
+%% Sets page size and margins
+% \usepackage[a4paper,top=3cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
+\usepackage{parskip}
+%% Useful packages
 \usepackage{amsmath}
 \usepackage{graphicx}
+\usepackage[colorinlistoftodos]{todonotes}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+
 \usepackage{placeins} % FloatBarrier
-\usepackage{hyperref}
 \usepackage{booktabs}
 
-\usepackage{color}
-\usepackage{soul}
+\usepackage{soul} % hl
 
 \usepackage{fancyvrb}
-\usepackage{parskip} % remove indent start of paragrapha and add space
-
-\usepackage{hyperref}  % url
-
 \usepackage{listings}
+
+
+
+
 
 \title{ERCore User Manual}
 \author{MetOcean Solutions Ltd.}
+\date{\today\\Draft Version}
 
 \begin{document}
 \maketitle
+
+\begin{abstract}
+This is a user manual. For techincal description see the other document
+\end{abstract}
+
 \tableofcontents
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Introduction}
 \label{sec:intro}
-This is a user manual. For techincal description see the other document.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-ERCore is a lagrangian model that for every model time step computes positions of a number of particles. These particles can be of different \textit{materials} (passive tracers, oil, plankton, etc..), can be released from different locations and durations, can be moved by different \textit{fields} (currents, tide, wind, etc..) and can be intersected by boundaries like bottom, shoreline, surface elevation. When intersected, particles can be "glued" to the boundary (or sticked) as for the case of oil in shorelines, or sediments sedimented in the bottom. That is why we call these interesectors \textit{stickers} even though we can choose their degree of stickyness.
 
+ERCore is a lagrangian model that for every model time step computes positions of a number of particles. These particles can be of different \textit{materials} (passive tracers, oil, plankton, etc..), can be released from different locations and durations, can be moved by different \textit{fields} (currents, tide, wind, etc..) and can be intersected by boundaries like bottom, shoreline, surface elevation. When intersected, particles can be "sticked" to the boundary as for the case of oil in shorelines, or sediments sedimented in the bottom. That is why we call these interesectors \textit{stickers} even though we can choose their degree of stickyness. 
+
+%========================================
 \subsection{Quickstart}
 \label{ssec:quickstart}
-To run the model, you need to define essentially four \hl{parameters}:
+%========================================
+To run the model, you need to define essentially four main blocks:
 
 \begin{itemize}
 \item \texttt{movers}: a list of fields that will advect particles (e.g. currents)
 \item \texttt{diffusers}: a list of fields that will diffuse particles (e.g. diffusion coefficients)
 \item \texttt{stickers}: a list of fields that intercept particle (e.g. shoreline, depth)
-\item \texttt{materials}: a list of release configurations (particle type, release point and duration)
+\item \texttt{materials}: a list of releases, where each release must have a particle type, a release origin and a release duration.
 \end{itemize}
 
-The example below (Listing \ref{lst:example}) provides an example of a Yaml config file that configures a buoyant tracer (\texttt{class}) release at coordinates \texttt{P0}, moving with a rightward current of 1 $m/s$ and downwards (negative) settling velocity of $0.1$ $m/s$. 
+The example below (Listing \ref{lst:example}) provides an example of a Yaml config file for a buoyant tracer (\texttt{class}) release at coordinates \texttt{P0}, moving with a rightward current of 1 $m/s$ and downwards (negative) settling velocity of $0.1$ $m/s$.
 
 \lstinputlisting[caption=config.yml,basicstyle=\small, label=lst:example]{buoyant_tracer.yml}
 
+Finally, the model can be run by doing: 
 
+\begin{Verbatim}[fontsize=\small]
+erall config.yml 20090101_00z 20090102_00z  --disable-geod --dt 3600
+\end{Verbatim}
 
-\subsection{Coordinate system}
+Note the \texttt{--disable-geod} is only here because our test case is not using lat/lon coordinates (section \ref{ssec:coords}).
+
+%========================================
+\subsection{Coordinate systems}
 \label{ssec:coords}
+%========================================
 
-ERCore can use any system of coordinates, provided they are consistent in all input and configuraton data. See zinvert = True..
+ERCore can use any system of coordinates, provided they are consistent in all input and configuraton data. 
 
+If not using lat/lon coordinates, disable geod by instanciating the model with \texttt{geod=False} or using \texttt{--disable-geod}. It's True by default.
 
+\hl{zinvert = True}
+
+%========================================
 \subsection{Date and time format}
 \label{ssec:datetime}
+%========================================
 
 Internally, the model uses time in NCEP/CF convention decimal time (\hl{matlab time?}) which is the "number of days since 1-1-1"  and can be computed with:
+
 
 \begin{Verbatim}[fontsize=\small]
 netCDF4.date2num(t0, units='days since 0001-01-01 00:00:00', calendar='standard') 
@@ -72,7 +106,6 @@ ncep2dt=lambda t:_DT0_+datetime.timedelta(t-_NCEPT0_)
 dt2ncep=lambda t: (1.+t.toordinal()+t.hour/24.+t.minute/1440.+t.second/86400.)
 \end{Verbatim}
 
-
 Input dates can be either:
 
 \begin{itemize} 
@@ -81,21 +114,36 @@ Input dates can be either:
 \item strings like "\%Y\%m\%d\_\%Hz" or "\%Y-\%m-\%d \%H:\%M:\%S".
 \end{itemize} 
 
+%========================================
+\subsection{Running backwards in time}
+\label{ssec:backwards}
+%========================================
 
+ERCore can also run backwards in time, by inverting the release \texttt{tstart} and \texttt{tend} and using a negative time step:
 
+\begin{Verbatim}[fontsize=\small]
+erall config_backwards.yml 20090102_00z 20090101_00z  --disable-geod --dt -3600
+\end{Verbatim}
+
+Note that diffusion is not inverted, it still diffuses particles unless switched off in the release configuration (\texttt{diffusers: []}).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Materials}
 \label{sec:materials}
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%========================================
 \subsection{Base configuration}
+\label{ssec:base}
+%========================================
 
-ERCore allows for releases of different particle types, called \textit{materials}. The options for the base class, from which all materials inherit, are listed in table~\ref{tb:material}. 
+ERCore allows for releases of different particle types, called \textit{materials}. The options for the base class, from which all materials inherit, are listed in table~\ref{tb:material_options}. 
 
 \begin{table}[!htp]
 \centering
 \caption{Common options for all materials. *Particle vertical level Z is positive upwards with sea surface = 0, i.e. -10 is 10 m below sea surface.
 **\url{http://toblerity.org/shapely/manual.html\#polygons}.
 }
-\label{tb:material}
+\label{tb:material_options}
 \begin{tabular}{@{}llll@{}}
 \toprule
 Keyword & Type & Default & Description                         \\ 
@@ -123,7 +171,7 @@ tstep\_release & float &   & Periodic release of particles (in hours) \\
 \hl{R0}          & float & 1. & Total release of material  \\
 \hl{Q0}          & float & 1. & Flux of material (per day)  \\
 \hl{spawn}       & int & 1 &  Number of spawned particles (per day)  \\
-
+maxage           & float & 1.e20 & Particles die when reach this age \\
 \midrule
 is3d        & boolean & True  & \\
 geod        & boolean & False  & \\
@@ -157,6 +205,11 @@ The choice of \texttt{nbuff} is also defined for each material, and should be co
 
 \bigskip
 
+%========================================
+\subsection{Types of origin}
+\label{ssec:origin}
+%========================================
+
 Each release can originate from a:
 
 \begin{itemize} 
@@ -165,19 +218,79 @@ Each release can originate from a:
 \item \textbf{Polygon}: defined by \texttt{polygon} keyword as an ordered sequence of $(x, y[, z])$ point tuples, e.g. [(x0,y0), (x1,y1), (x2,y2), ..., (x0,y0)] for a closed polygon.
 \end{itemize}
 
-For circular and polygon options, \texttt{nbuff} random points are defined within the shape.
+For circular and polygon options, \texttt{nbuff} random points are initialized within the shape.
 
-Particles release depths are updated according to bathymetry at new locations within the shape. This means that if a particle is located below bathymetry ($z < zbottom$, it's new vertical position will be $ z = zbottom+0.1$ 
+If necessary, particles release depths are updated according to bathymetry at new locations within the shape. This means that if a particle is located below bathymetry ($z < zbottom$), it's new vertical position will be $ z = zbottom+0.1$ 
+
+%========================================
+\subsection{Types of materials}
+\label{ssec:material_types}
+%========================================
+
+The following sections describe each material type (or class) presented in Table \ref{tb:materials}.
+
+\begin{table}[!htp]
+\centering
+\caption{Material types hierarchy}
+\label{tb:materials}
+\begin{tabular}{@{}llll@{}}
+\toprule
+Class & Parent  & Module & Description \\
+\midrule
+PassiveTracer   & \_Material & . & Basic class passive tracer \\
+BuoyantTracer   & PassiveTracer & . & \\
+Drifter         & PassiveTracer & . & \\
+BDTracer        & BuoyantTracer & . & \\
+\midrule
+Plankton        & BuoyantTracer & biota & \\
+\midrule
+Sediment        & BuoyantTracer & sediment & \\
+\midrule
+Plume           & \_Material & plume & Core class for plumes \\
+BuoyantPlume    & Plume & plume & Generic buoyant plume class \\
+\midrule 
+HydroCarbon     & - & hydrocarbons & Base class to hold all chemical processes \\
+HCPlume         & BuoyantPlume,HydroCarbon & hydrocarbons & \\
+HCGas           & BDTracer & hydrocarbons & \\
+HCDroplets      & BDTracer & hydrocarbons & \\
+HCGas           & BDTracer & hydrocarbons & \\
+HCSlick         & Drifter & hydrocarbons & \\
+\bottomrule
+\end{tabular}
+\end{table}
+\FloatBarrier
 
 
-\subsection{Passive tracer}
-\label{ssec:passive}
+%========================================
+\subsubsection{PassiveTracer}
+\label{sssec:passive}
+%========================================
 
 The most simple material is the inert passive tracer (\texttt{class PassiveTracer}), which can only be advected and diffused, without other sinks and sources. \texttt{PassiveTracer} particles enter the computational pool by being released, and can leave by either being transported out of the spatial domain or by interception with shoreline or depth ("stickers", see section \ref{sec:stickers}).
 
-\subsection{Buoyant tracer}
-\label{ssec:buoyant}
+%========================================
+\subsubsection{Drifter}
+\label{sssec:drifter}
+%========================================
 
-A \texttt{BuywantTracer} is simply a passive tracer with settling velocity $w0$. Note that positive direction is upwards, so a downward settling velocity will be negative. 
+A \texttt{Drifter} is a passive tracer with %settling velocity $w0$. Note that positive direction is upwards, so a downward settling velocity will be negative. 
+
+%========================================
+\subsubsection{BuoyantTracer}
+\label{sssec:buoyant}
+%========================================
+
+A \texttt{BuoyantTracer} is a passive tracer with settling velocity $w0$. Note that positive direction is upwards, so a downward settling velocity will be negative. 
+
+
+%========================================
+\subsubsection{BDTracer}
+\label{sssec:drifter}
+%========================================
+
+A \texttt{Drifter} derived class from  \texttt{BuoyantTracer}
+
+
+
 
 \end{document}

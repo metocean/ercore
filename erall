@@ -20,14 +20,19 @@ tstart and tend can be:
 
 parser = OptionParser(usage)
 
-parser.add_option("-d", "--dt", dest="dt",help="Time step (seconds)",default=3600,type=float)
+parser.add_option("--outpath", dest="outpath", help="output directory", type=str)#, default='.')
+parser.add_option("--dt", dest="dt", help="Time step (seconds)", type=float, default=3600.)
+parser.add_option("--tout", dest="tout", help="Time step for output (seconds)", type=float, default=None)
+parser.add_option("--disable-geod", dest="geod",help="Do not use geographic coordinates lat/lon", action="store_true")
 
 (options, args) = parser.parse_args()
+
+if not options.tout: options.tout = options.dt 
 
 if len(args)<3:
   print usage
   sys.exit(-1)
 
-ercore=ERcore()
+ercore=ERcore(tout=options.tout, geod=options.geod, outpath='.')
 ercore.readYAML(args[0], namespace=globals())
 ercore.run(args[1],args[2],options.dt)
