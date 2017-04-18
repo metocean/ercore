@@ -4,21 +4,22 @@ movers:
     vars: [uo, vo]
     uo: 1.0
     vo: 0.0
-    topo: fake_topo
+    topo: bathy
 
 stickers:
     class: ConstantTopo
-    id: fake_topo
+    id: bathy
     vars: dep 
     dep: -999
-    #zinvert: true
 
 diffusers:
-    class: VariableDiffuser
+    class: ConstantDiffuser
     id: diff
+    diffx: 0
+    diffy: 0
     diffz: 0.001
     P0: [0,0,0]
-    vars: [diffx, diffy, diffz]
+    vars: [diffz]
 
 materials:
     class: BuoyantTracer
@@ -26,9 +27,14 @@ materials:
     nbuff: 10000
     movers: [cur]
     #diffusers: [diff]
-    tstart: '2009-01-01 01:00:00'
-    tend:   '2009-01-02 01:00:00' 
-    tstep: 0
+    tstart: '2009-01-01 00:00:00'
+    tend:   '2009-01-02 00:00:00' 
     P0: [0,0,0]
-    reln: 10
+    polygon: [  !!python/tuple [177.214978,-37.908414],
+                !!python/tuple [177.214723,-37.872375],
+                !!python/tuple [177.322697,-37.871846],
+                !!python/tuple [177.322995,-37.907884] ]
+                # !!python/tuple [177.214978,-37.908414] ]
+    reln: 24
     w0: -0.1
+    #maxage: 0.5

@@ -215,12 +215,21 @@ Each release can originate from a:
 \begin{itemize} 
 \item \textbf{Point}: defined by coordinates $[x,y,z]$ in \texttt{P0}, 
 \item \textbf{Circle}: shape centered in  \texttt{P0} with radius \texttt{circular\_radius} in meters, or
-\item \textbf{Polygon}: defined by \texttt{polygon} keyword as an ordered sequence of $(x, y[, z])$ point tuples, e.g. [(x0,y0), (x1,y1), (x2,y2), ..., (x0,y0)] for a closed polygon.
+\item \textbf{Polygon}: defined by \texttt{polygon} keyword as an ordered sequence of $(x, y[, z])$ point tuples, e.g. [(x0,y0), (x1,y1), (x2,y2), ...]. 
 \end{itemize}
 
 For circular and polygon options, \texttt{nbuff} random points are initialized within the shape.
 
 If necessary, particles release depths are updated according to bathymetry at new locations within the shape. This means that if a particle is located below bathymetry ($z < zbottom$), it's new vertical position will be $ z = zbottom+0.1$ 
+
+Note that in the Yaml file, the polygon must be specified as in the example below:
+
+\begin{Verbatim}[fontsize=\small]
+    polygon: [  !!python/tuple [x0,y0],
+                !!python/tuple [x1,y1],
+                ...
+             ]
+\end{Verbatim}
 
 %========================================
 \subsection{Types of materials}
