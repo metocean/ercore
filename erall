@@ -20,7 +20,7 @@ tstart and tend can be:
 
 parser = OptionParser(usage)
 
-parser.add_option("--outpath", dest="outpath", help="output directory", type=str)#, default='.')
+parser.add_option("--outpath", dest="outpath", help="output directory", type=str, default='.')
 parser.add_option("--dt", dest="dt", help="Time step (seconds)", type=float, default=3600.)
 parser.add_option("--tout", dest="tout", help="Time step for output (seconds)", type=float, default=None)
 parser.add_option("--disable-geod", dest="geod",help="Do not use geographic coordinates lat/lon", action="store_true")
@@ -28,6 +28,8 @@ parser.add_option("--disable-geod", dest="geod",help="Do not use geographic coor
 (options, args) = parser.parse_args()
 
 if not options.tout: options.tout = options.dt 
+if not options.geod: options.geod = True 
+
 
 if len(args)<3:
   print usage
