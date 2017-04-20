@@ -2,25 +2,23 @@ version: '2'
 
 services:
     ercore_c7:
-        image: ercore_c7:2.1
+        image: ercore_c7:2.2
         build:
             context: .
-            dockerfile: Dockerfile_c7
+            dockerfile: Dockerfile
         tty: true
         dns: 8.8.8.8
         volumes:
-            - /Users/rosa/Documents/MSL/git/ercore:/home/newuser/ercore
-            #- /home/metocean/ercore:/home/newuser/ercore
+            - $REPOS/ercore:/home/newuser/ercore
         environment:
            - DISPLAY=192.168.1.7:0
         user: newuser
         container_name : ercore_c7
-        # mem_limit: 4000000000
 
     latex:
         image: rosatrancoso/docker-latex
         tty: true
         volumes: 
-            -  /Users/rosa/Documents/MSL/git/ercore:/tmp/ercore
+            -  $REPOS/ercore:/tmp/ercore
         
 

@@ -1,16 +1,37 @@
-FROM metocean/ops-base
+FROM centos:centos7
 MAINTAINER Rosa Trancoso <rosa@metocean.co.nz>
 
-RUN pip install shapely
+RUN yum -y install epel-release &&\
+    yum -y install git vim sudo tar unzip wget &&\
+    yum -y update &&\
+    yum -y groupinstall 'Development Tools' &&\
+    yum -y install netcdf-devel hdf-devel libpng12-devel nco \
+                   ipython python-pip numpy-f2py netcdf4-python \
+                   python-shapely &&\
+    yum clean all
+
+RUN pip install --upgrade pip &&\
+    pip install PyYaml
+
+ENV VERSION=2.2
+
+COPY ercore-$VERSION.tar.gz /tmp/ercore-$VERSION.tar.gz
 
 RUN echo "-----------------Install Ercore-----------------" &&\
-    git clone git@github.com:metocean/ercore.git $REPOS/ercore &&\
-    cd $REPOS/ercore &&\
-    pip install -e . &&\
-    ln -s $REPOS/ercore/erbio /usr/local/bin/ &&\
-    ln -s $REPOS/ercore/eroil /usr/local/bin/ &&\
-    ln -s $REPOS/ercore/ersar /usr/local/bin/ &&\
-    ln -s $REPOS/ercore/erall /usr/local/bin/ &&\
+    cd /tmp &&\
+    tar -zvxf ercore-$VERSION.tar.gz &&\
+    cd /tmp/ercore-$VERSION &&\
+    pip install -r requirements.txt &&\
+    python setup.py install &&\
+    cp -p erbio /usr/local/bin/ &&\
+    cp -p eroil /usr/local/bin/ &&\
+    cp -p ersar /usr/local/bin/ &&\
+    cp -p erall /usr/local/bin/ &&\
+    chmod +x /usr/local/bin/er*
 
+RUN adduser -ms /bin/bash -u 1001 newuser &&\
+    echo newuser:particles | chpasswd &&\
+    gpasswd -a newuser wheel &&\
+    echo "newuser ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
 
