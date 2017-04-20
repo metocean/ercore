@@ -151,10 +151,7 @@ class ERcore(object):
   def readYAML(self,ctlfile, namespace=globals()):
     """Read a YAML configuration file for an ERcore simulation"""
     import yaml,inspect
-    try:
-      config = yaml.load(open(ctlfile).read())
-    except:
-      raise ERConfigException('Cannot read '+ctlfile)
+    config = yaml.load(open(ctlfile).read())
     objects = ObjectList([])
     for key in config:
       conf=config[key]

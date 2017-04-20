@@ -60,6 +60,131 @@ def read_release_txt (filein, rel=1):
     return df
 
 
+def plot_all(df=None,
+                filein=None, 
+                colors=['b', 'r', 'g', 'k'],
+                lims=None,
+                fileplotpref='plt',
+                P0 = None,
+                polygon = None,
+                shoreline = None):
+
+    import os
+    import matplotlib.pyplot as plt 
+
+    if not df:
+        if not filein:
+            sys.exit('needs pandas df or pickle filein')
+        else:
+            df = pd.read_pickle(filein)
+
+    releases = df.index.get_level_values('release').unique()
+
+    if not lims:
+        lims = [np.floor(df['x'].min()/5)*5, np.ceil(df['x'].max()/5)*5, 
+                np.floor(df['y'].min()/5)*5, np.ceil(df['y'].max()/5)*5]
+    print 'lims     = ', lims
+
+    if P0:
+        relx, rely = P0[:2]
+    else:
+        relx = df.loc[df.index.get_level_values('time') == times[0]]['x'].values
+        rely = df.loc[df.index.get_level_values('time') == times[0]]['y'].values
+
+    if shoreline:
+        from ercore.shoreline import Shoreline
+        shore = Shoreline('shore', shoreline)
+
+    fig = plt.figure()    
+    
+    for i,rel in enumerate(releases):
+        dfr= df.loc[df.index.get_level_values('release') == rel]
+        plt.plot(dfr['x'], dfr['y'], c=colors[i], marker='.',ls='None')
+
+    plt.axis(lims)
+
+    if polygon:
+        from shapely.geometry import Polygon
+        poly = Polygon(polygon)
+        x,y = poly.exterior.xy
+        plt.plot(x,y, 'lightgreen', lw=2)                
+
+    plt.plot(relx,rely, 'k+', mew=2)
+
+    if shoreline:
+      for i,j in enumerate(shore.polyi):
+                n=shore.polyn[i]
+                plt.plot(shore.slx[j:j+n-1],shore.sly[j:j+n-1],'k')
+
+
+
+    fileplot = fileplotpref +'_all.png'
+    print 'Plotting to %s' % fileplot
+    plt.savefig(fileplot)
+
+
+def plot_dens(df=None,
+                filein=None, 
+                lims=None,
+                fileplotpref='plt',
+                P0 = None,
+                polygon = None):
+
+    import os
+    import matplotlib.pyplot as plt 
+    from scipy.stats import gaussian_kde
+
+    if not df:
+        if not filein:
+            sys.exit('needs pandas df or pickle filein')
+        else:
+            df = pd.read_pickle(filein)
+
+    releases = df.index.get_level_values('release').unique()
+
+    if not lims:
+        lims = [np.floor(df['x'].min()/5)*5, np.ceil(df['x'].max()/5)*5, 
+                np.floor(df['y'].min()/5)*5, np.ceil(df['y'].max()/5)*5]
+    print 'lims     = ', lims
+
+    if P0:
+        relx, rely = P0[:2]
+    else:
+        relx = df.loc[df.index.get_level_values('time') == times[0]]['x'].values
+        rely = df.loc[df.index.get_level_values('time') == times[0]]['y'].values
+
+    fig = plt.figure()    
+    
+    for i,rel in enumerate(releases):
+        dfr= df.loc[df.index.get_level_values('release') == rel]
+        x = dfr['x']
+        y = dfr['y']
+        # Calculate the point density
+        xy = np.vstack([x,y])
+        print 'Computing density for %i particles' % len(x)
+        z = gaussian_kde(xy)(xy)
+        # Sort the points by density, so that the densest points are plotted last
+        idx = z.argsort()
+        x, y, z = x[idx], y[idx], z[idx]
+        # plt.plot(dfr['x'], dfr['y'], c=colors[i], marker='.',ls='None')
+        plt.scatter(x, y, c=z, s=10, edgecolor='')
+    
+        plt.axis(lims)
+
+        if polygon:
+            from shapely.geometry import Polygon
+            poly = Polygon(polygon)
+            x,y = poly.exterior.xy
+            plt.plot(x,y, 'lightgreen', lw=2)                
+
+        plt.plot(relx,rely, 'k+', mew=2)
+
+
+        fileplot = fileplotpref +'_dens_release_%02i.png' % rel
+        print 'Plotting to %s' % fileplot
+        plt.savefig(fileplot)
+
+
 def plot_frames(df=None,
                 filein=None, 
                 colors=['b', 'r', 'g', 'k'],
@@ -67,11 +192,12 @@ def plot_frames(df=None,
                 lims=None,
                 dmer=2, dpar=2,
                 itout=1,
-                fileplotpref='plt'):
+                fileplotpref='plt',
+                P0 = None,
+                polygon = None):
 
     import os
-    from mpl_toolkits.basemap import Basemap
-    import matplotlib.pyplot as plt
+    import matplotlib.pyplot as plt 
     plt.ion()
 
     if not df:
@@ -91,23 +217,34 @@ def plot_frames(df=None,
     print 'releases = ', releases
     print 'lims     = ', lims
 
-    m = Basemap(projection='merc', llcrnrlon=lims[0],urcrnrlon=lims[1],llcrnrlat=lims[2],urcrnrlat=lims[3], resolution='l')
+    if usemap:
+        from mpl_toolkits.basemap import Basemap
+        m = Basemap(projection='merc', llcrnrlon=lims[0], 
+                    urcrnrlon=lims[1],llcrnrlat=lims[2],
+                    urcrnrlat=lims[3], resolution='l')
 
     fig = plt.figure()
-
-    relx = df.loc[df.index.get_level_values('time') == times[0]]['x'].values
-    rely = df.loc[df.index.get_level_values('time') == times[0]]['y'].values
-    x0,y0 = m(relx,rely)
+    # import pdb;pdb.set_trace()
+    if P0:
+        relx, rely = P0[:2]
+    else:
+        relx = df.loc[df.index.get_level_values('time') == times[0]]['x'].values
+        rely = df.loc[df.index.get_level_values('time') == times[0]]['y'].values
+    if usemap:
+        x0,y0 = m(relx,rely)
 
     nt = len(times)
+    print 'nt = %i' % nt
     its = np.arange(0,nt,itout)
-
+    print 'Plotting %i frames...' % len(its)
     for it in its:
         time = times[it]
         dft = df.loc[(df.index.get_level_values('time') == time)]
         fig.clear()
         plt.axis(lims)
-        plt.title('time = %s (%d/%d)' % (time, it, nt))
+        title_str = 'time = %s (%d/%d)' % (time, it, nt)
+        print title_str
+        plt.title(title_str)
         if usemap:
             m.drawcoastlines()
             m.fillcontinents()
@@ -117,6 +254,17 @@ def plot_frames(df=None,
         else:
             plt.plot(relx,rely, 'k+', mew=2)
         
+        if polygon:
+            from shapely.geometry import Polygon
+            if usemap:
+                polygon2 = []
+                for ll in polygon:
+                    x,y = m(ll[0],ll[1])
+                    polygon2 += [(x,y)]
+                polygon = polygon2
+            poly = Polygon(polygon)
+            x,y = poly.exterior.xy
+            plt.plot(x,y, 'k', lw=2)                
         for i,rel in enumerate(releases):
             dftr= dft.loc[dft.index.get_level_values('release') == rel]
             if usemap:
@@ -127,7 +275,6 @@ def plot_frames(df=None,
         plt.waitforbuttonpress()
         fileplot = fileplotpref +'_it%03i.png' % it
         plt.savefig(fileplot)
-
 
 def plot_json(filein,lims, old=False,
                 colors=['b', 'r', 'g', 'k'],
@@ -204,6 +351,7 @@ def plot_json(filein,lims, old=False,
 
 
 if __name__ == "__main__":
+    pass
 
     ## old fortran ercore ##
     # df = read_pout ('../eri_euro_20161002_00z/out/nsea.pout.txt')
@@ -223,7 +371,7 @@ if __name__ == "__main__":
     # plot_json(filein='../eri_euro_20161002_00z/out/f3.json',
     #             old=True,
     #             lims = [-5,10,50,60], 
-    #             colors=['b', 'r', 'g', 'k'],
+    #             colors=['gb', 'r', 'g', 'k'],
     #             usemap=True,
     #             dmer=2, dpar=2,
     #             itout=4,
@@ -310,13 +458,12 @@ if __name__ == "__main__":
     #             fileplotpref='plt_f3.json')
 
 
-    plot_json(filein='nsea3/er20161002_0000z/out/f3.json',
-                old=False,
-                lims = [-5,10,50,60], 
-                colors=['b', 'r', 'g', 'k'],
-                usemap=True,
-                dmer=2, dpar=2,
-                itout=4,
-                fileplotpref='plt_f3_nsea3.json')
-
+    # plot_json(filein='nsea3/er20161002_0000z/out/f3.json',
+    #             old=False,
+    #             lims = [-5,10,50,60], 
+    #             colors=['b', 'r', 'g', 'k'],
+    #             usemap=True,
+    #             dmer=2, dpar=2,
+    #             itout=4,
+    #             fileplotpref='plt_f3_nsea3.json')
 

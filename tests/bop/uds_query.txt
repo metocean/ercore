@@ -1,0 +1,6 @@
+wget -O bop_currents.nc 'http://192.168.2.202:9191/uds?ds=pom_bop_nzra&time=20100101.000000,20100201.000000&vars=um,vm,dep&bnd=176.6,177.5,-38,-37.4&fmt=nc&type=hc'
+
+
+
+Grid: name= id=175.9_-38.048 Bounds: BL=[175.9 -38.048] UR=[177.996 -37.424] angle=0 263 by 79 dx=0.008 dy=0.008
+

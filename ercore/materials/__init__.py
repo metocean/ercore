@@ -143,8 +143,8 @@ class _Material(object):
                
     if "polygon" in self.props:
       # release in a polygon shape
-      poly=Polygon(self.props['polygon'])
-      point_in_poly = get_random_point_in_polygon(nbuff+1,poly)
+      self.polygon=Polygon(self.props['polygon'])
+      point_in_poly = get_random_point_in_polygon(nbuff+1,self.polygon)
       self.pos[:,0]=point_in_poly[:,0]
       self.pos[:,1]=point_in_poly[:,1]
       self.post[:,0]=self.pos[:,0]
@@ -355,6 +355,7 @@ class _Material(object):
       print 'Warning: particles exhausted for '+self.id
       np=nmax
       if np==0:return 0
+
     np1=self.np+np
     self.mass[self.np:np1]=self.Q*abs(dt)/np
     self.mass0=self.mass[self.np]
@@ -369,6 +370,20 @@ class _Material(object):
           array[self.np:np1]=k[key][:np]
         else:
           array=k[key]
+
+    # Rosa ----------------
+    # if particles initialized by random position in polygon
+    # need to get another random position because if particles die, it recycles positions
+    if hasattr(self, 'polygon'):
+      # release in a polygon shape
+      point_in_poly = get_random_point_in_polygon(np,self.polygon)
+      self.pos[self.np:np1,0] = point_in_poly[:,0]
+      self.pos[self.np:np1,1] = point_in_poly[:,1]
+      self.post[self.np:np1,0]=self.pos[self.np:np1,0]
+      self.post[self.np:np1,1]=self.pos[self.np:np1,1]
+      # not correcting for topo here because sticker function will do that afterwards
+    # end Rosa -------------
+
     self.np=np1
     return np
     
