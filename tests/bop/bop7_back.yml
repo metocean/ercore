@@ -1,6 +1,7 @@
-# erall -h 
+# erall bop7_back.yml 20100201_00z 20101010_00z --dt 3600 2>&1 | tee bop7_back.log
 #
-# erall ross_test01.yml 20100101_00z 20100130_00z
+# python plot_bob.py bob7_back 24
+# 
 
 
 diffusers:
