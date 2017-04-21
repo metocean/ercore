@@ -34,4 +34,4 @@ RUN adduser -ms /bin/bash -u 1001 newuser &&\
     gpasswd -a newuser wheel &&\
     echo "newuser ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
-
+RUN pip install pandas
