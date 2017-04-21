@@ -92,7 +92,16 @@ from plot_particles import *
 
 ############################################
 
-imp = 'bop5_new'
+import sys
+
+if len(sys.argv) < 2:
+    print 'usage: %prog imp'
+    sys.exit(-1)
+
+imp = sys.argv[1] #'bop7_back'
+print 'imp = ', imp
+itout = int(sys.argv[2]) if len(sys.argv)>=2 else 6
+print 'itout = ', itout
 
 ts = read_release_txt('%s.dat' % imp)
 print ts.dtypes
@@ -103,7 +112,8 @@ import yaml
 config = yaml.load(open('%s.yml' % imp))
 
 plot_all(filein='%s.pickle' % imp,
-        lims = [177.15,177.35,-37.95, -37.85],
+        #lims = [177.15,177.35,-37.95, -37.85],
+	lims = [176.6,177.5,-38,-37.4],
         fileplotpref = 'plt_%s' % imp,
         P0 = [177.2147235,-37.87237508,0],
         polygon = [[177.214978,-37.908414],
@@ -138,7 +148,7 @@ times = df.index.get_level_values('time').unique()
 releases = df.index.get_level_values('release').unique()
 
 nt = len(times)
-its = range(0,nt,24)
+its = range(0,nt,itout)
 
 for it in its:
     time = times[it]
