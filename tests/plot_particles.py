@@ -67,17 +67,20 @@ def plot_all(df=None,
                 fileplotpref='plt',
                 P0 = None,
                 polygon = None,
-                shoreline = None):
+                shoreline = None,
+                dens = False,
+                tracks = False):
 
     import os
     import matplotlib.pyplot as plt 
 
-    if not df:
-        if not filein:
+    if df is None:
+        if filein is None:
             sys.exit('needs pandas df or pickle filein')
         else:
             df = pd.read_pickle(filein)
 
+    times = df.index.get_level_values('time').unique()
     releases = df.index.get_level_values('release').unique()
 
     if not lims:
@@ -99,7 +102,21 @@ def plot_all(df=None,
     
     for i,rel in enumerate(releases):
         dfr= df.loc[df.index.get_level_values('release') == rel]
-        plt.plot(dfr['x'], dfr['y'], c=colors[i], marker='.',ls='None')
+        x = dfr['x']
+        y = dfr['y']
+
+        if dens:
+            from scipy.stats import gaussian_kde
+            xy = np.vstack([x,y])
+            print 'Computing density for %i particles' % len(x)
+            z = gaussian_kde(xy)(xy)
+            # Sort the points by density, so that the densest points are plotted last
+            idx = z.argsort()
+            x, y, z = x[idx], y[idx], z[idx]    
+            plt.scatter(x, y, c=z, s=10, edgecolor='')
+
+        else:
+            plt.plot(x,y, c=colors[i], marker='.',ls='None', alpha=0.2)
 
     plt.axis(lims)
 
@@ -109,7 +126,7 @@ def plot_all(df=None,
         x,y = poly.exterior.xy
         plt.plot(x,y, 'lightgreen', lw=2)                
 
-    plt.plot(relx,rely, 'k+', mew=2)
+    plt.plot(relx,rely, 'r+', mew=2)
 
     if shoreline:
       for i,j in enumerate(shore.polyi):
@@ -122,67 +139,6 @@ def plot_all(df=None,
     print 'Plotting to %s' % fileplot
     plt.savefig(fileplot)
 
-
-def plot_dens(df=None,
-                filein=None, 
-                lims=None,
-                fileplotpref='plt',
-                P0 = None,
-                polygon = None):
-
-    import os
-    import matplotlib.pyplot as plt 
-    from scipy.stats import gaussian_kde
-
-    if not df:
-        if not filein:
-            sys.exit('needs pandas df or pickle filein')
-        else:
-            df = pd.read_pickle(filein)
-
-    releases = df.index.get_level_values('release').unique()
-
-    if not lims:
-        lims = [np.floor(df['x'].min()/5)*5, np.ceil(df['x'].max()/5)*5, 
-                np.floor(df['y'].min()/5)*5, np.ceil(df['y'].max()/5)*5]
-    print 'lims     = ', lims
-
-    if P0:
-        relx, rely = P0[:2]
-    else:
-        relx = df.loc[df.index.get_level_values('time') == times[0]]['x'].values
-        rely = df.loc[df.index.get_level_values('time') == times[0]]['y'].values
-
-    fig = plt.figure()    
-    
-    for i,rel in enumerate(releases):
-        dfr= df.loc[df.index.get_level_values('release') == rel]
-        x = dfr['x']
-        y = dfr['y']
-        # Calculate the point density
-        xy = np.vstack([x,y])
-        print 'Computing density for %i particles' % len(x)
-        z = gaussian_kde(xy)(xy)
-        # Sort the points by density, so that the densest points are plotted last
-        idx = z.argsort()
-        x, y, z = x[idx], y[idx], z[idx]
-        # plt.plot(dfr['x'], dfr['y'], c=colors[i], marker='.',ls='None')
-        plt.scatter(x, y, c=z, s=10, edgecolor='')
-    
-        plt.axis(lims)
-
-        if polygon:
-            from shapely.geometry import Polygon
-            poly = Polygon(polygon)
-            x,y = poly.exterior.xy
-            plt.plot(x,y, 'lightgreen', lw=2)                
-
-        plt.plot(relx,rely, 'k+', mew=2)
-
-
-        fileplot = fileplotpref +'_dens_release_%02i.png' % rel
-        print 'Plotting to %s' % fileplot
-        plt.savefig(fileplot)
 
 
 def plot_frames(df=None,
