@@ -150,14 +150,15 @@ def plot_frames(df=None,
                 itout=1,
                 fileplotpref='plt',
                 P0 = None,
-                polygon = None):
+                polygon = None,
+                show = False):
 
     import os
     import matplotlib.pyplot as plt 
-    plt.ion()
+    if show: plt.ion()
 
-    if not df:
-        if not filein:
+    if df is None:
+        if filein is None:
             sys.exit('needs pandas df or pickle filein')
         else:
             df = pd.read_pickle(filein)
@@ -227,8 +228,10 @@ def plot_frames(df=None,
                 x,y = m(dftr['x'].values, dftr['y'].values)
                 m.scatter(x,y, c=colors[i], edgecolor='')
             else:
-                plt.scatter(dftr['x'], dftr['y'], c=colors[i], edgecolor='')
-        plt.waitforbuttonpress()
+                plt.scatter(dftr['x'], dftr['y'], c=colors[i], edgecolor='', alpha=0.2)
+
+        if show:
+            plt.waitforbuttonpress()
         fileplot = fileplotpref +'_it%03i.png' % it
         plt.savefig(fileplot)
 
