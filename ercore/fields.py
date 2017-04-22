@@ -248,7 +248,6 @@ class GridData(FieldData):
     if options.pop('zcoord','up')=='down':
       # maybe force input of zcoord to reduce confusion ?
       print 'Initialization - Inverting vertical levels of %s -  %s'  % (self.id,self.file)
-      #import pdb;pdb.set_trace()
       if self.is3d: self.lev=-self.lev
       self.zinvert=True
 
@@ -302,7 +301,6 @@ class GridData(FieldData):
         # CF-compliant netcdf files
         # time is already as fraction of days - since 1-1-1
         time0=bfile.variables['time'][:]
-        #import pdb;pdb.set_trace()                          #
         if (len(self.time)>0) and (time0[0]<self.time[-1]):raise DataException('For templated time files times must be increasing - time in file %s less than preceeding file' % (bfile.filepath())) 
         self.time.extend(time0) #Add times in file to time list
         self.flen.append(len(time0))
@@ -356,34 +354,38 @@ class GridData(FieldData):
       if (self.tind>=self.timeindex[self.fileind0+1]):
         self.fileind1+=1
       readfile=True
+    # for backwards in time
+    while (time < self.t0) and (self.tind>1):
+      self.tind -= 1  # index of t1
+      self.t1=self.t0
+      self.t0=self.time[self.tind-1]
+      self.fileind1=self.fileind0
+      if (self.tind <= self.timeindex[self.fileind0]):
+        self.fileind0 -= 1
+      readfile=True
+    #print 'time,t0,t1,tind,fileind0,fileind1,readfile = %10.3f, %10.3f, %10.3f, %3i, %3i, %3i, %s' % (time, self.t0, self.t1, self.tind, self.fileind0, self.fileind1, readfile)
     if readfile:
       for v in self.vars:
         ind0=max(0,self.tind-self.timeindex[self.fileind0]-1)
         ind1=min(self.tind-self.timeindex[self.fileind1],self.flen[self.fileind1]-1)
-        #print '%s %d %d %d %d' % (v,self.fileind0,self.fileind1,ind0,ind1)
+        #print '%s %d %d %d %d %s %s' % (v,self.fileind0,self.fileind1,ind0,ind1, self.t0, self.t1)
         ncfile1 = self.files[self.fileind0]
         ncfile2 = self.files[self.fileind1]
         var1 = ncfile1.variables[v]
         var2 = ncfile2.variables[v]
         arr1 = var1[ind0][:]
         arr2 = var2[ind1][:]
-        #import pdb;pdb.set_trace()
-        #key1 = self.get_key(self.fileind0, v)
-        #key2 = self.get_key(self.fileind1, v)
-        #self.buf0[v]= decrypt_var(var1, key1, arr1)
-        #self.buf1[v]= decrypt_var(var2, key2, arr2)
-        # mimicking decrypt_var(var1, key1, arr1)
-        # if isinstance(array, numpy.ndarray):array = array else : array = var[:]
         self.buf0[v]= arr1 
         self.buf1[v]= arr2
         if numpy.any(self.mask): 
           self.buf0[v]=self.files[self.fileind0][v][ind0].filled()
           self.buf1[v]=self.files[self.fileind1][v][ind1].filled()
-    #import pdb;pdb.set_trace()  
+
     if (self.tind==0) and (time<self.time[0]):
       print 'Warning: model time (%s) before start time (%s) of data %s' % (ncep2dt(time), ncep2dt(self.time[0]), self.id)
     elif (self.tind==len(self.time)-1) and (time>self.time[-1]):
       print 'Warning: model time (%s) after end time (%s) of data %s' % (ncep2dt(time), ncep2dt(self.time[-1]), self.id)
+
     if self.t0==self.t1:
       tfac=0.
     else:
@@ -399,7 +401,6 @@ class GridData(FieldData):
       out.append(dat)
       self.bufstore[v]=dat
     self.buftime=time
-    #print 'GET', self.id, datetime.datetime.now()-start
     return out
   
   @copydoc(FieldData.interp)
