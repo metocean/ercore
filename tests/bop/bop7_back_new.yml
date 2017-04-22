@@ -1,8 +1,8 @@
+# erall bop7_back_new.yml 20100201_00z 20100101_00z --dt -3600
 #
-# erall bop7_back.yml 20100201_00z 20100101_00z --dt -3600
-#
-# python plot_bob.py bob7_back 24
+# python plot_bob.py bob7_back_new 24
 # 
+
 
 diffusers:
 - class: ConstantDiffuser
@@ -35,8 +35,8 @@ movers:
 
 materials:
 - class: PassiveTracer
-  id: bop7_back
-  outfile : bop7_back.dat
+  id: bop7_back_new
+  outfile : bop7_back_new.dat
   P0: [177.2147235,-37.87237508,0]
   # polygon: [ (x0,y0), (x1,y1), ..., (x0,y0) ] 
   polygon: [!!python/tuple [177.214978,-37.908414],
