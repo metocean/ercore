@@ -1,4 +1,4 @@
-# python -m unittest -v backwards_tests.TestCase.test_linear_point
+# python -m unittest -v backwards_tests.TestCase.test_tide_point_multiple_files
 import os
 import numpy as np
 import datetime
@@ -80,8 +80,8 @@ def create_tide_current(tstart, tend, dt=3600,
 class TestCase(unittest.TestCase):
 
     def setUp(self):
-        self.tstart = datetime.datetime(2000,1,1)
-        self.tend   = datetime.datetime(2000,1,5)
+        self.tstart = datetime.datetime(2000,1,3,12)
+        self.tend   = datetime.datetime(2000,1,2,12)
         self.dt     = -3600 if self.tstart > self.tend else 3600
 
     def tearDown(self):
@@ -264,6 +264,45 @@ class TestCase(unittest.TestCase):
                     itout=12,
                     fileplotpref='plt_%s' % imp,
                     polygon = [[0,0],[0,0.01],[0.01,1],[0,1]])
+
+
+    def test_tide_point_multiple_files(self):
+        imp = 'tide_point_mfiles'
+        if self.dt < 0: imp += '_back'
+        print 'Running for imp %s' % imp
+
+        current=GriddedMover('cur',['u','v'],file='tide_cur_%Y%m%d_%Hz.nc')
+
+        p1 = PassiveTracer( id=imp,
+                            outfile='%s.out' % imp,
+                            movers=[current], 
+                            reln=10,
+                            nbuff=1000, 
+                            P0=[0,0,0],
+                            tstart = self.tstart,
+                            tend =   self.tstart)
+
+        ercore=ERcore(geod=False)
+        ercore.materials=[p1]
+        # import pdb;pdb.set_trace()
+        ercore.run(t=self.tstart,tend=self.tend,dt=self.dt)
+
+        df = read_release_txt('%s.out' % imp)
+        print df.head()
+
+        plot_all(df = df,
+                lims=None,
+                fileplotpref='plt_%s' % imp,
+                P0 = [0,0,0],
+                polygon = None,
+                shoreline = None)
+
+        plot_frames(df= df,
+                    usemap=False,
+                    lims=None,
+                    itout=12,
+                    fileplotpref='plt_%s' % imp,
+                    P0 = [0,0,0])
 
 
 if __name__ == '__main__':
