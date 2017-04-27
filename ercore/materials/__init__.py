@@ -155,7 +155,7 @@ class _Material(object):
            topo=sticker.interp(self.pos,imax=1)# get depths new particles locations within the release circle         
            self.pos[:,2] = numpy.maximum.reduce([self.pos[:,2],topo[:,0] +0.1])
            self.post[:,2] = self.pos[:,2]
-           print 'Updating intial particles depths within release polygon based on GriddedTopo'
+           print 'Updating intial particles depths within release polygon based on GriddedTopo' 
            if (self.pos[:,2]<topo[:,0]).any() : import pdb;pdb.set_trace() 
  
 
@@ -273,7 +273,7 @@ class _Material(object):
     # update the number of active particles. nind = nb of part with state<0, which need to be removed
     self.np-=nind
     self.np=max(self.np,0) #make sure np does not become <0
-    
+   
     # define indices of initial particles position/depth to use to backfill the shuffled array
     if numpy.size(self.props['P0'][2])==2: #then release depth is random within a range
       # generate nind array indices, picked randomly within the range [self.np+nind:end]
@@ -290,7 +290,6 @@ class _Material(object):
       #a[self.np:self.np+nind]=a[-nind-1:-1] # in master branch
       # these dont work properly in case of random release within a poly and/or vertical range
     print self.pos[self.np:self.np+nind,2]
-
       
 
     return True
@@ -309,7 +308,7 @@ class _Material(object):
     return str
     
   def release(self,t1,t2,**k):
-    """Release all particles between time t1 and t2"""
+    """Release all particles between time t1 and t2"""   
     if t2>t1:
       if (self.tstart>t2) or (self.tend<t1):return
       dt1=t2-self.tstart
