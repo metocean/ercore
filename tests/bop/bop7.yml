@@ -1,8 +1,7 @@
+# erall -h 
 #
-# erall bop7_back.yml 20100201_00z 20100101_00z --dt -3600
-#
-# python plot_bob.py bob7_back 24
-# 
+# erall ross_test01.yml 20100101_00z 20100130_00z
+
 
 diffusers:
 - class: ConstantDiffuser
@@ -35,8 +34,8 @@ movers:
 
 materials:
 - class: PassiveTracer
-  id: bop7_back
-  outfile : bop7_back.dat
+  id: bop7
+  outfile : bop7.dat
   P0: [177.2147235,-37.87237508,0]
   # polygon: [ (x0,y0), (x1,y1), ..., (x0,y0) ] 
   polygon: [!!python/tuple [177.214978,-37.908414],
@@ -46,15 +45,15 @@ materials:
             !!python/tuple [177.214978,-37.908414]]
   movers: [currents]
   diffusers: [diff]
-  stickers: [shoreline]
+  stickers: [shoreline,depth]
   unstick: 1
   nbuff: 100000
   #reln: 17520   # Number of particles between tstart and tend, 1 hourly, 2 years
   reln: 35000
   R0: 1      # Total release of material
   Q0: 0      # Flux of material (per day) 
-  maxage : 14
-  tstart : 2011-12-15 00:00:00
-  tend:    2010-01-01 00:00:00
+  maxage : 2
+  tstart : 2010-01-01 00:00:00
+  tend:    2011-12-15 00:00:00
   tstep: 0.
 
