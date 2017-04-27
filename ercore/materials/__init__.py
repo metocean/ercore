@@ -273,9 +273,9 @@ class _Material(object):
     # update the number of active particles. nind = nb of part with state<0, which need to be removed
     self.np-=nind
     self.np=max(self.np,0) #make sure np does not become <0
-   
+    
     # define indices of initial particles position/depth to use to backfill the shuffled array
-    if numpy.size(self.props['P0'][2])==2: #then release depth is random within a range
+    if numpy.size(self.props['P0'][2])==2 or "circular_radius" in self.props or "polygon" in self.props or hasattr(self, 'polygon'): #then release depth is random within a range
       # generate nind array indices, picked randomly within the range [self.np+nind:end]
       fill_id=numpy.random.randint(self.np+nind, len(self.pos[:,0]), nind) 
     else:

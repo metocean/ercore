@@ -45,6 +45,9 @@ pdt=[360,360,180,60]
 
 Z=[[0,Z0],[Z0+2,Z0]]
 zlabel=['random_watercolumn','random_bottom_cylinder_r100']
+
+Z=[-10.0]
+zlabel=['circle']
 #neap=19-Jan-2014 09:57:19
 #spring 03-Jan-2014 15:48:00
 # RUN LOOP----------------------------------------------------------
@@ -63,7 +66,7 @@ for ip,w0 in enumerate(pw0):
           else:
             sediment=Sediment('lyt_test_site%s_%s_%s' %         (site,zlabel[iz],grainsize[ip]),5000,movers=[lyt_flow_hbr],diffusers=[diff],stickers=[depth_lyt_hbr,shoreline],reln=reln[0],P0=[x[site-1],y[site-1],Z[iz]],w0=-pw0[ip],tstart=tstartp,tend=tendp,tau_crit_eros=0.2,tau_crit_depos=1000.0,unstick=0.0,maxage=3.0,circular_radius=100.00)
         else:
-          if iz==1: 
+          if iz==0: 
             sediment=BuoyantTracer('lyt_test_site%s_%s_%s' %         (site,zlabel[iz],grainsize[ip]),5000,movers=[lyt_flow_hbr],diffusers=[diff],stickers=[depth_lyt_hbr,shoreline],reln=reln[0],P0=[x[site-1],y[site-1],Z[iz]],w0=-pw0[ip],tstart=tstartp,tend=tendp,unstick=0.0,maxage=3.0,circular_radius=100.00)
           else:
             sediment=BuoyantTracer('lyt_test_site%s_%s_%s' %         (site,zlabel[iz],grainsize[ip]),5000,movers=[lyt_flow_hbr],diffusers=[diff],stickers=[depth_lyt_hbr,shoreline],reln=reln[0],P0=[x[site-1],y[site-1],Z[iz]],w0=-pw0[ip],tstart=tstartp,tend=tendp,unstick=0.0,maxage=3.0)
