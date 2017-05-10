@@ -134,18 +134,29 @@ class Plume(_Material):
         raise ERCoreException("Velocity is NAN")
       vnew=self._add_momentum(vstar,ml1,self.dt)
       self.vmod[np]=numpy.sqrt((vnew**2).sum())
-      self.h[np]=self.h[np-1]*self.vmod[np]/numpy.sqrt((self.u[np-1,:]**2).sum())
+      #length variation of cylindrical plume element - h
+      self.h[np]=self.h[np-1]*self.vmod[np]/numpy.sqrt((self.u[np-1,:]**2).sum())     
       self.u[np,:]=vnew
       self.mass[np]=ml1
-      self.b[np]=numpy.sqrt(ml1/(PI*self.dens[np]*self.h[np]))
+      # work out radius b variation of cylindrical plume element based on mass conservation law 
+      self.b[np]=numpy.sqrt(ml1/(PI*self.dens[np]*self.h[np])) 
+
       self.post[np,:]=self.post[np-1,:]+self.dt*vnew*self.mfx[0]
       if self.post[np,2]>0:self.post[np,2]=0
       #Plume transition to free droplets
       self.age[np]=self.age[np-1]+self.dt/86400.
+
+      print 'height of cylindrical plume element %s' % (self.h[np])
+      print 'radius of cylindrical plume element %s' % (self.b[np])
+      print 'height of cylindrical plume element %s' % (self.post[np,2])
+
+      
+      import pdb;pdb.set_trace()
+ 
       if self.terminate():
-        print 'Plume %s terminated after %d seconds' % (self.id,86400.*self.age[np])
+        print 'Plume submodel %s terminated after %d seconds' % (self.id,86400.*self.age[np])
         return
-    print "Warning: plume %s not terminated" % (self.id)
+    print "Warning: plume submodel %s not terminated" % (self.id)
       
   def terminate(self):
     U=self.ambients[0]

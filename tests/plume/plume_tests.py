@@ -72,12 +72,15 @@ slick=HCSlick('slick',100000,movers=[surfmover],reactors=[wind],diffusers=[surfd
 
 ercore=ERcore(geod=True)
 ercore.materials=[plume1,gas,drops,slick]
+
 def run(obj):
   t0=time.time()
   obj.run(733410,733410+48*3600.0/86400.,900.0)
   print time.time()-t0
 #import profile
 #profile.run('run(ercore)')
+
+
 run(ercore) 
 
 figure()
