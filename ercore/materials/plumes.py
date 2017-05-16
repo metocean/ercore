@@ -55,7 +55,7 @@ class Plume(_Material):
   def initialize(self,t1,t2):
     _Material.initialize(self,t1,t2)
     self.V0=numpy.sqrt((numpy.array(self.props['V0'])**2).sum())
-    self.dt0=10.*self.props['B0']/self.V0
+    self.dt0=10.*self.props['B0']/self.V0 # criteria on time step to use
     self.h=numpy.zeros(self.state.shape)
     self.b=self.props['B0']+self.h
     self.u=self.props['V0']*numpy.ones((len(self.state),1))
@@ -74,13 +74,16 @@ class Plume(_Material):
         return plume.entrainmentF(self.u,self.ambients[0][:self.np,:],self.b,self.h,self.ddens,self.np)
     else:
       np=self.np-1
-      U=self.ambients[0][:]
-      u1=self.u[np,:]-U
-      modv=(u1**2).sum()**0.5
-      Ua=(U**2).sum()**0.5  
-      anguu=numpy.arctan2(self.u[np,1],self.u[np,0])-numpy.arctan2(U[1],U[0])
-    
-      sin_theta=self.u[np,2]/self.vmod[np]
+      U=self.ambients[0][:]   # ambient current velocity vector
+      u1=self.u[np,:]-U       # relative jet current velocity vector
+      modv=(u1**2).sum()**0.5 # magnitude of relative jet current velocity
+      Ua=(U**2).sum()**0.5    # ambient current velocity vector
+      # angle between flow and jet - we take the flow axis as x-axis i.e. relative angle
+      anguu=numpy.arctan2(self.u[np,1],self.u[np,0])-numpy.arctan2(U[1],U[0]) 
+      # angles :
+      # theta is the angle between the x-axis and jet in the x-z plane (i.e. horizontal plane) [deg]
+      # sigma is the angle between the x-axis and jet in the x-z plane (i.e vertical plane) [deg]
+      sin_theta=self.u[np,2]/self.vmod[np] 
       cos_theta=numpy.sqrt(self.u[np,0]**2+self.u[np,1]**2)/self.vmod[np]
       sin_sigma=numpy.sin(anguu)
       cos_sigma=numpy.cos(anguu)
@@ -89,16 +92,16 @@ class Plume(_Material):
       pib2=1.414*PI*self.b[np] #2PIb/sqrt(2) 
       g1=9.81*abs(self.ddens[np])
       
-      Qp=min(0.83,0.6*sin_theta*g1*self.b[np]/(modv*modv))
-      Qw=abs(0.055*Ua*cos_thetasig/(modv+Ua))
-      Qt=0.5*(1-cos_thetasig**2)**0.5
-      return pib2*self.h[np]*(modv*(0.055+Qp+Qw)+Ua*Qt)
+      Qp=min(0.83,0.6*sin_theta*g1*self.b[np]/(modv*modv)) # shear-related entrainment
+      Qw=abs(0.055*Ua*cos_thetasig/(modv+Ua))              # shear-related entrainment
+      Qt=0.5*(1-cos_thetasig**2)**0.5                      # drag-related entrainment
+      return pib2*self.h[np]*(modv*(0.055+Qp+Qw)+Ua*Qt)    # dV : volume of water entrained in plume
       
     
   def _mix(self,dt):
-    Q=self._get_entrainment('jirka')
-    dml=dt*self.ambients[3]*Q #Change of liquid mass
-    ml1=self.mass[self.np-1]+dml #New mass
+    Q=self._get_entrainment('jirka') # dV : volume of water entrained in plume
+    dml=dt*self.ambients[3]*Q #dM : mass of water entrained in plume (self.ambients[3] is ambient water density)
+    ml1=self.mass[self.np-1]+dml #New mass at t+1
     return dml,ml1
   
   def _add_momentum(self,vnew,dt): #Hook for additional momentum terms
@@ -128,20 +131,17 @@ class Plume(_Material):
     for np in range(1,self.nt+1):
       self.np=np
       if not ((np-1) % 1000):self._get_ambient(t1)
-      dml,ml1=self._mix(self.dt)
-      vstar=(self.mass[np-1]*self.u[np-1]+dml*self.ambients[0])/ml1
+      dml,ml1=self._mix(self.dt) # change of mass of plume element, and new mass at t+1
+      vstar=(self.mass[np-1]*self.u[np-1]+dml*self.ambients[0])/ml1 # jet velocity vector at t+1
       if numpy.isnan(vstar).any():
         raise ERCoreException("Velocity is NAN")
-      vnew=self._add_momentum(vstar,ml1,self.dt)
-      self.vmod[np]=numpy.sqrt((vnew**2).sum())
-      #length variation of cylindrical plume element - h
-      self.h[np]=self.h[np-1]*self.vmod[np]/numpy.sqrt((self.u[np-1,:]**2).sum())     
+      vnew=self._add_momentum(vstar,ml1,self.dt) # add buoyancy term in the vertical velocity component
+      self.vmod[np]=numpy.sqrt((vnew**2).sum())  # jet velocity magnitude
+      self.h[np]=self.h[np-1]*self.vmod[np]/numpy.sqrt((self.u[np-1,:]**2).sum())  #length variation of cylindrical plume element - h   
       self.u[np,:]=vnew
-      self.mass[np]=ml1
-      # work out radius b variation of cylindrical plume element based on mass conservation law 
-      self.b[np]=numpy.sqrt(ml1/(PI*self.dens[np]*self.h[np])) 
-
-      self.post[np,:]=self.post[np-1,:]+self.dt*vnew*self.mfx[0]
+      self.mass[np]=ml1 # new mass of cylindrical plume element at t+1 
+      self.b[np]=numpy.sqrt(ml1/(PI*self.dens[np]*self.h[np]))  #radius b of cylindrical plume element at t+1 (using mass conservation)
+      self.post[np,:]=self.post[np-1,:]+self.dt*vnew*self.mfx[0] # update position of center of plume element at t+1
       if self.post[np,2]>0:self.post[np,2]=0
       #Plume transition to free droplets
       self.age[np]=self.age[np-1]+self.dt/86400.
@@ -230,14 +230,14 @@ class BuoyantPlume(Plume):
   def _mix(self,dt):
     np=self.np
     V,T,S,D=self.ambients
-    Q=self._get_entrainment('jirka')
-    dml=dt*D*Q #,numpy.newaxis] #Change of liquid mass
-    ml1=self.mass[np-1]+dml #New mass
-    self.conc[np]=(self.mass[np-1]*self.conc[np-1])/ml1 #Concentration
-    self.salt[:np]=(S*dml+self.mass[:np]*self.salt[:np])/ml1 #Salinity
-    self.temp[np]=(self.Cpr*T*dml+self.mass[np-1]*self.temp[np-1])/ml1 #Temperature
-    self.dens[np]=self.conc[np]*self._densfunc(np)+(1.-self.conc[np])*D
-    self.ddens[np]=(self.ambients[3]-self.dens[np])/self.dens[np]
+    Q=self._get_entrainment('jirka') #dV : volume of water entrained in plume element
+    dml=dt*D*Q #,numpy.newaxis] #dM : mass of water entrained in plume element (D is ambient water density)
+    ml1=self.mass[np-1]+dml #New mass of plume element
+    self.conc[np]=(self.mass[np-1]*self.conc[np-1])/ml1                 #Concentration at t+1
+    self.salt[:np]=(S*dml+self.mass[:np]*self.salt[:np])/ml1            #Salinity at t+1
+    self.temp[np]=(self.Cpr*T*dml+self.mass[np-1]*self.temp[np-1])/ml1  #Temperature at t+1
+    self.dens[np]=self.conc[np]*self._densfunc(np)+(1.-self.conc[np])*D #Density at t+1
+    self.ddens[np]=(self.ambients[3]-self.dens[np])/self.dens[np]       #relative density at t+1
     return dml,ml1
   
   def _add_momentum(self,vstar,ml1,dt):
