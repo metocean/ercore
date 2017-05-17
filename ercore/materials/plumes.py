@@ -36,7 +36,8 @@ class Plume(_Material):
   def sfprint(self,t,deadonly=False):
     str=''
     for i in range(0,self.np):
-      str+="%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n" % ((t,)+tuple(self.pos[i])+tuple(self.u[i])+(self.b[i],self.h[i],self.mass[i]))
+      str+="%f\t%.10f\t%.10f\t%.10f\t%f\t%f\t%f\t%f\t%f\t%f\n" % ((t,)+tuple(self.pos[i])+tuple(self.u[i])+(self.b[i],self.h[i],self.mass[i]))
+      # using %.10f to correctly output small-scale advection of plumes geographical coordinates
     return str
   
   def __str__(self):
@@ -143,15 +144,13 @@ class Plume(_Material):
       self.mass[np]=ml1                                      # new mass of cylindrical plume element at t+1 
       self.b[np]=numpy.sqrt(ml1/(PI*self.dens[np]*self.h[np]))  #radius b of cylindrical plume element at t+1 (using mass conservation)
       self.post[np,:]=self.post[np-1,:]+self.dt*vnew*self.mfx[0] # update position of center of plume element at t+1
+      # at this stage particles positions is the center of the plume elements as it mixes with ambient water and current 
       if self.post[np,2]>0:self.post[np,2]=0 #Plume transition to free droplets at sea surface
       self.age[np]=self.age[np-1]+self.dt/86400.
 
-      # print 'height of cylindrical plume element %s' % (self.h[np])
-      # print 'radius of cylindrical plume element %s' % (self.b[np])
-      # print 'height of cylindrical plume element %s' % (self.post[np,2])
-      print '[h,b,z,Vjet,conc,dens,temp,salt] = [ %s,%s,%s,%s,%s,%s,%s,%s ]' % (self.h[np],self.b[np],self.post[np,2],self.vmod[np],self.conc[np],self.dens[np],self.temp[np],self.salt[np])
-      import pdb;pdb.set_trace()
-      
+      #print '[x,y,z,ujet,vjet,wjet] = [ %s,%s,%s,%s,%s,%s]' % (self.post[np,0]/self.mfx[0],self.post[np,1]/self.mfx[0],self.post[np,2]/self.mfx[0],vnew[0],vnew[1],vnew[2])
+      #print '[h,b,z,Vjet,conc,dens,temp,salt] = [ %s,%s,%s,%s,%s,%s,%s,%s ]' % (self.h[np],self.b[np],self.post[np,2],self.vmod[np],self.conc[np],self.dens[np],self.temp[np],self.salt[np])
+      # import pdb;pdb.set_trace()
  
       if self.terminate():
         print 'Plume submodel %s terminated after %d seconds' % (self.id,86400.*self.age[np])
@@ -163,6 +162,8 @@ class Plume(_Material):
     # check if we can terminate the plume submodel
     U=self.ambients[0]
     modv=((self.u[self.np,:]-U)**2).sum()**0.5
+    # terminate if the jet velocity becomes smaller than a given terminal velocity Vb (set to 0.12 by default),
+    # or the plume element reaches the surface or the seabed
     return (modv<=self.Vb) or (self.post[self.np,2]>-0.01)
       
   def randcyl(self,ind,np,surface=False):
@@ -291,9 +292,10 @@ class BuoyantPlume_JETLAG(Plume):
     self.salt=self.props.get('S0',0.) * numpy.ones((len(self.state),1)) #Initial salinity ppt
     # self.Cpr=self.props.get('Cpa',3.93)/self.props['Cpl']
     # initial dimensions of plume element > done in release function
-    # h0=self.V0*self.dt0
-    # self.h[0]=h0 #
-    # self.mass[0]=PI*h0*self.b[0]**2*self.dens[0]
+    h0=self.V0*self.dt0
+    self.h[0]=h0 #
+    self.mass[0]=PI*h0*self.b[0]**2*self.dens[0]
+    self.mass0=self.mass[0]
     #jet angle quantities
     self.sin_phi=0.*numpy.ones((len(self.state),1)) 
     self.cos_phi=0.*numpy.ones((len(self.state),1)) 
@@ -303,6 +305,7 @@ class BuoyantPlume_JETLAG(Plume):
     self.Vb=self.props.get('Vb',0.12) #Terminal velocity
     
   def release(self,t1,t2):
+    # release particles and define the timestep of plume submodel
     self.np=0
     self.children={}
     if t2<self.tstart or t1>self.tend:return 0
@@ -334,7 +337,7 @@ class BuoyantPlume_JETLAG(Plume):
     temp=temppot(salt, temp, 0, P) #Convert to absolute temperature
     den=dens(salt, temp, P)
     # Note from Rosa: added a fix for when imax>0. not tested in all conditions.
-    print 'salt = ', salt
+    #print 'salt = ', salt
     temp = temp[0]
     salt = salt[0]
     den  = den[0]
@@ -393,6 +396,66 @@ class BuoyantPlume_JETLAG(Plume):
   
   def advect(self,t1,t2,order=4):
     Plume.advect(self,t1,t2,order=4)
+    # For now this advect particles following the center of the plume element ([x,y,z])
+    # we could consider releasing within each of the plume element rathen than at its center
+    # or we could release only at the end of the plume model i.e. when we go into far field
+  
+  def spawn(self,t1,t2):
+    import pdb;pdb.set_trace()
+  # the computed nearfield plume dynamics are used to seed the model with particles for far-field dispersion
+  # this is handled using the "spawn" function and the creation of a "child" of the BuoyantPlume_JETLAG Material
+  
+  #specify the Material the plume will trun into e.g. PassiveTracer, BuoyantTracer, Sediment etc..
+  # this can be specified at BuoyantPlume_JETLAG call e.g. spawnclass='Sediment', then do :
+  self.children[self.props['spawnclass']]={'pos':self.post[ind,:],'mass':self.props['spawnratio']*self.mass[ind],'nprel':nind}
+
+>> this should use the same movers, diffusers,reactor than the plume itself 
+>> find how we can input more parameters like w0, how we specify the P0 etc... for that new material ??
+
+e.g.  sediment=Sediment('lyt_test_site%s_%s_%s' %         (site,zlabel[iz],grainsize[ip]),5000,
+  movers=[lyt_flow_hbr],
+  diffusers=[diff],
+  stickers=[depth_lyt_hbr,shoreline],
+  reln=reln[0],
+  P0=[x[site-1],y[site-1],Z[iz]],
+  w0=-pw0[ip],
+  tstart=tstartp,tend=tendp,
+  tau_crit_eros=0.2,
+  tau_crit_depos=1000.0,
+  unstick=0.0,
+  maxage=3.0,
+  ircular_radius=100.00)
+
+
+
+# example for biota
+  # def spawn(self,t1,t2):#Become something else or spawn
+  #   if self.props['spawnclass']:
+  #     ind=(self.state) & (self.age>=self.props['spawnage'])
+  #     nind=ind.sum()
+  #     if nind:
+  #       if self.props['maxage']<=self.props['spawnage']:#Has become next life stage
+  #         self.children[self.props['spawnclass']]={'pos':self.post[ind,:],'mass':self.props['spawnratio']*self.mass[ind],'nprel':nind}
+  #         self.state[ind]=-2 
+  #       else:#Has spawned offspring
+  #         self.children[self.props['spawnclass']]={'pos':self.post[ind,:],'mass':self.props['spawnratio']*self.mass[ind],'nprel':nind}
+  #       return True
+  #     else:
+  #       self.children={}
+  #       return False
+
+
+  def terminate(self):
+    # check if we can terminate the plume submodel
+    U=self.ambients[0]
+    modv=((self.u[self.np,:]-U)**2).sum()**0.5
+    # terminate if the jet velocity becomes smaller than a given terminal velocity Vb (set to 0.12 by default),
+    # or the plume element reaches the surface or the seabed
+    water_depth=self._get_depth(self)[0]
+    return (modv<=self.Vb) or (self.post[self.np,2]>-0.01) or (self.post[self.np,2]<water_depth) 
+    
+    # >> add case for surface release i.e. check on seabed impact -     water_depth= look if there is a GriddedTopo field ??
+    # >> look how the release is actually handled - released in last plume element ? or within each element through nearfield dilution? 
 
   def _mix(self,dt):
     np=self.np
@@ -410,3 +473,10 @@ class BuoyantPlume_JETLAG(Plume):
   def _add_momentum(self,vstar,ml1,dt):
     vstar[2]+=dt*9.81*self.ddens[self.np] #Buoyancy term
     return vstar
+
+  def _get_depth(self,t):
+    np=self.np
+    for mover in self.movers[0:]:
+      if mover.topo:
+        depth= mover.topo.interp(self.post[np,:],t,3)[0]
+        return depth

@@ -268,6 +268,7 @@ class ERcore(object):
         e.die(t,t2)
         last_time = self.timestamp('die', last_time)
         e.tcum+=86400.*abs(dt)
+        # Output to file
         if i%iprint==0:
           self.fout[e.id].write(e.sfprint(t2))
           last_time = self.timestamp('write output', last_time)
