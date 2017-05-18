@@ -289,7 +289,7 @@ class _Material(object):
       #a[self.np:self.np+nind]=a[-1]  # in ercore_nc branch
       #a[self.np:self.np+nind]=a[-nind-1:-1] # in master branch
       # these dont work properly in case of random release within a poly and/or vertical range
-    print self.pos[self.np:self.np+nind,2]
+    # print self.pos[self.np:self.np+nind,2]
       
 
     return True
@@ -308,7 +308,10 @@ class _Material(object):
     return str
     
   def release(self,t1,t2,**k):
-    """Release all particles between time t1 and t2"""   
+    
+    """Release all particles between time t1 and t2
+    **k can be used to pass some array information from a parent material
+    e.g. in the case of a BuoyantPlume becoming a BuoyantTracer"""   
     if t2>t1:
       if (self.tstart>t2) or (self.tend<t1):return
       dt1=t2-self.tstart
@@ -362,13 +365,21 @@ class _Material(object):
     self.age[self.np:np1]=0.
     self.nid[self.np:np1]=range(self.ninc,self.ninc+np)
     self.ninc+=np
+
+    # if **k is provided - replace content of self arrays with that of **k
+    # this happens when the material is a child from another parent material (BuoyantPlume to BuoyantTracer) 
     for key in k:
       if hasattr(self,key):
-        array=getattr(self,key)
+        array=getattr(self,key) # fill property 'key' with array in **k
         if isinstance(array,numpy.ndarray):
-          array[self.np:np1]=k[key][:np]
+          array[self.np:np1]=k[key][:np] # update only the position of particle "freshly" released i.e. [np:np1]
         else:
           array=k[key]
+      # NOTE : in case of parent material spawning a child material, there will be one fake release from that child material
+      # because the release class is called in ercore/__init__.py with no child specification (i.e. no key see line 247)
+      #
+      # A workaround could be to inactivate the firt set of particles released ?
+      # check if is the first time step , if that is the case inactivate all the active particles ???  
 
     # Rosa ----------------
     # if particles initialized by random position in polygon
@@ -384,6 +395,7 @@ class _Material(object):
     # end Rosa -------------
 
     self.np=np1
+
     return np
     
   def advect(self,t1,t2,order=4):

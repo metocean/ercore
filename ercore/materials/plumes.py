@@ -154,7 +154,6 @@ class Plume(_Material):
  
       if self.terminate():
         print 'Plume submodel %s terminated after %d seconds' % (self.id,86400.*self.age[np])
-        import pdb;pdb.set_trace()
         return
     print "Warning: plume submodel %s not terminated" % (self.id)
       
@@ -255,7 +254,7 @@ class BuoyantPlume_JETLAG(Plume):
   default_props={
     'B0':1.0,
     'V0':[0,0,1],
-    'Vb':0.12,
+    'Vb':0.05,
     'D0':1.0,
     'C0':1.0,
     'E':2,
@@ -401,49 +400,28 @@ class BuoyantPlume_JETLAG(Plume):
     # or we could release only at the end of the plume model i.e. when we go into far field
   
   def spawn(self,t1,t2):
-    import pdb;pdb.set_trace()
-  # the computed nearfield plume dynamics are used to seed the model with particles for far-field dispersion
-  # this is handled using the "spawn" function and the creation of a "child" of the BuoyantPlume_JETLAG Material
+    # the computed nearfield plume dynamics are used to seed the model with particles for far-field dispersion
+
+    # this is handled using the "spawn" function and the creation of a "child" of the BuoyantPlume_JETLAG Material
+    # the child name must be specified in BuoyantPlume_JETLAG function call spawn_class='xxxx'
   
-  #specify the Material the plume will trun into e.g. PassiveTracer, BuoyantTracer, Sediment etc..
-  # this can be specified at BuoyantPlume_JETLAG call e.g. spawnclass='Sediment', then do :
-  self.children[self.props['spawnclass']]={'pos':self.post[ind,:],'mass':self.props['spawnratio']*self.mass[ind],'nprel':nind}
-
->> this should use the same movers, diffusers,reactor than the plume itself 
->> find how we can input more parameters like w0, how we specify the P0 etc... for that new material ??
-
-e.g.  sediment=Sediment('lyt_test_site%s_%s_%s' %         (site,zlabel[iz],grainsize[ip]),5000,
-  movers=[lyt_flow_hbr],
-  diffusers=[diff],
-  stickers=[depth_lyt_hbr,shoreline],
-  reln=reln[0],
-  P0=[x[site-1],y[site-1],Z[iz]],
-  w0=-pw0[ip],
-  tstart=tstartp,tend=tendp,
-  tau_crit_eros=0.2,
-  tau_crit_depos=1000.0,
-  unstick=0.0,
-  maxage=3.0,
-  ircular_radius=100.00)
-
-
-
-# example for biota
-  # def spawn(self,t1,t2):#Become something else or spawn
-  #   if self.props['spawnclass']:
-  #     ind=(self.state) & (self.age>=self.props['spawnage'])
-  #     nind=ind.sum()
-  #     if nind:
-  #       if self.props['maxage']<=self.props['spawnage']:#Has become next life stage
-  #         self.children[self.props['spawnclass']]={'pos':self.post[ind,:],'mass':self.props['spawnratio']*self.mass[ind],'nprel':nind}
-  #         self.state[ind]=-2 
-  #       else:#Has spawned offspring
-  #         self.children[self.props['spawnclass']]={'pos':self.post[ind,:],'mass':self.props['spawnratio']*self.mass[ind],'nprel':nind}
-  #       return True
-  #     else:
-  #       self.children={}
-  #       return False
-
+    self.state[:]=-2 # inactivate plume particles
+    # for now release particles at last point of plume
+    # child material release position
+    #for now release at the center of the last plume element
+    # could be along the plume path ? or within last plume element ? etc...
+    self.post[:,:]=self.post[self.np-1,:] # self.post[self.np-1,:] is position of the plume at end of nearfield dynamics
+    self.post[:,:]=5
+    # set the mass as the last concentration computed in the nearfield plume subplume
+    # can be used on to infer dilution after nearfield dynamics
+    self.mass[:]=self.conc[self.np-1]
+    # update positions and masses of the plume's child class
+    # this should not overwrite positions of particle that are already suspended
+     
+    self.children[self.props['spawn_class']]={'pos':self.post[:,:],'post':self.post[:,:],'mass':self.mass[:] }
+    
+# ind=(self.state) & (self.age>=self.props['spawnage'])
+#       nind=ind.sum()
 
   def terminate(self):
     # check if we can terminate the plume submodel

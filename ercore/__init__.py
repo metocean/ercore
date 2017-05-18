@@ -278,12 +278,16 @@ class ERcore(object):
           nind=ind.sum()
           if nind:e._reset(ind) #Recycle particles
           if nind>0:print '%d %s particles removed' % (nind,e.id)
+      # check if the intial materials have "spawned" any children
       for e in self.materials:
         if dt>0:
           for spw in e.children:
-            spw0=spw.split('_')[0]
-            if spw0 not in etypes:continue
-            self.materials[etypes.index(spw0)].release(t,t2,**e.children[spw])
+            # import pdb;pdb.set_trace()
+            spw0=spw.split('_')[0] # not sure why this is used ?
+            # if spw0 not in etypes:continue
+            # self.materials[etypes.index(spw0)].release(t,t2,**e.children[spw])
+            if spw not in etypes:continue
+            self.materials[etypes.index(spw)].release(t,t2,**e.children[spw]) # **e.children[spw] allows passing the info from the parent material 
       t+=dt
       last_step = self.timestamp('tstep', start_step)
     for e in self.materials:
