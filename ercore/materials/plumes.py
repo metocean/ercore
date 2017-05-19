@@ -155,8 +155,8 @@ class Plume(_Material):
       if self.terminate():
         print 'Plume submodel %s terminated after %d seconds' % (self.id,86400.*self.age[np])
         return
-    print "Warning: plume submodel %s not terminated" % (self.id)
-      
+    print "Warning: plume submodel %s not terminated - increase master time step" % (self.id)
+
   def terminate(self):
     # check if we can terminate the plume submodel
     U=self.ambients[0]
@@ -304,16 +304,18 @@ class BuoyantPlume_JETLAG(Plume):
     self.Vb=self.props.get('Vb',0.12) #Terminal velocity
     
   def release(self,t1,t2):
-    # release particles and define the timestep of plume submodel
+    # define the timestep of plume submodel and release initial plume elements
     self.np=0
     self.children={}
     if t2<self.tstart or t1>self.tend:return 0
-    nt=numpy.ceil(86400*(t2-t1)/self.dt0)
-    self.dt=86400.*(t2-t1)/nt
+    nt=numpy.ceil(86400*(t2-t1)/self.dt0) # number of time steps for plume model during 1 master dt 
+    self.dt=86400.*(t2-t1)/nt 
     self.nt=int(nt)
-    if self.nt>self.npmax:
+    if self.nt>self.npmax:  
+      # the number of plume timesteps is larger than the nbuff input for Material
+      # the plume model will often end before reaching the self.nt-th timestep 
       print 'Warning: particles exhausted for '+self.id
-      self.nt=self.npmax
+      self.nt=self.npmax # reduce the number of plume model timesteps to npmax
     h0=self.V0*self.dt
     self.h[0]=h0 
     self.mass[0]=PI*h0*self.b[0]**2*self.dens[0]
@@ -411,17 +413,14 @@ class BuoyantPlume_JETLAG(Plume):
     #for now release at the center of the last plume element
     # could be along the plume path ? or within last plume element ? etc...
     self.post[:,:]=self.post[self.np-1,:] # self.post[self.np-1,:] is position of the plume at end of nearfield dynamics
-    self.post[:,:]=5
     # set the mass as the last concentration computed in the nearfield plume subplume
     # can be used on to infer dilution after nearfield dynamics
     self.mass[:]=self.conc[self.np-1]
     # update positions and masses of the plume's child class
-    # this should not overwrite positions of particle that are already suspended
+    # this should not overwrite positions of particle that are already suspended - ok : see release function
      
     self.children[self.props['spawn_class']]={'pos':self.post[:,:],'post':self.post[:,:],'mass':self.mass[:] }
     
-# ind=(self.state) & (self.age>=self.props['spawnage'])
-#       nind=ind.sum()
 
   def terminate(self):
     # check if we can terminate the plume submodel

@@ -244,7 +244,10 @@ class ERcore(object):
       for e in self.materials:
         if e.tcum>=e.tstep:
           e.tcum-=e.tstep
-          e.release(t,t2)
+          # release only if the material is not a child of another material
+          # the release of spawned material is taken care of further below
+          if not e.props['ischild']:
+            e.release(t,t2)
           last_time = self.timestamp('release', start_step)
           if self.geod:e.geodcalc()
           e.react(t,t2)
@@ -278,12 +281,12 @@ class ERcore(object):
           nind=ind.sum()
           if nind:e._reset(ind) #Recycle particles
           if nind>0:print '%d %s particles removed' % (nind,e.id)
-      # check if the intial materials have "spawned" any children
+      # check if the initial materials have "spawned" any children
       for e in self.materials:
         if dt>0:
           for spw in e.children:
             # import pdb;pdb.set_trace()
-            spw0=spw.split('_')[0] # not sure why this is used ?
+            spw0=spw.split('_')[0] # not sure why this is used ? maybe a convention to use same name with _plume, _sediment etc.. ?
             # if spw0 not in etypes:continue
             # self.materials[etypes.index(spw0)].release(t,t2,**e.children[spw])
             if spw not in etypes:continue

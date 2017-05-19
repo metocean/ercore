@@ -69,7 +69,8 @@ class _Material(object):
       spawn: Number of spawned particles (per day)
       reln: Number of particles per release
       R0: Total release of material
-      Q0: Flux of material (per day) 
+      Q0: Flux of material (per day)
+      ischild : flag to identify if material is a child of another material (e.g. "spawned")  
       **properties: Optional keyword arguments specifying additional properties
       
     Properties:
@@ -95,6 +96,7 @@ class _Material(object):
     self.props=copy.copy(self.default_props)
     self.props['P0']=P0
     self.props['spawn']=spawn
+    if not hasattr(self.props,'ischild'):self.props['ischild']=0
     self.props.update(prop)
     #import pdb;pdb.set_trace()
     # Release Options
