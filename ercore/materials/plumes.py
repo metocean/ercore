@@ -36,14 +36,14 @@ class Plume(_Material):
   def sfprint(self,t,deadonly=False):
     str=''
     for i in range(0,self.np):
-      str+="%f\t%.10f\t%.10f\t%.10f\t%f\t%f\t%f\t%f\t%f\t%f\n" % ((t,)+tuple(self.pos[i])+tuple(self.u[i])+(self.b[i],self.h[i],self.mass[i]))
+      str+="%f\t%.10f\t%.10f\t%.10f\t%f\t%f\t%f\t%f\t%f\t%f\n" % ((t,)+tuple(self.post[i])+tuple(self.u[i])+(self.b[i],self.h[i],self.mass[i]))
       # using %.10f to correctly output small-scale advection of plumes geographical coordinates
     return str
   
   def __str__(self):
     str='Plume with %d elements:\n' % (self.np)
     for i in range(self.np):
-      str+='%g\t%g\t%g\t%g\t%g\t%g\t%g\n' % (tuple(self.pos[i,:])+(self.vmod[i],self.b[i],self.h[i],self.conc[i]))
+      str+='%g\t%g\t%g\t%g\t%g\t%g\t%g\n' % (tuple(self.post[i,:])+(self.vmod[i],self.b[i],self.h[i],self.conc[i]))
     return str
   
   def _get_ambient(self,t):
@@ -148,8 +148,7 @@ class Plume(_Material):
       if self.post[np,2]>0:self.post[np,2]=0 #Plume transition to free droplets at sea surface
       self.age[np]=self.age[np-1]+self.dt/86400.
 
-      #print '[x,y,z,ujet,vjet,wjet] = [ %s,%s,%s,%s,%s,%s]' % (self.post[np,0]/self.mfx[0],self.post[np,1]/self.mfx[0],self.post[np,2]/self.mfx[0],vnew[0],vnew[1],vnew[2])
-      #print '[h,b,z,Vjet,conc,dens,temp,salt] = [ %s,%s,%s,%s,%s,%s,%s,%s ]' % (self.h[np],self.b[np],self.post[np,2],self.vmod[np],self.conc[np],self.dens[np],self.temp[np],self.salt[np])
+      # print '[np,x,y,z,ujet,vjet,wjet,conc,dens,temp,salt] = [ %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s]' % (np,self.post[np,0],self.post[np,1],self.post[np,2],vnew[0],vnew[1],vnew[2],self.conc[np],self.dens[np],self.temp[np],self.salt[np])
       # import pdb;pdb.set_trace()
  
       if self.terminate():
@@ -246,7 +245,7 @@ class BuoyantPlume(Plume):
     vstar[2]+=dt*9.81*self.ddens[self.np] #Buoyancy term
     return vstar
       
-  #buoyant plume class\
+  # Buoyant plume class
   # based on Lee, J.H.W. and Cheung, V. (1990) Generalized Lagrangian model for buoyant jets in current. 
   # Journal of Environmental Engineering, ASCE,116(6), pp. 1085-1105.
   # can probably merge with Buoyant Plume at some stage but keeping separate to not break previous tests
@@ -276,10 +275,10 @@ class BuoyantPlume_JETLAG(Plume):
   def initialize(self,t1,t2):
     _Material.initialize(self,t1,t2)
     self.V0=numpy.sqrt((numpy.array(self.props['V0'])**2).sum()) # jet velocity magnitude
-    self.dt0=0.1*self.props['B0']/self.V0                       # criteria on time step to use as recommend in Lee Cheung 8d.
+    self.dt0=1.0*self.props['B0']/self.V0                        # criteria on time step to use as recommend in Lee Cheung 8d.
     self.b=self.props['B0'] *numpy.ones((len(self.state),1))     # initial radius of cylindrical plume element 8b
     self.h=self.props['B0'] *numpy.ones((len(self.state),1))     # initial height of cylindrical plume element
-    self.u=self.props['V0'] *numpy.ones((len(self.state),1))      # jet velocity vector
+    self.u=self.props['V0'] *numpy.ones((len(self.state),1))     # jet velocity vector
     self.vmod=numpy.sqrt((self.u**2).sum(1)) # jet velocity magnitude
     self.conc=self.props['C0']*numpy.ones((len(self.state),1))
     self.dens=self.props['D0']*numpy.ones((len(self.state),1))      # initial jet density
@@ -309,6 +308,7 @@ class BuoyantPlume_JETLAG(Plume):
     self.children={}
     if t2<self.tstart or t1>self.tend:return 0
     nt=numpy.ceil(86400*(t2-t1)/self.dt0) # number of time steps for plume model during 1 master dt 
+    # import pdb;pdb.set_trace()
     self.dt=86400.*(t2-t1)/nt 
     self.nt=int(nt)
     if self.nt>self.npmax:  
@@ -412,14 +412,13 @@ class BuoyantPlume_JETLAG(Plume):
     # child material release position
     #for now release at the center of the last plume element
     # could be along the plume path ? or within last plume element ? etc...
-    self.post[:,:]=self.post[self.np-1,:] # self.post[self.np-1,:] is position of the plume at end of nearfield dynamics
+    final_pos=numpy.tile(self.post[self.np-1,:], (int(self.npmax+1),1) ) # self.post[self.np-1,:] is position of the plume at end of nearfield dynamics
     # set the mass as the last concentration computed in the nearfield plume subplume
     # can be used on to infer dilution after nearfield dynamics
     self.mass[:]=self.conc[self.np-1]
     # update positions and masses of the plume's child class
-    # this should not overwrite positions of particle that are already suspended - ok : see release function
-     
-    self.children[self.props['spawn_class']]={'pos':self.post[:,:],'post':self.post[:,:],'mass':self.mass[:] }
+    # this should not overwrite positions of particle that are already suspended - ok : see release function   
+    self.children[self.props['spawn_class']]={'pos':final_pos,'post':final_pos,'mass':self.mass[:] }
     
 
   def terminate(self):
@@ -428,7 +427,10 @@ class BuoyantPlume_JETLAG(Plume):
     modv=((self.u[self.np,:]-U)**2).sum()**0.5
     # terminate if the jet velocity becomes smaller than a given terminal velocity Vb (set to 0.12 by default),
     # or the plume element reaches the surface or the seabed
-    water_depth=self._get_depth(self)[0]
+    water_depth=self._get_depth()
+    # print water_depth
+    # import pdb; pdb.set_trace()
+    # print 'pos %.10f %.10f %.1f' % (self.post[self.np,0],self.post[self.np,1],self.post[self.np,2])
     return (modv<=self.Vb) or (self.post[self.np,2]>-0.01) or (self.post[self.np,2]<water_depth) 
     
     # >> add case for surface release i.e. check on seabed impact -     water_depth= look if there is a GriddedTopo field ??
@@ -451,9 +453,10 @@ class BuoyantPlume_JETLAG(Plume):
     vstar[2]+=dt*9.81*self.ddens[self.np] #Buoyancy term
     return vstar
 
-  def _get_depth(self,t):
+  def _get_depth(self):
+    # get depth at plume element position
     np=self.np
     for mover in self.movers[0:]:
       if mover.topo:
-        depth= mover.topo.interp(self.post[np,:],t,3)[0]
+        depth= mover.topo.interp(numpy.array([self.post[np,:]]) ,None,imax=3)[:,0]
         return depth
