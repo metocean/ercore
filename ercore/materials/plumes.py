@@ -149,6 +149,7 @@ class Plume(_Material):
       self.age[np]=self.age[np-1]+self.dt/86400.
 
       # print '[np,x,y,z,ujet,vjet,wjet,conc,dens,temp,salt] = [ %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s]' % (np,self.post[np,0],self.post[np,1],self.post[np,2],vnew[0],vnew[1],vnew[2],self.conc[np],self.dens[np],self.temp[np],self.salt[np])
+      # print '[np,mass] = [ %s,%s]' % (np,self.mass[np])
       # import pdb;pdb.set_trace()
  
       if self.terminate():
@@ -415,10 +416,10 @@ class BuoyantPlume_JETLAG(Plume):
     final_pos=numpy.tile(self.post[self.np-1,:], (int(self.npmax+1),1) ) # self.post[self.np-1,:] is position of the plume at end of nearfield dynamics
     # set the mass as the last concentration computed in the nearfield plume subplume
     # can be used on to infer dilution after nearfield dynamics
-    self.mass[:]=self.conc[self.np-1]
+    final_conc=numpy.tile(self.conc[self.np-1], (int(self.npmax+1),1) ) 
     # update positions and masses of the plume's child class
     # this should not overwrite positions of particle that are already suspended - ok : see release function   
-    self.children[self.props['spawn_class']]={'pos':final_pos,'post':final_pos,'mass':self.mass[:] }
+    self.children[self.props['spawn_class']]={'pos':final_pos,'post':final_pos,'mass':final_conc }
     
 
   def terminate(self):
