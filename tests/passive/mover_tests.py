@@ -7,33 +7,6 @@ from ercore.shoreline import Shoreline
 
 plot = False
 
-def plot_particles(particles):
-    import matplotlib.pyplot as plt
-    tpast = 0    
-    with open(particles.outfile) as f:     
-        print f.readline()
-        it = -1
-        for line in f.readlines():
-            tp,pid,px,py,pz,pstate,page,pmass = map(float, line.split('\t'))        
-            if tp != tpast:            
-                if it > 0:
-                    plt.savefig('plt_%s_%03i.png' % (particles.outfile,it))
-                    plt.close()
-                tpast=tp
-                it+=1
-                print 'Plotting '+ncep2dt(tp).strftime('%Y-%m-%d %H:%M')
-                plt.figure()
-                for i,j in enumerate(shoreline.polyi):
-                    n=shoreline.polyn[i]
-                    plt.plot(shoreline.slx[j:j+n-1],shoreline.sly[j:j+n-1],'k')
-                plt.plot(P0[0],P0[1],'r+')
-                plt.title(ncep2dt(tp).strftime('%Y-%m-%d %H:%M'))
-            plt.plot(px,py, 'bo')
-            #if it==2: break
-    plt.savefig('plt_%s_%03i.png' % (particles.outfile,it))
-    plt.close()
-
-
 P0=[170.5,-46,-10]
 
 #import pdb;pdb.set_trace()
@@ -152,5 +125,29 @@ if plot:
 
 
 
-
+def plot_particles(particles):
+    import matplotlib.pyplot as plt
+    tpast = 0    
+    with open(particles.outfile) as f:     
+        print f.readline()
+        it = -1
+        for line in f.readlines():
+            tp,pid,px,py,pz,pstate,page,pmass = map(float, line.split('\t'))        
+            if tp != tpast:            
+                if it > 0:
+                    plt.savefig('plt_%s_%03i.png' % (particles.outfile,it))
+                    plt.close()
+                tpast=tp
+                it+=1
+                print 'Plotting '+ncep2dt(tp).strftime('%Y-%m-%d %H:%M')
+                plt.figure()
+                for i,j in enumerate(shoreline.polyi):
+                    n=shoreline.polyn[i]
+                    plt.plot(shoreline.slx[j:j+n-1],shoreline.sly[j:j+n-1],'k')
+                plt.plot(P0[0],P0[1],'r+')
+                plt.title(ncep2dt(tp).strftime('%Y-%m-%d %H:%M'))
+            plt.plot(px,py, 'bo')
+            #if it==2: break
+    plt.savefig('plt_%s_%03i.png' % (particles.outfile,it))
+    plt.close()
 

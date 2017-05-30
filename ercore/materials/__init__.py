@@ -160,6 +160,17 @@ class _Material(object):
            print 'Updating intial particles depths within release polygon based on GriddedTopo' 
            if (self.pos[:,2]<topo[:,0]).any() : import pdb;pdb.set_trace() 
  
+    
+    if "variable_reln" in self.props:
+      # time-varying number of particles to release - prescribed in a file
+      # load file  - two columns [time(CF-compliant days since 1-1-1) nb_part_to_release]
+      self.variable_reln=numpy.loadtxt(self.props['variable_reln'])
+
+
+    if "variable_poly" in self.props:
+      # time-varying polygons to use for particle release - prescribed in a file
+      # load file - the number of columns depends on the max poly length  [time(CF-compliant days since 1-1-1) x1,y1,x2,y2 etc...]
+      self.variable_poly=numpy.loadtxt(self.props['variable_poly'])
 
 
     #Could add same code for range of X,Y ?
@@ -277,6 +288,8 @@ class _Material(object):
     self.np=max(self.np,0) #make sure np does not become <0
     
     # define indices of initial particles position/depth to use to backfill the shuffled array
+    # TO MOVE TO THE RELEASE FUNCTION -
+    # generation of random position should happen at release time, rather than reset time >> more intuitive approach 
     if numpy.size(self.props['P0'][2])==2 or "circular_radius" in self.props or "polygon" in self.props or hasattr(self, 'polygon'): #then release depth is random within a range
       # generate nind array indices, picked randomly within the range [self.np+nind:end]
       fill_id=numpy.random.randint(self.np+nind, len(self.pos[:,0]), nind) 
@@ -313,7 +326,8 @@ class _Material(object):
     
     """Release all particles between time t1 and t2
     **k can be used to pass some array information from a parent material
-    e.g. in the case of a BuoyantPlume becoming a BuoyantTracer"""   
+    e.g. in the case of a BuoyantPlume becoming a BuoyantTracer"""  
+
     if t2>t1:
       if (self.tstart>t2) or (self.tend<t1):return
       dt1=t2-self.tstart
@@ -328,12 +342,18 @@ class _Material(object):
     elif dt==0: #Start and end time the same
       np=k.get('nprel',self.reln)
       dt=1.
+    elif hasattr(self,'variable_reln'):
+      # number of released particle is defined from a file
+      id_reln=numpy.where(numpy.abs(self.variable_reln[:,0]-t2)<=1e-6) # find correct time step
+      np=self.variable_reln[id_reln,1]                                 # find number of particles to release at t2
+      np=float(np)
     else: #Incremental release
       self.relsumt+=abs(dt)
       np=k.get('nprel',abs(int(self.relsumt*self._npt)))
       if np>0:self.relsumt-=1.0*np/self._npt
     if np==0:return
     np=int(np)
+    print np
     nmax=self.npmax-self.np
 
     # STAGED RELEASE-----------------
@@ -377,11 +397,6 @@ class _Material(object):
           array[self.np:np1]=k[key][:np] # update only the position of particle "freshly" released i.e. [np:np1]
         else:
           array=k[key]
-      # NOTE : in case of parent material spawning a child material, there will be one fake release from that child material
-      # because the release class is called in ercore/__init__.py with no child specification (i.e. no key see line 247)
-      #
-      # A workaround could be to inactivate the firt set of particles released ?
-      # check if is the first time step , if that is the case inactivate all the active particles ???  
 
     # Rosa ----------------
     # if particles initialized by random position in polygon
@@ -396,6 +411,23 @@ class _Material(object):
       # not correcting for topo here because sticker function will do that afterwards
     # end Rosa -------------
 
+    if hasattr(self, 'variable_poly'):
+      # release in a time-varying polygon shape is defined from a file 
+      #e.g. variable_poly='variable_poly.txt'
+      id_poly=numpy.where(numpy.abs(self.variable_poly[:,0]-t2)<=1e-6) # find correct time step
+      # format the polygon coordinates into [[x1,y1],[x2,y2], ...] for shapeluy Polygon
+      poly_tmp=self.variable_poly[id_poly,1:].squeeze()
+      poly=[[ poly_tmp[0] , poly_tmp[1] ]]
+      for ii in range(2,poly_tmp.shape[0],2):
+        poly+=[ [poly_tmp[ii],poly_tmp[ii+1]]  ]
+      self.polygon=Polygon(poly)
+      point_in_poly = get_random_point_in_polygon(np,self.polygon)
+      self.pos[self.np:np1,0] = point_in_poly[:,0]
+      self.pos[self.np:np1,1] = point_in_poly[:,1]
+      self.post[self.np:np1,0]=self.pos[self.np:np1,0]
+      self.post[self.np:np1,1]=self.pos[self.np:np1,1]
+      # not correcting for topo here because sticker function will do that afterwards
+      
     self.np=np1
 
     return np

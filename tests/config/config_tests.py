@@ -9,5 +9,6 @@ from ercore.fields import *
 
 ercore=ERcore()
 ercore.readYAML('config1.yaml',globals())
+import pdb;pdb.set_trace()
 print ercore
 

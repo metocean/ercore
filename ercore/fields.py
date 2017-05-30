@@ -523,7 +523,7 @@ class ConstantTopo(ConstantData):
 
 class ConstantMover(ConstantData):
   topo=None
-  z0=0
+  z0=0.0
   def interp(self,p,time=None,imax=2):
     uu=ConstantData.interp(self,p,time,imax)
     if self.topo:

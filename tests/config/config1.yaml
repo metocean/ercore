@@ -1,4 +1,4 @@
-mover:
+movers:
   class: ConstantMover
   id: vel
   vars: ['u','v','w']
@@ -6,11 +6,11 @@ mover:
   v: 0
   w: 0
   
-material:
+materials:
   class: Plume
   id: plume
   nbuff: 10000
   is3d: 1
-  movers: ['vel']
+  movers: vel
   V0: [0,0,3]
   

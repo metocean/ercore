@@ -165,7 +165,8 @@ class ERcore(object):
         except:
           import traceback
           raise ERConfigException('Configuration file error for object %s\n%s' % (c['id'],traceback.format_exc()))
-    for obj in objects:
+    # intialize materials
+    for obj in objects:  
         for prop in dir(obj):
             if prop in ['movers','reactors','diffusers','stickers','topo','members']:
                 val=getattr(obj,prop)
@@ -176,9 +177,11 @@ class ERcore(object):
                 #elif isinstance(val,str) and objects[val]:
                 elif isinstance(val,(str, unicode)) and objects[val]:
                     val=objects[val]
+                # elif val is None: # allow for case when no topo are defined 
+                #     val=objects[val]
                 else:
                     raise ERConfigException('Cannot find one of %s with id(s) %s specifed for %s' % (prop,val,obj.id))
-                setattr(objects[obj.id],prop,val) 
+                setattr(objects[obj.id],prop,val)
     import materials
     import inspect
     self.materials=[o for o in objects if materials._Material in inspect.getmro(o.__class__)]

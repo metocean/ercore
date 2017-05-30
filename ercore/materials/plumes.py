@@ -37,7 +37,7 @@ class Plume(_Material):
     str=''
     for i in range(0,self.np):
       str+="%f\t%.10f\t%.10f\t%.10f\t%f\t%f\t%f\t%f\t%f\t%f\n" % ((t,)+tuple(self.post[i])+tuple(self.u[i])+(self.b[i],self.h[i],self.mass[i]))
-      # using %.10f to correctly output small-scale advection of plumes geographical coordinates
+      # using %.10f for to correctly output small-scale advection of plumes geographical coordinates
     return str
   
   def __str__(self):
@@ -148,7 +148,7 @@ class Plume(_Material):
       if self.post[np,2]>0:self.post[np,2]=0 #Plume transition to free droplets at sea surface
       self.age[np]=self.age[np-1]+self.dt/86400.
 
-      # print '[np,x,y,z,ujet,vjet,wjet,conc,dens,temp,salt] = [ %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s]' % (np,self.post[np,0],self.post[np,1],self.post[np,2],vnew[0],vnew[1],vnew[2],self.conc[np],self.dens[np],self.temp[np],self.salt[np])
+      # print '[np,x,y,z,b,h,ujet,vjet,wjet,conc,dens,temp,salt] = [ %s,%s,,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s]' % (np,self.post[np,0],self.post[np,1],self.post[np,2],self.b[np],self.h[np],vnew[0],vnew[1],vnew[2],self.conc[np],self.dens[np],self.temp[np],self.salt[np])
       # print '[np,mass] = [ %s,%s]' % (np,self.mass[np])
       # import pdb;pdb.set_trace()
  
@@ -276,7 +276,7 @@ class BuoyantPlume_JETLAG(Plume):
   def initialize(self,t1,t2):
     _Material.initialize(self,t1,t2)
     self.V0=numpy.sqrt((numpy.array(self.props['V0'])**2).sum()) # jet velocity magnitude
-    self.dt0=1.0*self.props['B0']/self.V0                        # criteria on time step to use as recommend in Lee Cheung 8d.
+    self.dt0=numpy.min(0.1,1.0*self.props['B0']/self.V0)                        # criteria on time step to use as recommend in Lee Cheung 8d.
     self.b=self.props['B0'] *numpy.ones((len(self.state),1))     # initial radius of cylindrical plume element 8b
     self.h=self.props['B0'] *numpy.ones((len(self.state),1))     # initial height of cylindrical plume element
     self.u=self.props['V0'] *numpy.ones((len(self.state),1))     # jet velocity vector
@@ -370,7 +370,7 @@ class BuoyantPlume_JETLAG(Plume):
       #Note Ua*cos_thetasig is the ambient current component projected onto the jet axis
       alpha=1.0 #proportionality constant - 1.0 used by spearman in TASS for example
       rho_a=self.ambients[3] #ambient seawater density
-      d_rho=rho_a-self.dens[np]    
+      d_rho=numpy.abs(rho_a-self.dens[np])
       froude=numpy.abs( alpha*vjet_mod/( (9.81*(d_rho/rho_a)*self.b[np])**0.5) ) # Densimetric Froude Number
       #entrainment coefficient
       E=numpy.sqrt(2.)* ( 0.057+(0.554*self.sin_phi[np]/(froude**2)) ) / ( 1 + 5*Ua*self.cos_phi[np]*self.cos_theta[np] / vjet_mod ) 
@@ -381,7 +381,9 @@ class BuoyantPlume_JETLAG(Plume):
       mf1=2.*numpy.sqrt(self.sin_phi[np]**2 + self.sin_theta[np]**2 - (self.sin_phi[np]*self.sin_theta[np])**2 )  #entrainment due to the projected plume area normal to the cross flow
       if np>1:
         db=self.b[np]-self.b[np-1]
-        if db<0: import pdb;pdb.set_trace() # 
+        if db<0: 
+          # import pdb;pdb.set_trace() # 
+          print ("Warning - plume element radius increasing")
         ds=self.vmod[np]*self.dt0# jet arc length over dt 
         mf2=numpy.pi* (db/ds) * self.cos_phi[np] * self.cos_theta[np] #correction due to the growth of plume radius
         mf3= (numpy.pi/2) * self.b[np] * ( self.cos_phi[np]*self.cos_theta[np] - self.cos_phi[np-1]*self.cos_theta[np-1] ) / ds #correction due to the curvature of the trajectory.
