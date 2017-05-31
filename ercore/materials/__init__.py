@@ -98,7 +98,7 @@ class _Material(object):
     self.props['spawn']=spawn
     if not hasattr(self.props,'ischild'):self.props['ischild']=0
     self.props.update(prop)
-    #import pdb;pdb.set_trace()
+    # import pdb;pdb.set_trace()
     # Release Options
     #
     # Initialization of particle position vector 
@@ -112,8 +112,8 @@ class _Material(object):
     elif numpy.size(P0[2])==2:
     # P0:single x,y position but range of vertical z level
     # random position allocated within that range
-      # Initialize variables
-      P01=[P0[0],P0[1],P0[2][0]]
+      # Initialize variables - with lowest 
+      P01=[P0[0],P0[1],min(P0[2])]
       self.pos=numpy.array(P01)*numpy.ones((nbuff+1,3))
       self.post=numpy.array(P01)*numpy.ones((nbuff+1,3))
       self.dep = numpy.ones((nbuff+1))*-999.
@@ -286,27 +286,36 @@ class _Material(object):
     # update the number of active particles. nind = nb of part with state<0, which need to be removed
     self.np-=nind
     self.np=max(self.np,0) #make sure np does not become <0
-    
-    # define indices of initial particles position/depth to use to backfill the shuffled array
-    # TO MOVE TO THE RELEASE FUNCTION -
-    # generation of random position should happen at release time, rather than reset time >> more intuitive approach 
-    if numpy.size(self.props['P0'][2])==2 or "circular_radius" in self.props or "polygon" in self.props or hasattr(self, 'polygon'): #then release depth is random within a range
-      # generate nind array indices, picked randomly within the range [self.np+nind:end]
-      fill_id=numpy.random.randint(self.np+nind, len(self.pos[:,0]), nind) 
-    else:
-      # generate nind array indices, picked within the range [self.np+nind:end]
-      #fill_id=numpy.arange(len(self.pos[:,0])-nind+1,len(self.pos[:,0]),1,'int')
-      fill_id=-1 # using -1 replicate the last particle position/depth of the arrays - i.e. a[-1]
+    # fill locations of removed particles with new ones
+    # all the random position generation is now done at release time
     for a in self.arrays:
       if len(a)!=self.npmax+1: continue # in case of variable reln or poly
       # shuffle arrays removing the dead particles 
       a[:-nind]=a[~i0]
-      a[self.np:self.np+nind]=a[fill_id]  # fill the locations of removed particles with new ones - indices fill_id defined above depending on release type (fixed or within vertical range)    
-      #a[self.np:self.np+nind]=a[-1]  # in ercore_nc branch
-      #a[self.np:self.np+nind]=a[-nind-1:-1] # in master branch
-      # these dont work properly in case of random release within a poly and/or vertical range
-    # print self.pos[self.np:self.np+nind,2]
+      a[self.np:self.np+nind]=a[-1]  # backfill the locations of removed particles with new ones - here last array item
 
+
+    # ####OLD BLOCK##########################################################################################
+    # # define indices of initial particles position/depth to use to backfill the shuffled array
+    # # TO MOVE TO THE RELEASE FUNCTION -
+    # # generation of random position should happen at release time, rather than reset time >> more intuitive approach 
+    # if numpy.size(self.props['P0'][2])==2 or "circular_radius" in self.props or "polygon" in self.props or hasattr(self, 'polygon'): #then release depth is random within a range
+    #   # generate nind array indices, picked randomly within the range [self.np+nind:end]
+    #   fill_id=numpy.random.randint(self.np+nind, len(self.pos[:,0]), nind) 
+    # else:
+    #   # generate nind array indices, picked within the range [self.np+nind:end]
+    #   #fill_id=numpy.arange(len(self.pos[:,0])-nind+1,len(self.pos[:,0]),1,'int')
+    #   fill_id=-1 # using -1 replicate the last particle position/depth of the arrays - i.e. a[-1]
+    # for a in self.arrays:
+    #   if len(a)!=self.npmax+1: continue # in case of variable reln or poly
+    #   # shuffle arrays removing the dead particles 
+    #   a[:-nind]=a[~i0]
+    #   a[self.np:self.np+nind]=a[fill_id]  # fill the locations of removed particles with new ones - indices fill_id defined above depending on release type (fixed or within vertical range)    
+    #   #a[self.np:self.np+nind]=a[-1]  # in ercore_nc branch
+    #   #a[self.np:self.np+nind]=a[-nind-1:-1] # in master branch
+    #   # these dont work properly in case of random release within a poly and/or vertical range
+    # # print self.pos[self.np:self.np+nind,2]
+    #  ##############################################################################################
     return True
     
   def fheader(self):
@@ -338,7 +347,8 @@ class _Material(object):
       dt2=t1-self.tend
     dt=min(abs(t2-t1),dt1,dt2,abs(self.tend-self.tstart))
 
-    #release type
+    #release types
+    #
     if k.has_key('nprel'): #Prescribed release size 
       np=k['nprel']
     elif dt==0: #Start and end time the same - release all at once
@@ -355,11 +365,7 @@ class _Material(object):
       self.relsumt+=abs(dt)
       np=k.get('nprel',abs(int(self.relsumt*self._npt)))
       if np>0:self.relsumt-=1.0*np/self._npt
-    if np==0:return
-    np=int(np)
-    nmax=self.npmax-self.np
-
-    # STAGED RELEASE-----------------
+    # staged release 
     if self.tstep_release>0.0:
       dt1=t2-self.tstart #time since start of model start      
       if abs(((dt1*24)/self.tstep_release)-round(((dt1*24)/self.tstep_release)))<1e-3:
@@ -374,7 +380,11 @@ class _Material(object):
         np=0
       #print 'Releasing %s' % (np)
       if np==0:return 0
-    #---------------------------
+    #
+
+    if np==0:return
+    np=int(np)
+    nmax=self.npmax-self.np
 
     #nmax is max number of particles that can be released before reaching self.npmax
     nmax=self.npmax-self.np   
@@ -386,12 +396,11 @@ class _Material(object):
     np1=self.np+np
     self.mass[self.np:np1]=self.Q*abs(dt)/np
     self.mass0=self.mass[self.np]
-    self.state[self.np:np1]=1 #Released
+    self.state[self.np:np1]=1 #set particle state to 1 = released
     self.age[self.np:np1]=0.
     self.nid[self.np:np1]=range(self.ninc,self.ninc+np)
     self.ninc+=np
 
-    
     # if **k is provided - replace content of self arrays with that of **k
     # this happens when the material is a child from another parent material (BuoyantPlume to BuoyantTracer) 
     for key in k:
@@ -402,7 +411,7 @@ class _Material(object):
         else:
           array=k[key]
 
-    # random releases
+    # generate random positions - depending on release types
     # 
     # random release within a polygon
     # need to get another random position because if particles die, it recycles positions
@@ -437,12 +446,25 @@ class _Material(object):
       self.post[self.np:np1,1]=self.pos[self.np:np1,1]
       # not correcting for topo here because sticker function will do that afterwards
     
-    #random release with depth band
-    if self.props['P0'][2]:
-      import pdb;pdb.set_trace
+    # random release within a circle
+    if "circular_radius" in self.props:
+      #release in a circle rather than at a single X,Y point location
+      point_in_circle = get_random_point_in_circle(np,self.props['P0'],self.props['circular_radius'])
+      self.pos[self.np:np1,0]=point_in_circle[:,0]
+      self.pos[self.np:np1,1]=point_in_circle[:,1]
+      self.post[self.np:np1,0]=self.pos[self.np:np1,0]
+      self.post[self.np:np1,1]=self.pos[self.np:np1,1]     
 
-
-
+    #random release with depth band      
+    if numpy.size(self.props['P0'][2])==2:
+      #thickness of z layer
+      dz=abs(self.props['P0'][2][0]-self.props['P0'][2][1])
+      # depth are supposed to be negative
+      zz=numpy.random.random(np) 
+      # generate random levels within the specified band
+      self.pos[self.np:np1,2]=min(self.props['P0'][2])+dz*zz
+      self.post[self.np:np1,2]=min(self.props['P0'][2])+dz*zz
+    # update total number of particles
     self.np=np1
 
     return np
