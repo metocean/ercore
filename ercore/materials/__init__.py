@@ -298,6 +298,7 @@ class _Material(object):
       #fill_id=numpy.arange(len(self.pos[:,0])-nind+1,len(self.pos[:,0]),1,'int')
       fill_id=-1 # using -1 replicate the last particle position/depth of the arrays - i.e. a[-1]
     for a in self.arrays:
+      if len(a)!=self.npmax+1: continue # in case of variable reln or poly
       # shuffle arrays removing the dead particles 
       a[:-nind]=a[~i0]
       a[self.np:self.np+nind]=a[fill_id]  # fill the locations of removed particles with new ones - indices fill_id defined above depending on release type (fixed or within vertical range)    
@@ -305,7 +306,6 @@ class _Material(object):
       #a[self.np:self.np+nind]=a[-nind-1:-1] # in master branch
       # these dont work properly in case of random release within a poly and/or vertical range
     # print self.pos[self.np:self.np+nind,2]
-      
 
     return True
     
@@ -337,23 +337,26 @@ class _Material(object):
       dt1=self.tstart-t2
       dt2=t1-self.tend
     dt=min(abs(t2-t1),dt1,dt2,abs(self.tend-self.tstart))
+
+    #release type
     if k.has_key('nprel'): #Prescribed release size 
       np=k['nprel']
-    elif dt==0: #Start and end time the same
+    elif dt==0: #Start and end time the same - release all at once
       np=k.get('nprel',self.reln)
       dt=1.
-    elif hasattr(self,'variable_reln'):
-      # number of released particle is defined from a file
+    elif hasattr(self,'variable_reln'): # number of released particle is defined from a file
       id_reln=numpy.where(numpy.abs(self.variable_reln[:,0]-t2)<=1e-6) # find correct time step
+      if not id_reln[0]: 
+        print 'No release number provided for t= %s - using last reln' % (t2)
+        id_reln=numpy.where(numpy.abs(self.variable_reln[:,0]==self.variable_reln[-1,0]))
       np=self.variable_reln[id_reln,1]                                 # find number of particles to release at t2
       np=float(np)
-    else: #Incremental release
+    else: #Incremental release number of particle released at each time step is reln/(total_duration/timestep)
       self.relsumt+=abs(dt)
       np=k.get('nprel',abs(int(self.relsumt*self._npt)))
       if np>0:self.relsumt-=1.0*np/self._npt
     if np==0:return
     np=int(np)
-    print np
     nmax=self.npmax-self.np
 
     # STAGED RELEASE-----------------
@@ -388,6 +391,7 @@ class _Material(object):
     self.nid[self.np:np1]=range(self.ninc,self.ninc+np)
     self.ninc+=np
 
+    
     # if **k is provided - replace content of self arrays with that of **k
     # this happens when the material is a child from another parent material (BuoyantPlume to BuoyantTracer) 
     for key in k:
@@ -398,8 +402,9 @@ class _Material(object):
         else:
           array=k[key]
 
-    # Rosa ----------------
-    # if particles initialized by random position in polygon
+    # random releases
+    # 
+    # random release within a polygon
     # need to get another random position because if particles die, it recycles positions
     if hasattr(self, 'polygon'):
       # release in a polygon shape
@@ -409,13 +414,17 @@ class _Material(object):
       self.post[self.np:np1,0]=self.pos[self.np:np1,0]
       self.post[self.np:np1,1]=self.pos[self.np:np1,1]
       # not correcting for topo here because sticker function will do that afterwards
-    # end Rosa -------------
-
+    
+    # random release within time-varying polygon
     if hasattr(self, 'variable_poly'):
       # release in a time-varying polygon shape is defined from a file 
       #e.g. variable_poly='variable_poly.txt'
       id_poly=numpy.where(numpy.abs(self.variable_poly[:,0]-t2)<=1e-6) # find correct time step
       # format the polygon coordinates into [[x1,y1],[x2,y2], ...] for shapeluy Polygon
+      if not id_poly[0]: 
+        print 'No polygon provided for t= %s - using last available polygon' % (t2)
+        id_poly=numpy.where(numpy.abs(self.variable_poly[:,0]==self.variable_poly[-1,0]))
+
       poly_tmp=self.variable_poly[id_poly,1:].squeeze()
       poly=[[ poly_tmp[0] , poly_tmp[1] ]]
       for ii in range(2,poly_tmp.shape[0],2):
@@ -427,7 +436,13 @@ class _Material(object):
       self.post[self.np:np1,0]=self.pos[self.np:np1,0]
       self.post[self.np:np1,1]=self.pos[self.np:np1,1]
       # not correcting for topo here because sticker function will do that afterwards
-      
+    
+    #random release with depth band
+    if self.props['P0'][2]:
+      import pdb;pdb.set_trace
+
+
+
     self.np=np1
 
     return np
