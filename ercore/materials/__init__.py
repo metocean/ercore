@@ -70,7 +70,8 @@ class _Material(object):
       reln: Number of particles per release
       R0: Total release of material
       Q0: Flux of material (per day)
-      ischild : flag to identify if material is a child of another material (e.g. "spawned")  
+      unstick - flag 0/1 to specfiy if the material can unstick from its stickers, can be an array of length(stickers)
+      ischild : flag 0/1 to identify if material is a child of another material (e.g. "spawned")  
       **properties: Optional keyword arguments specifying additional properties
       
     Properties:
@@ -181,7 +182,14 @@ class _Material(object):
     self.reln=reln #Particles per release
     self.R=R0 #Total release of material
     self.Q=Q0 # Flux of material per day
-    self.unstick=unstick # Can become unstuck - number is halflife
+    # switch to allow the particle to unstick from sticker (0:cannot unstick/1:can unstick)
+    
+    if not isinstance(unstick,list):unstick=[unstick] # if only a single element input, not as a list
+    if len(unstick)==1:
+      self.unstick=[unstick[0] for _ in xrange(len(stickers))] # if unstick is a single element, replicate to fit number of stickers
+    else:
+      self.unstick=unstick
+
     self.movers=movers
     self.reactors=reactors
     self.stickers=stickers
@@ -491,11 +499,13 @@ class _Material(object):
     np=self.np
     posi=numpy.where(self.state[:np,None]<0,self.pos[:np,:],self.post[:np,:])
     # check for intersection with stickers
-    for sticker in self.stickers: # shoreline sticker 
-      if 'Shoreline' in  sticker.__class__.__name__:
+    for cnt,sticker in enumerate(self.stickers): # shoreline or boundary sticker
+      if ('Shoreline' in  sticker.__class__.__name__) or ('Boundary' in  sticker.__class__.__name__):
         posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np])
-      else: # 2D sticker 
+      else: # 2D sticker - GriddedTopo, GriddedElevation
         posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np],t1,t2)
+      # posi is the matrix of intersection positions
+      # particles that intersected the sticker will be flagged with self.state==2
 
       # additional checks for GriddedTopo and Elevation cases
       if 'GriddedTopo' in sticker.__class__.__name__:
@@ -503,12 +513,15 @@ class _Material(object):
       if 'Elevation' in sticker.__class__.__name__:
         self.elev[:self.np]=sticker.interp(posi[:self.np,:],t2,imax=1)[:,0]
 
-      if self.unstick<=0.: # by default unstick is 0.0
-         self.state[self.state>1]=-1 # this way particles will be removed from computation
-      else:
-        self.state[self.state>1]=1 # this way particles will be set back to active
+      # check is material should unstick from sticker
+      if self.unstick[cnt]<=0.: # default, particle cannot unstick  > unstick= 0.0
+        self.state[self.state>1]=-1 # this way particles will be removed from computation
+      elif (self.state>1).any(): # particle can unstick  , unstick= 1.0
         # posi is the position of intersection with shoreline
-        posi[self.state>1,:]=self.pos[self.state>1,:] # set posi back to the position particles were before sticking
+        posi[numpy.where(self.state>1),:]=self.pos[numpy.where(self.state>1),:] # set posi back to the position particles were before sticking
+        self.state[numpy.where(self.state>1)]=1 # set unstuck particles back to active state=1
+
+      # update particle position 
       self.post[:self.np,:]=posi[:self.np,:]
 
     #if self.unstick<=0.:
