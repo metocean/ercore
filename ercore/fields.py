@@ -234,7 +234,14 @@ class GridData(FieldData):
       raise DataException('Dataset needs (lon, lat) or (longitude,latitude) variables')
 
     # Check for nv variables for finite elements grids
-    self.nv = True if 'nv' in cfile.keys() else None
+    # self.nv = True if 'nv' in cfile.keys() or 'elem' in cfile.keys() else None
+    # add posibility for different names of element variable
+    for var in ['nv', 'elem', 'ele']:
+      if var in cfile.keys():
+        self.nv = True
+        break
+      else:
+        self.nv = False
 
     for var in ['zlevels', 'lev', 'levels', 'level']:
       #if var in cfile.keys(): >> This will not be correct where both 2d and 3d data are read from a single netcdf file (e.g. reading 3d current and 2D topo, or 2D tidal currents)
@@ -255,12 +262,12 @@ class GridData(FieldData):
       # Is finite element grid
       lon=lon[:]
       lat=lat[:]
-      # if cfile.has_key('mask'):
-      #   self.mask=numpy.where(cfile['mask'][:] != False )[0]
-      #   lon=lon.take(self.mask)
-      #   lat=lat.take(self.mask)
-      # else:
-      self.mask=None 
+      if cfile.has_key('mask'):
+        self.mask=numpy.where(cfile['mask'][:] != False )[0]
+        lon=lon.take(self.mask)
+        lat=lat.take(self.mask)
+      else:
+        self.mask=None 
       self.interpolator=FEInterpolator(lon,lat,self.lev,self.geod)
     elif lat and lon:
       self.mask=None # Mask not implemented for standard grids yet
@@ -288,19 +295,26 @@ class GridData(FieldData):
       for filepath in self.filelist:
         bfile = nc.Dataset(filepath)
         self.files.append(bfile) #Open all the files
-        #this way of working out time will work for selfe files with seconds since model start , where model start is given as time units
-        # need to account for UDS-formatted / CF compliant cases when time is since 1-1-1 - use : netCDF4.date2num
-        #
-        if False: # keeping just for reference - SELFE files should be processed to CF-convention
+
+        # this way of working out time will work for selfe files with seconds since model start , where model start is given as time units
+        # need to account for UDS-formatted / CF compliant cases when time is since 1-1-1 - use : netCDF4.date2num#
+        if 'seconds' in bfile.variables['time'].units: # TEMPORARY - The selfe netcdf file format need to be set once for good i.e. using CF-convention
+          # keeping just for reference - SELFE files should be processed to CF-convention
           # Case of SELFE time - seconds since model start - SELFE should probably be converted to CF-convention too in the future ..
           start_time_str = re.search('(?<=\s)\d.+$', bfile.variables['time'].units).group()   # get the file start time from units 
-          start_time = datetime.datetime.strptime(start_time_str,'%Y-%m-%d %H:%M:%S')         # convert to datetime
+          # convert to datetime
+          try:
+            start_time = datetime.datetime.strptime(start_time_str,'%Y-%m-%d %H:%M:%S')
+          except:
+            start_time = datetime.datetime.strptime(start_time_str,'%Y-%m-%d %H:%M')
+
           deltas = [datetime.timedelta(seconds=float(t)) for t in bfile.variables['time'][:]] # deltas is incremental number of sedconds since file start    
           time0 = [ dt2ncep(start_time+delta) for delta in deltas ]                           # convert time to fraction of days - CF-compliant
-        #
-        # CF-compliant netcdf files
-        # time is already as fraction of days - since 1-1-1
-        time0=bfile.variables['time'][:]
+        else:
+          # CF-compliant netcdf files
+          # time is already as fraction of days - since 1-1-1        
+          time0=bfile.variables['time'][:]
+
         if (len(self.time)>0) and (time0[0]<self.time[-1]):raise DataException('For templated time files times must be increasing - time in file %s less than preceeding file' % (bfile.filepath())) 
         self.time.extend(time0) #Add times in file to time list
         self.flen.append(len(time0))
