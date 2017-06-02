@@ -230,9 +230,9 @@ class GridData(FieldData):
       if vlon in cfile.keys() and vlat in cfile.keys():
         lon, lat = cfile[vlon], cfile[vlat]      
         break
-      else:
-        raise DataException('Dataset needs lon, lat variables')
-   
+    if vlon not in cfile.keys() or vlat not in cfile.keys(): # if the allocation above didnt happen during the loop
+      raise DataException('Dataset needs (lon, lat) or (longitude,latitude) variables')
+
     # Check for nv variables for finite elements grids
     self.nv = True if 'nv' in cfile.keys() else None
 

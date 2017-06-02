@@ -513,6 +513,11 @@ class _Material(object):
       if 'Elevation' in sticker.__class__.__name__:
         self.elev[:self.np]=sticker.interp(posi[:self.np,:],t2,imax=1)[:,0]
 
+        # print self.elev[:self.np]
+        # print posi[:self.np,2]
+        # print self.state[:self.np]
+        # import pdb;pdb.set_trace()
+
       # check is material should unstick from sticker
       if self.unstick[cnt]<=0.: # default, particle cannot unstick  > unstick= 0.0
         self.state[self.state>1]=-1 # this way particles will be removed from computation
