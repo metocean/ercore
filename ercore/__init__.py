@@ -154,7 +154,7 @@ class ERcore(object):
     config = yaml.load(open(ctlfile).read())
     objects = ObjectList([])
     for key in config:
-      conf=config[key]
+      conf=config[key]     
       if not isinstance(conf,list):conf=[conf]
       for c in conf:
         if not c.has_key('id'):raise ERConfigException('Every configuration object must specify a unique id')
@@ -170,18 +170,19 @@ class ERcore(object):
         for prop in dir(obj):
             if prop in ['movers','reactors','diffusers','stickers','topo','members']:
                 val=getattr(obj,prop)
-                if isinstance(val,list):
+                if isinstance(val,list) and len(val)>0: # list of items
                     val=ObjectList([objects[v] if isinstance(v,str) and objects[v] else v for v in val])
                     for v in val:
-                        if isinstance(v,str):raise ERConfigException('Cannot find one of %s with id(s) %s specifed for %s' % (prop,v,obj.id))
-                #elif isinstance(val,str) and objects[val]:
-                elif isinstance(val,(str, unicode)) and objects[val]:
+                        if isinstance(v,str):
+                          raise ERConfigException('Cannot find one of %s with id(s) %s specifed for %s' % (prop,v,obj.id))
+                elif isinstance(val,(str, unicode)) and objects[val]: # single item
                     val=objects[val]
-                # elif val is None: # allow for case when no topo are defined 
-                #     val=objects[val]
+                elif ( val is None or (isinstance(val,list) and len(val)==0) ): # allow for case when one of the parameters is not defined (e.g. no topo, or no diffusers)
+                    val=objects[val]
                 else:
                     raise ERConfigException('Cannot find one of %s with id(s) %s specifed for %s' % (prop,val,obj.id))
                 setattr(objects[obj.id],prop,val)
+
     import materials
     import inspect
     self.materials=[o for o in objects if materials._Material in inspect.getmro(o.__class__)]
