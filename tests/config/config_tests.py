@@ -9,7 +9,7 @@ from ercore.fields import *
 
 ercore=ERcore()
 # ercore.readYAML('config1.yaml',globals())
-ercore.readYAML('plume_test_1.yaml',globals()) 
+ercore.readYAML('../plume/plume_test_1.yaml',globals()) 
 # this takes care of the model initialization 
 # you can check materials by doing :
 # ercore.materials

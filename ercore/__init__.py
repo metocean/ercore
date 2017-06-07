@@ -182,6 +182,11 @@ class ERcore(object):
                 else:
                     raise ERConfigException('Cannot find one of %s with id(s) %s specifed for %s' % (prop,val,obj.id))
                 setattr(objects[obj.id],prop,val)
+        # set any None in ['movers','reactors','diffusers','stickers','topo','members']  to p[] instead
+        for prop in ['movers','reactors','diffusers','stickers','topo','members']:          
+          if hasattr(obj,prop): 
+            if getattr(obj,prop) is None:
+              setattr(objects[obj.id],prop,[]) 
 
     import materials
     import inspect

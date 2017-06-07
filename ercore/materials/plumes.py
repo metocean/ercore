@@ -265,12 +265,12 @@ class BuoyantPlume_JETLAG(Plume):
     V0: Initial jet velocity <list> of u,v,w components
     D0: Jet intitial density (kg/m^3) <float>
     C0: Jet initial concentration <float>
-    **not used
-    **Vb: Bubble/dropplet terminal velocity (m/s) <float>
-    **E: Entrainment constant <float>
-    - specific to BuoyantPlume_JETLAG
+    **specific to BuoyantPlume_JETLAG
     T0: Initial jet temperature (C) <float>
     S0: Initial jet salinity (PSU) <float>
+    **not used :
+    **Vb: Bubble/dropplet terminal velocity (m/s) <float>
+    **E: Entrainment constant <float>
     **Cpl: Specific heat capacity <float>
   """
   def initialize(self,t1,t2):
@@ -405,16 +405,23 @@ class BuoyantPlume_JETLAG(Plume):
     # or we could release only at the end of the plume model i.e. when we go into far field
   
   def spawn(self,t1,t2):
-    # the computed nearfield plume dynamics are used to seed the model with particles for far-field dispersion
-
-    # this is handled using the "spawn" function and the creation of a "child" of the BuoyantPlume_JETLAG Material
+    # Spawning from the nearfield dynamic plume
+    # 
+    # The computed nearfield plume dynamics are used to seed the model with particles for far-field dispersion.
+    # This is handled using the "spawn" function and the creation of a "child" of the BuoyantPlume_JETLAG Material
     # the child name must be specified in BuoyantPlume_JETLAG function call spawn_class='xxxx'
   
     self.state[:]=-2 # inactivate plume particles
-    # for now release particles at last point of plume
-    # child material release position
-    #for now release at the center of the last plume element
-    # could be along the plume path ? or within last plume element ? etc...
+
+    # Release position of child Material :
+    # Options:
+    # - release particles at the center of the last plume element, or, 
+    # - release particles at along the perimeter of the last plume element (circle of radius b), or,
+    # - release particles within the last plume element circle, or, 
+    # - release particles within the the successive plume elements
+    # 
+    # for now release at the center of the last plume element
+    #
     final_pos=numpy.tile(self.post[self.np-1,:], (int(self.npmax+1),1) ) # self.post[self.np-1,:] is position of the plume at end of nearfield dynamics
     # set the mass as the last concentration computed in the nearfield plume subplume
     # can be used on to infer dilution after nearfield dynamics
@@ -463,3 +470,89 @@ class BuoyantPlume_JETLAG(Plume):
       if mover.topo:
         depth= mover.topo.interp(numpy.array([self.post[np,:]]) ,None,imax=3)[:,0]
         return depth
+
+
+
+class BuoyantPlume_DensityCurrent(BuoyantPlume_JETLAG):
+  default_props={
+    'B0':1.0,
+    'V0':[0,0,1],
+    'Vb':0.05,
+    'D0':1.0,
+    'C0':1.0,
+    'E':2,
+    'w0': 1e-3
+    'formulation': 'tass'
+  }
+  __doc__=Plume.__doc__+"""
+    From Plume subclass
+    This material class is to be used to simulate the discharge of a dense sediment mixture at the surface
+    (e.g. from an overflow pipe during dredging, or from an open-hull during sediment disposal).
+    The class is based on the BuoyantPlume_JETLAG class which will model the dynamic plume descent (nearfield)
+    and is then connected to density current tracking algorithm to model the circular sediment dispersion that
+    is expected follow collapse of the dynamic plume on the seabed.
+
+    Two formulations are available from the density current modelling:
+
+    'drapeau' : based on the formulation by DRAPEAU, G.; LAVALLEE, D.; DUMAIS, J.F., and WALSH, G., 1992.
+                Dispersion model of dredge spoil dumped in coastal waters. Proceedings
+                23rd International Conference Coastal Engineering 1992
+                (ASCEJ pp. 3054-3067 
+    'tass'    : based on Spearman et al., 2007, Plume dispersion modelling using dynamic representation
+                of trailer dredger source terms. Estuarine and Coastal Fine Sediments Dynamics.
+                see also TASS user manual : TASS user manual, HR Wallingford
+
+    B0: Initial jet radius / Port diameter <float>
+    V0: Initial jet velocity <list> of u,v,w components
+    D0: Jet intitial density (kg/m^3) <float>
+    C0: Jet initial concentration <float>
+    **specific to BuoyantPlume_JETLAG
+    T0: Initial jet temperature (C) <float>
+    S0: Initial jet salinity (PSU) <float>
+    **specific to BuoyantPlume_DensityCurrent
+    w0: sediment settling velocity m/s <float>
+    formulation: formulation for density current modelling <string>
+    **not used :
+    **Vb: Bubble/dropplet terminal velocity (m/s) <float>
+    **E: Entrainment constant <float>
+    **
+    """
+
+  def advect(self,t1,t2,order=4):
+    BuoyantPlume_JETLAG.advect(self,t1,t2,order=4)
+
+    # connect with density current model 
+    # initialize the density current model with last timestep of plume model
+
+  
+  def spawn(self,t1,t2):
+    # Spawning from the nearfield dynamic plume + density current 
+    # >> choose how to approach 
+
+    # The computed nearfield plume dynamics are used to seed the model with particles for far-field dispersion.
+    # This is handled using the "spawn" function and the creation of a "child" of the BuoyantPlume_JETLAG Material
+    # the child name must be specified in BuoyantPlume_JETLAG function call spawn_class='xxxx'
+  
+    self.state[:]=-2 # inactivate plume particles
+
+    # Release position of child Material :
+    # Options:
+    # - release particles at the center of the last plume element, or, 
+    # - release particles at along the perimeter of the last plume element (circle of radius b), or,
+    # - release particles within the last plume element circle, or, 
+    # - release particles within the the successive plume elements
+    # 
+    # for now release at the center of the last plume element
+    #
+    final_pos=numpy.tile(self.post[self.np-1,:], (int(self.npmax+1),1) ) # self.post[self.np-1,:] is position of the plume at end of nearfield dynamics
+    # set the mass as the last concentration computed in the nearfield plume subplume
+    # can be used on to infer dilution after nearfield dynamics
+    final_conc=numpy.tile(self.conc[self.np-1], (int(self.npmax+1),1) ) 
+    # update positions and masses of the plume's child class
+    # this should not overwrite positions of particle that are already suspended - ok : see release function   
+    self.children[self.props['spawn_class']]={'pos':final_pos,'post':final_pos,'mass':final_conc }
+    
+
+
+
+
