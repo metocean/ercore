@@ -61,7 +61,7 @@ class Plume(_Material):
     self.h=numpy.zeros(self.state.shape) # 
     self.b=self.props['B0']+self.h
     self.u=self.props['V0']*numpy.ones((len(self.state),1))
-    self.vmod=numpy.sqrt((self.u**2).sum(1))
+    self.vmod=numpy.sqrt((self.u**2).sum())
     self.ddens=0.+self.h
     self.conc=self.props['C0']+self.h
     self.M0=self.V0*numpy.array(self.props['B0'])**2
@@ -114,7 +114,7 @@ class Plume(_Material):
     self.children={}
     if t2<self.tstart or t1>self.tend:return 0
     nt=numpy.ceil(86400*(t2-t1)/self.dt0)
-    self.dt=86400.*(t2-t1)/nt
+    self.dt=86400.*(t2-t1)/nt # in seconds
     self.nt=int(nt)
     if self.nt>self.npmax:
       print 'Warning: particles exhausted for '+self.id
@@ -258,6 +258,8 @@ class BuoyantPlume_JETLAG(Plume):
     'D0':1.0,
     'C0':1.0,
     'E':2,
+    'spawn_class' : None,
+    'spawn_type' : "center"
   }
   __doc__=Plume.__doc__+"""
     From Plume subclass
@@ -268,6 +270,12 @@ class BuoyantPlume_JETLAG(Plume):
     **specific to BuoyantPlume_JETLAG
     T0: Initial jet temperature (C) <float>
     S0: Initial jet salinity (PSU) <float>
+    spawn_class : name of material the plume will spawn into
+    spawn_type : spawning type
+                 'center'    - release particles at the center of the last plume element, or, 
+                 'surface'   - release particles at along the surface of the last plume element (circle of radius b), or,
+                 'cylinder'  - release particles within the last plume element cylinder, or, 
+                 'continuous'- release particles within the the successive plume elements
     **not used :
     **Vb: Bubble/dropplet terminal velocity (m/s) <float>
     **E: Entrainment constant <float>
@@ -383,7 +391,7 @@ class BuoyantPlume_JETLAG(Plume):
         db=self.b[np]-self.b[np-1]
         if db<0: 
           # import pdb;pdb.set_trace() # 
-          print ("Warning - plume element radius increasing")
+          print ("Warning - plume element radius decreasing")
         ds=self.vmod[np]*self.dt0# jet arc length over dt 
         mf2=numpy.pi* (db/ds) * self.cos_phi[np] * self.cos_theta[np] #correction due to the growth of plume radius
         mf3= (numpy.pi/2) * self.b[np] * ( self.cos_phi[np]*self.cos_theta[np] - self.cos_phi[np-1]*self.cos_theta[np-1] ) / ds #correction due to the curvature of the trajectory.
@@ -422,14 +430,39 @@ class BuoyantPlume_JETLAG(Plume):
     # 
     # for now release at the center of the last plume element
     #
-    final_pos=numpy.tile(self.post[self.np-1,:], (int(self.npmax+1),1) ) # self.post[self.np-1,:] is position of the plume at end of nearfield dynamics
+
+    if self.props['spawn_type'] == 'center': 
+      # self.post[self.np,:] is position of the plume at end of nearfield dynamics
+      # release all particles of the spawned material at this location
+      final_pos=numpy.tile(self.post[self.np,:], (int(self.npmax+1),1) ) 
+
+    elif self.props['spawn_type'] == 'surface':
+      # release  particles of the spawned material on the surface of the last plume cylinder 
+      xx,yy,zz = pos_in_cylinder(self.u[self.np,:],self.b[self.np],self.h[self.np],int(self.npmax+1),True)
+      # this gives the [xx,yy,zz] in meters relative to a cylinder with center [0,0,0] 
+      final_pos=numpy.tile(self.post[self.np-1,:], (int(self.npmax+1),1) ) # replicate final plume position (center of element)
+      final_pos[:,0]=final_pos[:,0] + xx*self.mfx[:,0]
+      final_pos[:,1]=final_pos[:,1] + yy*self.mfx[:,1]
+      final_pos[:,2]=final_pos[:,2] + zz
+      
+    elif self.props['spawn_type'] == 'cylinder':
+      # release  particles of the spawned material within the last plume cylinder 
+      xx,yy,zz = pos_in_cylinder(self.u[self.np,:],self.b[self.np],self.h[self.np],int(self.npmax+1),False)
+      # this gives the [xx,yy,zz] in meters relative to a cylinder with center [0,0,0] 
+      final_pos=numpy.tile(self.post[self.np,:], (int(self.npmax+1),1) ) # replicate final plume position (center of element)
+      final_pos[:,0]=final_pos[:,0] + xx*self.mfx[:,0]
+      final_pos[:,1]=final_pos[:,1] + yy*self.mfx[:,1]
+      final_pos[:,2]=final_pos[:,2] + zz    
+
+    elif self.props['spawn_type'] == 'continuous':
+      pass  
+    
     # set the mass as the last concentration computed in the nearfield plume subplume
     # can be used on to infer dilution after nearfield dynamics
     final_conc=numpy.tile(self.conc[self.np-1], (int(self.npmax+1),1) ) 
     # update positions and masses of the plume's child class
     # this should not overwrite positions of particle that are already suspended - ok : see release function   
-    self.children[self.props['spawn_class']]={'pos':final_pos,'post':final_pos,'mass':final_conc }
-    
+    self.children[self.props['spawn_class']]={'pos':final_pos,'post':final_pos,'mass':final_conc }     
 
   def terminate(self):
     # check if we can terminate the plume submodel
@@ -481,8 +514,12 @@ class BuoyantPlume_DensityCurrent(BuoyantPlume_JETLAG):
     'D0':1.0,
     'C0':1.0,
     'E':2,
-    'w0': 1e-3
-    'formulation': 'tass'
+    'spawn_class' : None,
+    'spawn_type' : "center",
+    'w0': 1e-3,
+    'rho_sed_dry' : 1900,
+    'z0' : 0.001,
+    'formulation': "tass"
   }
   __doc__=Plume.__doc__+"""
     From Plume subclass
@@ -509,21 +546,108 @@ class BuoyantPlume_DensityCurrent(BuoyantPlume_JETLAG):
     **specific to BuoyantPlume_JETLAG
     T0: Initial jet temperature (C) <float>
     S0: Initial jet salinity (PSU) <float>
+    spawn_class : name of material the plume will spawn into
+    spawn_type : spawning type
+                 'center'    - release particles at the center of the last plume element, or, 
+                 'surface'   - release particles at along the surface of the last plume element (circle of radius b), or,
+                 'cylinder'  - release particles within the last plume element cylinder, or, 
+                 'continuous'- release particles within the the successive plume elements
+
     **specific to BuoyantPlume_DensityCurrent
+
     w0: sediment settling velocity m/s <float>
-    formulation: formulation for density current modelling <string>
+    rho_sed_dry: dry sediment density kg/m3 <float>
+    z0 : roughness length of seabed m <float>
+    formulation: formulation for density current modelling 'tass' or 'drapeau' <string>
+
     **not used :
     **Vb: Bubble/dropplet terminal velocity (m/s) <float>
     **E: Entrainment constant <float>
     **
     """
+  def initialize(self,t1,t2):
+    BuoyantPlume_JETLAG.initialize(self,t1,t2)
+    self.water_depth=self._get_depth()
+    self.w0=self.props['w0']
+    self.z0=self.props['z0']
+    self.rho_sed_dry=self.props['rho_sed_dry']
+    self.formulation=self.props['formulation']
+    self.tau_crit=self.props['tau_crit'] # critical shear stress
+    self.Cd_water=1.3 # jirka 1999 see mohidjet tech doc - drag in water
+    self.Cd_bottom=( 0.4 /( numpy.log( numpy.abs(self.water_depth) /self.z0 ) -1) ) **2 #- drag of seabed
+    self.u_crit=( self.tau_crit /(self.dens[0] * self.Cd_bottom) )**.5 # critical bed shear velocity of seabed
+    
+    self.dt1=0.1 # timestep in seconds of density current model
+    self.froude_dc=1.19  # constant froude number
+    #density current variable - use same array size as the plume model *_dc stands for density curent element
+    self.h_dc=0.0 *numpy.ones((len(self.state),1))     # initial height of cylindrical density curent element 
+    self.b_dc=0.0 *numpy.ones((len(self.state),1))     # initial radius of cylindrical density curent element
+    self.vel_dc=0.0 *numpy.ones((len(self.state),1))   # velocity of densitu current front
+    self.vol_sed_dc=0.0 *numpy.ones((len(self.state),1))     # initial volume of sediment in density curent element
+    self.dvol_sed_dc=0.0 *numpy.ones((len(self.state),1))     # volume difference used in iteration
+    self.dens_dc=0.0 *numpy.ones((len(self.state),1))  # initial density of density curent element
+    self.ddens_dc=0.0 *numpy.ones((len(self.state),1)) # density difference used in iteration
+    self.nt_dc=self.npmax
 
   def advect(self,t1,t2,order=4):
-    BuoyantPlume_JETLAG.advect(self,t1,t2,order=4)
+    # Buoyant Plume sub model run
+    BuoyantPlume_JETLAG.advect(self,t1,t2,order=4) 
+    import pdb;pdb.set_trace()
+    # Density current sub model  
+    V,T,S,D = self.ambients # D is ambient density at last timestep of plume model
+    # connection with dynamic plume model 
+    # initialize the density current model with last timestep of plume model i.e. at seabed collapse time
+    self.dens_dc[0] = self.dens[self.np,0] # use density of last plume element
+    self.ddens_dc[0] = (self.dens_dc[0]-D )/ D
+    self.vol_sed_dc[0] = (self.dens_dc[0]-D) / (self.rho_sediment_dry-D)
+    self.b_dc[0] = self.b[self.np,0] # use radius of last plume element
+    w_plume = self.u[self.np,2] # downward velocity of last plume element
+    # intial density current height using eq (11)of drapeau,1992
+    #based on mass conservation law between plume downward flux and intial horizontal motions
+    self.h_dc[0] = ( ((self.b_dc[0] * w_plume)**2) / (4.*self.froude_dc*9.81* self.ddens_dc[0]) ) ** (1/3)
+    self.vel_dc[0] = self.froude_dc * (9.81 * self.ddens_dc[0] * self.h_dc[0])**0.5
+    A0 = self.h_dc[0] * self.b_dc[0] #  initial cross section of density current element
+    V0 = PI * (self.b_dc[0]**2) * self.h_dc[0] 
+    
+    #iteration to compute density current propagation and successive loss of sediment
+    # use the same nmumber of time step as the plume model i.e. npmax
+    for np in range(1,self.nt_dc+1):
+      self.np_dc=np # np is t+1, np-1 is t
+      if self.formulation=='tass': 
+        # TASS formulation/Bonnecaze et al., 1996 for sediment loss
+        wx = get_Wx(self.b_dc[np-1]) # shape function
+        beta25 = ( self.w0 /  ( ((9.81*self.ddens_dc[0])**.5) * (A0**.25)  ) ) **.25
+        # density of deposit sediment =  mass per unit area deposited on seabed = thickness of deposit
+        dm = self.dens_dc[np-1] * (A0**.5) * V0 * beta25 * wx * (beta25*self.b_dc[np-1] / (A0**.5) )
+        dx = self.vel_dc[np-1] * self.dt1 # distance covered by density current over dt1
+        # dmass = (dm * dx) * self.rho_sed_dry
+        # dvol_sed_dc[np] = dmass / self.rho_sed_dry
+        dvol_sed_dc[np] = (dm * dx)
 
-    # connect with density current model 
-    # initialize the density current model with last timestep of plume model
+      if self.formulation=='drapeau':
+        # Formulation of Drapeau et al, 1992
+        # 
+        # sediment deposition only if current velocity < critical shear velocity
+        if self.vel_dc[np-1] <= self.u_crit :
+          dm = self.vol_sed_dc[np-1] * (self.w0 / self.h_dc[np-1]) * self.dt1
+          dvol_sed_dc[np] = dm
+        else:
+          dvol_sed_dc[np] = 0.0
+      
+      # compute new plume parameters based on mass conservation
+      self.vol_sed_dc[np] = self.vol_sed_dc[np-1] -  dvol_sed_dc[np]
+      self.dens_dc[np] = (self.rho_sediment_dry * self.vol_sed_dc[np]) + D * (1 - self.vol_sed_dc[np])
+      self.ddens_dc[np] = (self.dens_dc[np]-D )/ D
+      self.b_dc[np] = self.b_dc[np-1] + (self.vel_dc[np-1] * self.dt1) # new density current radius at t+1
+      self.h_dc[np] = A0 / self.b_dc[np] # new density current height at t+1
+      self.vel_dc[np] = self.froude_dc * (9.81 * self.ddens_dc[np] * self.h_dc[np])**0.5
+      friction_term = 4. * self.Cd_bottom * self.b_dc[np] / (7 * self.h_dc[np] ) #
+      self.vel_dc[np] = self.froude_dc * (9.81 * self.ddens_dc[np] * self.h_dc[np] / (1+friction_term) )**.5  # including friction to first order e.q 20 in Spearman et al.2007
 
+      if self.terminate():
+        print 'Density current submodel %s terminated after %d seconds' % (self.id, np * self.dt1)
+        return
+    print "Warning: density current submodel %s not terminated - increase master time step" % (self.id)
   
   def spawn(self,t1,t2):
     # Spawning from the nearfield dynamic plume + density current 
@@ -532,6 +656,7 @@ class BuoyantPlume_DensityCurrent(BuoyantPlume_JETLAG):
     # The computed nearfield plume dynamics are used to seed the model with particles for far-field dispersion.
     # This is handled using the "spawn" function and the creation of a "child" of the BuoyantPlume_JETLAG Material
     # the child name must be specified in BuoyantPlume_JETLAG function call spawn_class='xxxx'
+
   
     self.state[:]=-2 # inactivate plume particles
 
@@ -540,7 +665,7 @@ class BuoyantPlume_DensityCurrent(BuoyantPlume_JETLAG):
     # - release particles at the center of the last plume element, or, 
     # - release particles at along the perimeter of the last plume element (circle of radius b), or,
     # - release particles within the last plume element circle, or, 
-    # - release particles within the the successive plume elements
+    # - release particles within the successive plume elements
     # 
     # for now release at the center of the last plume element
     #
@@ -552,7 +677,59 @@ class BuoyantPlume_DensityCurrent(BuoyantPlume_JETLAG):
     # this should not overwrite positions of particle that are already suspended - ok : see release function   
     self.children[self.props['spawn_class']]={'pos':final_pos,'post':final_pos,'mass':final_conc }
     
+  def get_Wx(radius):
+    wx=0.820/(1+0.683*(radius**2)+0.017*(radius**8)) # see TASS documentation , or Spearman et al., 2007
+   
+  def terminate_dc(self):
+    # check if we can terminate the density current submodel
+
+    richardson = 9.81 * self.ddens_dc[self.np_dc] * self.h_dc[self.np_dc] / (self.vel_dc[self.np_dc]**2)    
+    criteria_richardson = richardson < 0.15 # as suggested in TASS
+    criteria_density = self.dens_dc[self.np_dc] <= self.ambients[3] # density of plume equals or smaller than ambient density
+    criteria_height = self.h_dc[self.np_dc] <= 0.01 * self.h_dc[0]  # density current height becomes smaller than 1% of intial height
+
+    return criteria_height or criteria_richardson or criteria_height
 
 
+def pos_in_cylinder(U,radius,height,npart,on_surface):
+# def pos_in_cylinder(self,nbuff):
+  """
+  defines 'npart' random points within a cylinder:
+  - with center [0,0,0]
+  - perpendicular to a given velocity vector U = [u,v,w], 
+  - with a given 'radius'  and 'height' 
+  returns xx,yy,zz in meters - these need to be added to a real world location,
+  and converted to degrees if applicable (case geod=true)
+  """
+  u_horiz = numpy.sqrt(U[0]**2 + U[1]**2 ) # horizontal velocity magnitude
+  u_all = numpy.sqrt(U[0]**2 + U[1]**2 + U[2]**2) # total velocity magnitude
+  # angles
+  sin_phi = U[2] / u_all 
+  cos_theta = U[0] / u_horiz
+  phi=numpy.arcsin(sin_phi)      # angle x axis to jet in x-z plane
+  theta=numpy.arccos(cos_theta)  # angle x axis to jet in x-y plane
+  if numpy.isnan(phi) : phi=0
+  if numpy.isnan(theta) : theta=0
 
+  if on_surface:
+    r0=numpy.tile(radius,(1,npart))
+  else:
+    r0=radius * numpy.random.random(npart)
 
+  ang0 = 2*numpy.pi*numpy.random.random(npart)
+  # start from a cylinder with no rotation
+  x = r0 * numpy.cos(ang0) 
+  y = r0 * numpy.sin(ang0) 
+  z = height * (numpy.random.random(npart)-0.5) 
+
+  # now rotate [x,z] by (phi+pi/2) in x-z plane (y stays constant)
+  ang = phi+numpy.pi/2
+  xx=x*numpy.cos(ang)-z*numpy.sin(ang)
+  zz=x*numpy.sin(ang)+z*numpy.cos(ang) 
+ 
+  #now rotate [xx,y] by theta in x-y plane (z stays constant)
+  ang = theta
+  xx=xx*numpy.cos(ang)-y*numpy.sin(ang)
+  yy=xx*numpy.sin(ang)+y*numpy.cos(ang) 
+
+  return xx,yy,zz
