@@ -1,0 +1,75 @@
+movers:
+-
+    class: ConstantMover
+    id: currents
+    topo: depth
+    u: 0.2
+    v: 0.0
+    w: 0.0
+    vars: [u, v, w]
+
+reactors:
+  - 
+    class: ConstantReactor
+    id: temp
+    vars: [temp]
+    temp: 12
+  -
+    class: ConstantReactor
+    id: salt
+    salt: 35
+    vars: [salt]
+
+diffusers:
+  -
+    class: ConstantDiffuser
+    id: diff
+    diffx: 0.2
+    diffy: 0.2
+    diffz: 0.001 
+    vars: [diffx, diffy, diffz]
+
+stickers:
+- class: ConstantTopo
+  id: 'depth'
+  vars: [dep]
+  dep: -10.0
+
+materials:
+  -
+    class: BuoyantPlume_JETLAG
+    id: plume1
+    nbuff: 100000    # total number of particles 
+    is3d: True
+    movers: [current] # mover(s)     should have a topo field 
+    reactors: [temp,salt] # reactors for plume     used to compute ambient density
+    topo: [depth]         # topo 
+    V0: [0.0,0.0,+3.1847] # Initial jet velocity <list> of u,v,w components
+    P0: [0.0,0.0,-10.0] # release position 
+    T0: 80 #: Initial temperature (C) of jet <float>
+    S0: 10 #: Initial salinity (PSU) of jet <float>
+    B0: 0.1 # Initial jet radius <float>
+    Vb: 0.0 #: Bubble/dropplet terminal velocity (m/s) <float> use 0.0 if not relevant
+    D0: 800 # Initial density (kg/m^3) of jet <float>
+    C0: 1.0 #: Jet initial concentration <float>
+    E: 2    #: entrainment constant <float> - NOT USED 
+    Cpl: 1.8 #: Specific heat capacity <float> - NOT USED 
+    spawn_class: material_farfield1 # id of the material the plume will spawn once nearfield dilution is finished
+    outfile : plume1_yaml.dat
+  -
+    class: BuoyantTracer
+    id: material_farfield1
+    nbuff: 100000   # must be the same as the parent material ..does it ? 
+    is3d: True
+    movers: [current] # movers  should have a topo 
+    reactors: [temp,salt] # reactors for plume     used to compute ambient density
+    topo: [depth]
+    reln: 192 # total number of particle released over simulation nb_part_per_release = reln/(simulation period/dt)
+    w0: -0.001 # fall velocity positive     use neagtive w0 for negatively buoyant tracer and vice versa
+    unstick: 0.0 # can unstick from its stickers
+    maxage: 3.0 # maximum age in days
+    ischild: 1 # switch to identify material resulting from spawning from another     here from BuoyantPlume_JETLAG
+    tstart: 733410. # start of release
+    tend: 733412. # end of    of release
+    tstep: 900.0 # release time step
+    outfile : material_farfield1_yaml.dat
