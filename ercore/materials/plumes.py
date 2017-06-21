@@ -674,8 +674,8 @@ class BuoyantPlume_DensityCurrent(BuoyantPlume_JETLAG):
 
     # positions within the density current - near-bottom cylinder
     # use a mean height 
-    mean_height=numpy.mean(self.b_dc[:self.np_dc])
-    xx,yy,zz = pos_in_cylinder([0,0,0],self.b_dc[self.np_dc],mean_height,int(self.npmax+1),False)
+    denscur_height=numpy.max(self.h_dc[:self.np_dc]) # take maximum height for now
+    xx,yy,zz = pos_in_cylinder([0,0,0],self.b_dc[self.np_dc],denscur_height,int(self.npmax+1),False)
     # or use concentric circles ? or concentric cylinders ?
     final_pos=numpy.tile(self.post[self.np-1,:], (int(self.npmax+1),1) ) # replicate final plume position (center of element)
     final_pos[:,0]=final_pos[:,0] + xx*self.mfx[:,0]
@@ -722,8 +722,9 @@ def pos_in_cylinder(U,radius,height,npart,on_surface):
   cos_theta = U[0] / u_horiz
   phi=numpy.arcsin(sin_phi)      # angle x axis to jet in x-z plane
   theta=numpy.arccos(cos_theta)  # angle x axis to jet in x-y plane
-  if numpy.isnan(phi) : phi=0
-  if numpy.isnan(theta) : theta=0
+  
+  if numpy.isnan(phi) : phi=numpy.pi/2 # when u_all=0
+  if numpy.isnan(theta) : theta=0 # when u_horiz=0
 
   if on_surface:
     r0=numpy.tile(radius,(1,npart))

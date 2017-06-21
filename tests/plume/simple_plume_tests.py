@@ -388,7 +388,6 @@ if test==6:
   Cpl=1.8#: Specific heat capacity <float>
 
 
-  spawnclass='material_farfield6'
   site_name=['C1','C2','C3','C4','C5','C6','C7','C8','C9','C10','C11','C2_2']
   x=[172.7211,172.7388,172.7555,172.7690,172.7829,172.7972,172.8104,172.8227,172.8361,172.8478,172.8599,172.7383]
   y=[-43.6131,-43.6133,-43.6090,-43.6073,-43.6056,-43.6039,-43.5989,-43.5939,-43.5885,-43.5838,-43.5790,-43.6111]
@@ -403,7 +402,7 @@ if test==6:
   bnd=Boundary('bnd',[172.6, 173.92, -43.7, -43.5])
   shoreline=Shoreline('shoreline','../resuspension/southnz_shoreline.bnd')
   # FALL VELOCITY AND TIMESTEPS-------------------------------------------------------------------------------
-  w0=-1.0e-3
+  w0=-0.001
   # SOURCE DATA FILE
   DataFileLyt='/home/simon/0201_ercore_lyttelton/NEW_RUNS_DISPO/channel_runs/lyt_Original_cons.nc'
   #DEPTH-----------------------------------------------------------------
@@ -413,14 +412,16 @@ if test==6:
   # TIDE DATA----------------------------------------------------------
   current=TidalMover('lyt_tide_hbr',['u','v'],file=DataFileLyt,topo=depth_lyt_hbr,zinvert=True,z0=0.0001)
   # can add a constant mover to account for dredger speed
-  # current=ConstantMover('vel',['u','v','w'],u=+0.2,v=0,w=0,topo=topo)
+
+  # topo=ConstantTopo('depth',['topo'],topo=-15.)
+  # current=ConstantMover('vel',['u','v','w'],u=0,v=0,w=0,topo=topo)
 
   #-----------------------------------------------------------------------
   #RELEASE-----------------------------------------------------------
   reln=1*48*3600/tstep #nb part released over the entire run period
   ## MATERIALS
   # Defintion of plume Material
-  buoyantplume_jetlag=BuoyantPlume_DensityCurrent(id='plume6',
+  buoyantplume_jetlag=BuoyantPlume_DensityCurrent(id='plume6_densitycurrent',
                                           nbuff=1e5,
                                           is3d=True,
                                           movers=[current],
@@ -439,12 +440,12 @@ if test==6:
                                           rho_sed_dry=1900,
                                           tau_crit=0.3,
                                           z0=0.001,
-                                          spawn_class=spawnclass,
+                                          spawn_class='material_farfield6_densitycurrent',
                                           spawn_type='surface',
                                           formulation='tass')
   # Defintion of Material that will be "created" after the nearfiled dynamics of the plume
   # ***no need to define a P0
-  material_farfield=BuoyantTracer(id='material_farfield6',
+  material_farfield=BuoyantTracer(id='material_farfield6_densitycurrent',
                                   nbuff=1e5,
                                   movers=[current],
                                   reactors=[temp,salt],
@@ -460,7 +461,8 @@ if test==6:
 
   ercore=ERcore(geod=True,tout=900,outpath='./outputs')
   ercore.materials=[buoyantplume_jetlag,material_farfield]
-  ercore.run(tstart,tstart+datetime.timedelta(hours=6.),tstep)
+  # ercore.run(tstart,tstart+datetime.timedelta(hours=6.),tstep)
+  ercore.run(tstart,tstart+datetime.timedelta(seconds=901.),tstep)
 
 
 if test==7:

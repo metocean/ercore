@@ -109,7 +109,7 @@ class _Material(object):
       self.pos=numpy.array(P0)*numpy.ones((nbuff+1,3))
       self.post=numpy.array(P0)*numpy.ones((nbuff+1,3))
       self.dep = numpy.ones((nbuff+1))*-999.
-      self.elev = numpy.zeros((nbuff+1)) 
+      self.elev = numpy.zeros((nbuff+1)) * 0.0
     elif numpy.size(P0[2])==2:
     # P0:single x,y position but range of vertical z level
     # random position allocated within that range
@@ -335,6 +335,7 @@ class _Material(object):
     """Return string dump of all particles at specified timestep"""
     str=''
     for i in range(0,self.np):
+
       #str+="%f\t%d\t%f\t%f\t%f\t%d\t%f\t%f\n" % ((t,self.nid[i])+tuple(self.pos[i])+(self.state[i],self.age[i],self.mass[i]))
       str+="%f\t%d\t%f\t%f\t%f\t%d\t%f\t%f\t%f\t%f\n" % ((t,self.nid[i])+tuple(self.pos[i])+(self.state[i],self.age[i],self.mass[i],self.dep[i],self.elev[i]))
     return str
