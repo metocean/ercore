@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # import requried libraries
 # from read_result import read_ercore
+import sys
 import numpy
 import pyproj
 from ercore.shoreline import Shoreline,Boundary
@@ -9,56 +10,61 @@ import pdb
 from scipy.io import loadmat
 from scipy.spatial import ConvexHull
 from matplotlib.path import Path
-import netCDF4 as nc
+import netCDF4
 import datetime
 
 
-def read_ercore_outputs(fname,epsg_code=2193):
-    data=numpy.loadtxt(fname,delimiter = '\t',dtype=None,skiprows = 1)
-    # >> allow to use wildcard in fname to combine several files e.g. monthly _1,_2 etc...
-
+def read_ercore_outputs(fname):
+    """ >> allow to use wildcard in fname to combine several files e.g. monthly _1,_2 etc...
     # NEW FORMAT : Time    id  x   y   z   state   age mass    zbottom elev
-    # OLD FORMAT : Time id  x   y   z   state   age mass   
-    data_susp = convert_ercore_coords(data[data[:,5] == 1,:])
-    data_depos = convert_ercore_coords(data[data[:,5] == -1,:])
+    # OLD FORMAT : Time id  x   y   z   state   age mass  
+    """  
+    data=numpy.loadtxt(fname,delimiter = '\t',dtype=None,skiprows = 1)
+    data_susp = convert_ercore_coords(data[data[:,5] == 1,:],epsg_code_cartesian)
+    data_depos = convert_ercore_coords(data[data[:,5] == -1,:]epsg_code_cartesian)
     time = numpy.unique(data[:,0])
     return time,data_susp,data_depos
 
-def convert_ercore_coords(data,epsg_code = 2193):
-    # data is data matrix from ercore [Mx 8 or 10 columns]
+def convert_ercore_coords(data):
+    """data is data matrix from ercore [Mx 8 or 10 columns]
     # epsg_code = projection used to convert colums 3 and 4 [x,y]
     # wgs84 epsg_code=2193 , nztm epsg_code=2193
     # 
     # ercore outputs are in geograpgical coordinates wgs84
     # convert to cartesian coordinates using epsg code
     # default is nzdg2000=nztm / see spatialreference.org for others
-    p_cart = pyproj.Proj(init='epsg:2193')  # nzgd 2000 = NZTM
+    """
+    p_cart = pyproj.Proj(init=epsg_cart_str)  # nzgd 2000 = NZTM
     x,y = p_cart(data[:,2],data[:,3]) # convert to cartesian coordinates
     data[:,2] = x[:]
     data[:,3] = y[:]
     return data
 
-def convert_xy_coords(x,y,epsg_code_from = 'epsg:2193',epsg_code_to ='epsg:4326'):
-    # data is data matrix from ercore [Mx 8 or 10 columns]
+def convert_xy_coords(x,y,epsg_code_from = 'epsg:2193',epsg_code_to = 'epsg:4326'):
+    """data is data matrix from ercore [Mx 8 or 10 columns]
     # epsg_code = projection used to convert colums 3 and 4 [x,y]
     # wgs84 epsg_code=2193 , nztm epsg_code=2193
     # 
     # ercore outputs are in geograpgical coordinates wgs84
     # convert to cartesian coordinates using epsg code
     # default is nzdg2000=nztm / see spatialreference.org for others
+    """
+    # epsg_str_from=('espg:%i' % (epsg_code_from))
+    # epsg_str_to=('espg:%i' % (epsg_code_to))
+
     proj_from = pyproj.Proj(init = epsg_code_from)  # nzgd 2000 = NZTM
     proj_to = pyproj.Proj(init = epsg_code_to)  # nzgd 2000 = NZTM
     xconv,yconv = pyproj.transform(proj_from, proj_to, x, y)
     return xconv,yconv
 
 def read_shoreline_ercore(bnd_file,x,y):
-    # read GNOME shoreline as used in ercore, and flag points on land
+    """read GNOME shoreline as used in ercore, and flag points on land"""
     shoreline.read_shoreline(bnd_file)
     slx = shoreline.slx
     sly = shoreline.sly
     polyi = shoreline.polyi # id of shoreline segment
     polyn = shoreline.polyn # nb node of each segement
-    points = numpy.ones([x.shape[0],2]) # allocation for correct format in Path\
+    points = numpy.ones([x.shape[0],2]) # allocation for correct format in Path
     on_land = numpy.zeros(x.shape[0],dtype=bool)
     points[:,0] = x[:]
     points[:,1] = y[:]
@@ -75,19 +81,21 @@ def read_shoreline_ercore(bnd_file,x,y):
     # numpy.savetxt('test',points[on_land])
     return on_land,shoreline
 
-def calc(pmatrix,x_recep,y_recep,nh = 1./20.,shoreline_file = '',epsg_code = 2193):
-# compute particle concentration
+def conc_calc(pmatrix,x_recep,y_recep,nh = 1./20.,shoreline_file = '',epsg_code = 2193):
+""" compute particle concentration
 # 
 # pmatrix = matrix with particle data [time id x y z etc..]
 # x_recep = x-coordinates of receptor grid - array
 # y_recep  = y-coordinates of receptor grid - array
 # nh=1./20. = fraction used to define the number of particles to include in conc computation, will use nh-th closest
 # shoreline='' = shoreline file, optional
+"""
     
     #load shoreline, if applicable
     if shoreline_file :
+        epsg_str=('espg:%i' % (epsg_code))
         shoreline.read_shoreline(shoreline_file) 
-        x_shore,y_shore = convert_xy_coords(shoreline.slx,shoreline.sly,epsg_code_from='epsg:4326',epsg_code_to='epsg:2193')
+        x_shore,y_shore = convert_xy_coords(shoreline.slx,shoreline.sly,epsg_code_from='epsg:4326',epsg_code_to=epsg_cart_str)
         # unit matrix for shore proximity computation
         xunit = numpy.linspace(-1., 1., (1.0/0.05)+1)
         yunit = numpy.linspace(-1., 1., (1.0/0.05)+1)
@@ -171,7 +179,8 @@ def calc(pmatrix,x_recep,y_recep,nh = 1./20.,shoreline_file = '',epsg_code = 219
                     x1 = xr[r]+lx*numpy.hstack(xxu)
                     y1 = yr[r]+ly*numpy.hstack(yyu)
                     # check if points are within shoreline poly
-                    xx1,yy1 = convert_xy_coords(x1,y1,epsg_code_from='epsg:2193',epsg_code_to='epsg:4326')
+                    # convert grids to lon/lat before doing the shoreline check
+                    xx1,yy1 = convert_xy_coords(x1,y1,epsg_code_from=epsg_cart_str,epsg_code_to='epsg:4326')
                     inland,shore = read_shoreline_ercore(shoreline_file,xx1,yy1) # flag points on land
                     Ldx = numpy.abs(x1[inland]-xr[r])
                     Ldy = numpy.abs(y1[inland]-yr[r])
@@ -184,9 +193,9 @@ def calc(pmatrix,x_recep,y_recep,nh = 1./20.,shoreline_file = '',epsg_code = 219
     return conc,nb_part,np
 
 def netcdf_file_unstruct_init(fname,lon,lat,tri,lev=None):
-    # netcdf-writing subfunction- create file
+    """netcdf-writing subfunction for unstructured grid"""
     # Dimensions
-    dataset = nc.Dataset(fname, 'w',  format ='NETCDF4_CLASSIC') 
+    dataset = netCDF4.Dataset(fname, 'w',  format ='NETCDF4_CLASSIC') 
     dim_node = dataset.createDimension('node', len(lon))
     # dim_lat = dataset.createDimension('lat', len(lon))
     # dim_lon = dataset.createDimension('lon', len(lat))
@@ -226,7 +235,7 @@ def netcdf_file_unstruct_init(fname,lon,lat,tri,lev=None):
         var_np_total_depos = dataset.createVariable('np_total_depos', numpy.float64,('time','node'))  
     
     # Fill content of basic variables
-    x,y=convert_xy_coords(lon,lat,epsg_code_from='epsg:4326',epsg_code_to='epsg:2193')
+    x,y=convert_xy_coords(lon,lat,epsg_code_from='epsg:4326',epsg_code_to=epsg_cart_str) # from WGS84 to epsg code input
     var_lon[:] = lon
     var_lat[:] = lat
     var_x[:] = x
@@ -284,18 +293,44 @@ def netcdf_file_unstruct_init(fname,lon,lat,tri,lev=None):
     #                 'var_desc': u"Air temperature departure",\
     #                 'statistic': u'Mean\nM'})
 
-
     return dataset 
 
+def netcdf_file_regular_init(fname,lon,lat,lev=None):
+    """netcdf-writing subfunction for structured/regular grid"""
+    pass
+
+
+# MAIN---------------------------------------------------------------------------------------------------------
 
 if __name__  ==  '__main__':
-    # load ERCORE outputs
+
+    """The function computes the suspended and deposited concentration fields 
+    for a given ERcore outputs file with particles position, for a given grid of receptors
+    usage : ercore_concentration.py input_ercore_filename output_netcdf_name receptor_grid_filename epsg_code
     
+    input_ercore_filename : name of ERcore ascii output file 
+    output_netcdf_name : name of output netcdf file with concentration fields
+    receptor_grid_filename : name of file containing the receptor grid info - <.mat> file for now
+    epsg_code_cartesian : epsg code for conversion of lon/lat particles position to cartesian coordinates
+    see  http://www.epsg-registry.org/ for code
+    NZGD2000 / New Zealand Transverse Mercator 2000 is 2193
+    WGS84 is 4326
+    
+    """
+    # INPUTS
     fname_in = '/home_old/simon/0201_lyt_ercore_out/site5/2003/ercore.dispo_site5_surface4m_class1_2003_1.out'   
     fname_out = '/home/simon/ercore_tests/concentration_computation/dispo_site5_surface4m_class1_2003_1.nc'
-    receptor_grid = 'grid3_net.mat'
+    receptor_grid = 'home/simon/ercore_tests/concentration_computation/grid3_net.mat'
+    # fname_in = int(sys.argv[0])
+    # fname_in = int(sys.argv[1])
+    # receptor_grid = int(sys.argv[2])
 
+    epsg_code_cartesian=2193
+    epsg_cart_str=('espg:%i' % (epsg_code_cartesian))
+    global  epsg_code_cartesian
+    global  epsg_cart_str
 
+    # load ERCORE outputs
     time,susp,depos = read_ercore_outputs(fname_in)
     
     # load Receptor grids
@@ -332,16 +367,14 @@ if __name__  ==  '__main__':
         id_susp=susp[:,0] == t#numpy.where(susp[:,0] == t)
         id_depos=depos[:,0] == t#numpy.where(depos[:,0] == t)  
 
-        # compute concentration, with or without land proximity correction
-        # conc_susp,npart_susp = calc(susp[id_susp,:],xr,yr,nh=1./20.,shoreline_file=bnd_file)
-        # conc_dep,npart_dep = calc(depos[id_depos,:],xr,yr,nh=1./20.,shoreline_file=bnd_file)
-        conc_susp,npart_susp,np_susp_total = calc(susp[id_susp,:],xr,yr,nh=1./20.)
+        # compute concentration, no land proximity correction for now
+        conc_susp,npart_susp,np_susp_total = conc_calc(susp[id_susp,:],xr,yr,nh=1./20.,shoreline_file=''bnd_file'')
         # integrate concetrtaion of suspedned particle over water depth        
         conc_susp=conc_susp/zr
 
-        conc_dep,npart_depos,np_depos_total = calc(depos[id_depos,:],xr,yr,nh=1./20.)
+        conc_dep,npart_depos,np_depos_total = conc_calc(depos[id_depos,:],xr,yr,nh=1./20.)
 
-        tt=nc.num2date(t,units = nc_dataset.variables['time'].units)
+        tt=netCDF4.num2date(t,units = nc_dataset.variables['time'].units)
         print tt.isoformat(' ')
         #import pdb;pdb.set_trace()
 
