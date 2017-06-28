@@ -24,8 +24,8 @@ class Shoreline:
     self.__dict__.update(options)
     self.slx=shoreline.slx
     self.sly=shoreline.sly
-    self.polyi=shoreline.polyi
-    self.polyn=shoreline.polyn
+    self.polyi=shoreline.polyi # id of shoreline segment
+    self.polyn=shoreline.polyn # nb node of each segement
        
   def intersect(self,pos,post,stat):
     """Check for intersection of particles with shoreline

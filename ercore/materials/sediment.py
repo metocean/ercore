@@ -76,7 +76,9 @@ class Sediment(BuoyantTracer):
         else:
           self.state[self.state>1]=1 # this way particles will be set back to active
           # posi is the position of intersection with shoreline
-          posi[self.state>1,:]=self.pos[self.state>1,:] # set posi back to the position particles were before sticking
+          # posi[self.state>1,:]=self.pos[self.state>1,:] # set posi back to the position particles were before sticking
+          posi[numpy.nonzero(self.state>1),:]=self.pos[self.state>1,:] # necessary modif by Remy - maybe related to python version 
+        
         self.post[:self.np,:]=posi[:self.np,:]
       else: # 2D sticker (e.g. GriddedTopo)
         posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np],t1,t2)
