@@ -356,13 +356,16 @@ class _Material(object):
       dt2=t1-self.tend
     dt=min(abs(t2-t1),dt1,dt2,abs(self.tend-self.tstart))
 
-    #release types
-    #
-    if k.has_key('nprel'): #Prescribed release size 
+    # Release types
+    # 
+    # 
+    if k.has_key('nprel'): # Prescribed release size 
       np=k['nprel']
+
     elif dt==0: #Start and end time the same - release all at once
       np=k.get('nprel',self.reln)
       dt=1.
+
     elif hasattr(self,'variable_reln'): # number of released particle is defined from a file
       id_reln=numpy.where(numpy.abs(self.variable_reln[:,0]-t2)<=1e-6) # find correct time step
       if not id_reln[0]: 
@@ -370,22 +373,28 @@ class _Material(object):
         id_reln=numpy.where(numpy.abs(self.variable_reln[:,0]==self.variable_reln[-1,0]))
       np=self.variable_reln[id_reln,1]                                 # find number of particles to release at t2
       np=float(np)
+
     else: #Incremental release number of particle released at each time step is reln/(total_duration/timestep)
       self.relsumt+=abs(dt)
       np=k.get('nprel',abs(int(self.relsumt*self._npt)))
       if np>0:self.relsumt-=1.0*np/self._npt
+
     # staged release 
     if self.tstep_release>0.0:
-      dt1=t2-self.tstart #time since start of model start      
+      dt1=t2-self.tstart #time since start of model start
       if abs(((dt1*24)/self.tstep_release)-round(((dt1*24)/self.tstep_release)))<1e-3:
-        #checks if the runtime to date is a true multiple of the release time 
-        #if yes release particles , if no then no release
-        nb_rel=int(round(self.tstep_release/(dt*24))) 
-        #nb release=nb of release that would have occurred over tstep_release if continuous, so that reln is still relevant
+        #checks if current time is a true multiple of the tstep_release
+        #if yes : release particles , if no : no release
+        # 
+        # Note : the number of particles released every tstep_release, will be equivalent to the number 
+        # of particles that would have been released in case of continuous release, over the tstep_release interval
+        # In that sense, the reln parameter (total nb of part released over simulation) is still relevant
+        nb_rel=self.tstep_release/(dt*24) # = how many timesteps in between each release
         #so np should be
-        np=nb_rel*np
+        np=int(nb_rel*np)
+        import pdb;pdb.set_trace()
       else: #then no release
-        #import pdb;pdb.set_trace()
+        # import pdb;pdb.set_trace()
         np=0
       #print 'Releasing %s' % (np)
       if np==0:return 0
