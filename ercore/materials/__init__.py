@@ -125,24 +125,25 @@ class _Material(object):
       zz=numpy.random.random(nbuff+1)
       self.pos[:,2]=min(P0[2])+dz*zz
       self.post[:,2]=min(P0[2])+dz*zz
-      
-    if "circular_radius" in self.props:
-      #release in a circle rather than at a single X,Y point location
-      point_in_circle = get_random_point_in_circle(nbuff+1,self.props['P0'],self.props['circular_radius'])
-      self.pos[:,0]=point_in_circle[:,0]
-      self.pos[:,1]=point_in_circle[:,1]
-      self.post[:,0]=self.pos[:,0]
-      self.post[:,1]=self.pos[:,1]
-      self.dep = numpy.ones((nbuff+1))*-999.
-      self.elev = numpy.zeros((nbuff+1))  
-      # Particles release depths may need to be updated according to water depths at new locations within the circle
-      for sticker in stickers:
-        if 'GriddedTopo' in sticker.__class__.__name__:
-           topo=sticker.interp(self.pos,imax=1)# get depths new particles locations within the release circle         
-           self.pos[:,2] = numpy.maximum.reduce([self.pos[:,2],topo[:,0] +0.1])
-           self.post[:,2] = self.pos[:,2]
-           print 'Updating intial particles depths within release circle based on GriddedTopo'
-           if (self.pos[:,2]<topo[:,0]).any() : import pdb;pdb.set_trace() 
+ 
+    if ("circular_radius" in self.props) :
+      if (self.props['circular_radius'] > 0.) :
+        #release in a circle rather than at a single X,Y point location
+        point_in_circle = get_random_point_in_circle(nbuff+1,self.props['P0'],self.props['circular_radius'])
+        self.pos[:,0]=point_in_circle[:,0]
+        self.pos[:,1]=point_in_circle[:,1]
+        self.post[:,0]=self.pos[:,0]
+        self.post[:,1]=self.pos[:,1]
+        self.dep = numpy.ones((nbuff+1))*-999.
+        self.elev = numpy.zeros((nbuff+1))  
+        # Particles release depths may need to be updated according to water depths at new locations within the circle
+        for sticker in stickers:
+          if 'GriddedTopo' in sticker.__class__.__name__:
+             topo=sticker.interp(self.pos,imax=1)# get depths new particles locations within the release circle         
+             self.pos[:,2] = numpy.maximum.reduce([self.pos[:,2],topo[:,0] +0.1])
+             self.post[:,2] = self.pos[:,2]
+             print 'Updating intial particles depths within release circle based on GriddedTopo'
+             if (self.pos[:,2]<topo[:,0]).any() : import pdb;pdb.set_trace() 
                
     if "polygon" in self.props:
       # release in a polygon shape
@@ -182,8 +183,8 @@ class _Material(object):
     self.reln=reln #Particles per release
     self.R=R0 #Total release of material
     self.Q=Q0 # Flux of material per day
+
     # switch to allow the particle to unstick from sticker (0:cannot unstick/1:can unstick)
-    
     if not isinstance(unstick,list):unstick=[unstick] # if only a single element input, not as a list
     if len(unstick)==1:
       self.unstick=[unstick[0] for _ in xrange(len(stickers))] # if unstick is a single element, replicate to fit number of stickers
@@ -392,7 +393,7 @@ class _Material(object):
         nb_rel=self.tstep_release/(dt*24) # = how many timesteps in between each release
         #so np should be
         np=int(nb_rel*np)
-        import pdb;pdb.set_trace()
+        # import pdb;pdb.set_trace()
       else: #then no release
         # import pdb;pdb.set_trace()
         np=0

@@ -216,6 +216,7 @@ class ERcore(object):
         t: Start time as datetime, ncep decimal time or string
         tend: Start time as datetime, ncep decimal time or string
         dt: Simulation timestep as seconds
+        Note that output timestep must be a multiple of the simulation time step dt
     """
     start_time = self.timestamp('start_time')
     #t=parsetime(t)
