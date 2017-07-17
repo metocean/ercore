@@ -23,7 +23,6 @@ def slope_correction(p,topo,uu):
     return frac*(uu[:,0]*topo[:,1]+uu[:,1]*topo[:,2])
 
 
-
 class DataException(ERCoreException):
   pass
  
@@ -210,12 +209,14 @@ class GridData(FieldData):
     self.time=[]
     ncfile = nc.Dataset(self.filelist[0])
     cfile=ncfile.variables
-    if cfile.has_key('time'):
+    
+    if cfile.has_key('time'): # time-varying data
       self.time=[]
       self.buf1={}
       self.bufstore={}
-    else:
+    else: # No time variable : tidal constituent file
       self.time=None
+    
 
     for v in self.vars:
       if not cfile[v]:raise DataException('Variable %s not found in grid file %s' % (v,self.filename))
@@ -226,16 +227,26 @@ class GridData(FieldData):
         # load variable data
         self.buf0[v]=cfile[v][:]
 
-    for vlon,vlat in [('lon','lat'),('longitude','latitude')]:
-      if vlon in cfile.keys() and vlat in cfile.keys():
-        lon, lat = cfile[vlon], cfile[vlat]      
-        break
-    if vlon not in cfile.keys() or vlat not in cfile.keys(): # if the allocation above didnt happen during the loop
-      raise DataException('Dataset needs (lon, lat) or (longitude,latitude) variables')
+    # HORIZONTAL COORDINATES
+    if self.geod:
+      for vlon,vlat in [('lon','lat'),('longitude','latitude')]:
+        if vlon in cfile.keys() and vlat in cfile.keys():
+          lon, lat = cfile[vlon], cfile[vlat]      
+          break
+      if vlon not in cfile.keys() or vlat not in cfile.keys(): # if the allocation above didnt happen during the loop
+        raise DataException('Dataset needs (lon, lat) or (longitude,latitude) variables if geod = True')
+    else:
+      for vlon,vlat in [('x','y'),('easting','northing'),('eastings','northings')]:
+        if vlon in cfile.keys() and vlat in cfile.keys():
+          x, y = cfile[vlon], cfile[vlat]   # 
+          # would be better to differentiate name so there are no confusion ?
+          # then need to split for case geod = true or false for interpolator definition below 
+          break
+      if vlon not in cfile.keys() or vlat not in cfile.keys(): # if the allocation above didnt happen during the loop
+        raise DataException('Dataset needs (x, y) or (easting,northing) or (eastings,northings) variables if geod = False')
 
-    # Check for nv variables for finite elements grids
+    # Check is it is a finite elements grid - look for triangulation variables
     # self.nv = True if 'nv' in cfile.keys() or 'elem' in cfile.keys() else None
-    # add posibility for different names of element variable
     for var in ['nv', 'elem', 'ele']:
       if var in cfile.keys():
         self.nv = True

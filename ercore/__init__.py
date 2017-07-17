@@ -295,7 +295,8 @@ class ERcore(object):
       for e in self.materials:
         if dt>0:
           for spw in e.children:
-            # import pdb;pdb.set_trace()
+            if spw is None :continue
+            
             spw0=spw.split('_')[0] # not sure why this is used ? maybe a convention to use same name with _plume, _sediment etc.. ?
             # if spw0 not in etypes:continue
             # self.materials[etypes.index(spw0)].release(t,t2,**e.children[spw])

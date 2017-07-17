@@ -272,7 +272,7 @@ class BuoyantPlume_JETLAG(Plume):
     T0: Initial jet temperature (C) <float>
     S0: Initial jet salinity (PSU) <float>
     tstep_release : time interval in hours between release
-    spawn_class : name of material the plume will spawn into
+    spawn_class : name of material the plume will spawn into - if not defined, then no spawning (i.e. nearfield plume only)
     spawn_type : spawning type
                  'center'    - release particles at the center of the last plume element, or, 
                  'surface'   - release particles at along the surface of the last plume element (circle of radius b), or,
@@ -286,7 +286,7 @@ class BuoyantPlume_JETLAG(Plume):
   def initialize(self,t1,t2):
     _Material.initialize(self,t1,t2)
     self.V0=numpy.sqrt((numpy.array(self.props['V0'])**2).sum()) # jet velocity magnitude
-    self.dt0=numpy.minimum(0.1,1.0*self.props['B0']/self.V0)                        # criteria on time step to use as recommend in Lee Cheung 8d.
+    self.dt0=numpy.minimum(0.1,1.0*self.props['B0']/self.V0)     # criteria on time step to use as recommend in Lee Cheung 8d.
     self.b=self.props['B0'] *numpy.ones((len(self.state),1))     # initial radius of cylindrical plume element 8b
     self.h=self.props['B0'] *numpy.ones((len(self.state),1))     # initial height of cylindrical plume element
     self.u=self.props['V0'] *numpy.ones((len(self.state),1))     # jet velocity vector
@@ -422,6 +422,7 @@ class BuoyantPlume_JETLAG(Plume):
     # or we could release only at the end of the plume model i.e. when we go into far field
   
   def spawn(self,t1,t2):
+    if self.props['spawn_class'] is None : pass
     # Spawning from the nearfield dynamic plume
     # 
     # The computed nearfield plume dynamics are used to seed the model with particles for far-field dispersion.
@@ -583,6 +584,14 @@ class BuoyantPlume_DensityCurrent(BuoyantPlume_JETLAG):
     str=''
     # write only 100 timesteps of the density current model outputs
     # the position saved is the center of last buoyant plume element
+    # 
+    # Outputs : [x,y,z,u,v,w,b,h,density]
+    # [x,y,z] = last position of buoyant plume element
+    # [u,v,w]] = [horizontal velocity of density current,horizontal velocity of density current,0]
+    # b = radius of density current element
+    # h = height of density current element
+    # density  = density in current element
+    # 
     if self.np_dc < 100: # then write all
       for i in range(0,self.np_dc):
         str+="%f\t%.10f\t%.10f\t%.10f\t%f\t%f\t%f\t%f\t%f\t%f\n" % ((t,)+tuple(self.post[self.np-1])+(self.vel_dc[i], self.vel_dc[i] ,0. )+(self.b_dc[i],self.h_dc[i],self.dens_dc[i]))
@@ -702,6 +711,7 @@ class BuoyantPlume_DensityCurrent(BuoyantPlume_JETLAG):
   def spawn(self,t1,t2):
     # Spawning from the nearfield dynamic plume + density current 
     #
+    if self.props['spawn_class'] is None : pass
 
     self.state[:]=-2 # inactivate plume particles
 
