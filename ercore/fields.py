@@ -254,15 +254,26 @@ class GridData(FieldData):
       else:
         self.nv = False
 
-    for var in ['zlevels', 'lev', 'levels', 'level']:
+    for var in ['zlevels', 'lev', 'levels', 'level','nz']:
       #if var in cfile.keys(): >> This will not be correct where both 2d and 3d data are read from a single netcdf file (e.g. reading 3d current and 2D topo, or 2D tidal currents)
-      if var in cfile[vars[0]].dimensions: 
-        self.lev = cfile[var][:]
-        self.is3d = True
-        break
+      if var in cfile[vars[0]].dimensions:
+        try : 
+          self.lev = cfile[var][:] # assumes that the "level" dimension and variable have the same name - not always true
+          self.is3d = True
+          break
+        except : #"level" dimension and variable have different names - maybe we should simply modify the SELFE post-processing script ?
+          #reloop through common names
+          for var in ['zlevels', 'lev', 'levels', 'level','nz']:
+            try :
+              self.lev = cfile[var][:]
+              self.is3d = True
+              break
+            except: 
+              pass
       else:
         self.lev = None
         self.is3d = False
+
     if options.pop('zcoord','up')=='down':
       # maybe force input of zcoord to reduce confusion ?
       print 'Initialization - Inverting vertical levels of %s -  %s'  % (self.id,self.file)
