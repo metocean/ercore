@@ -77,7 +77,8 @@ class ObjectList(list):
     def __init__(self,items,copy=False):
         if not isinstance(items,list):items=[items]
         for i in items:
-            if not hasattr(i,'id'):raise ERConfigException('Each item must have an id attribute')
+            if not hasattr(i,'id'):
+              raise ERConfigException('Each item must have an id attribute')
         if copy:
             import copy
             items=copy.deepcopy(items)

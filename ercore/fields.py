@@ -310,32 +310,48 @@ class GridData(FieldData):
     if self.time is None:
       bfile = nc.Dataset(self.filelist[0])
       self.files=[bfile]
-    else:
+    else: # Loop through files to get the full time vector
       self.timeindex=[0]
       self.files=[]
       self.flen=[]
       for filepath in self.filelist:
         bfile = nc.Dataset(filepath)
         self.files.append(bfile) #Open all the files
+        # convert time in netcdf, to time convention used in ERcore i.e. NCEP/CF time, with fractions of days
+        # A typical netcdf following the CF convention is expected to have time saved as :
+        # 
+        # double time(time) ;
+        #   time:long_name = "time" ;
+        #   time:units = "days since 1990-1-1 0:0:0" ;
+        # 
+        # Note the reference date "since XXXX" could be any date.
 
-        # this way of working out time will work for selfe files with seconds since model start , where model start is given as time units
-        # need to account for UDS-formatted / CF compliant cases when time is since 1-1-1 - use : netCDF4.date2num#
-        if 'seconds' in bfile.variables['time'].units: # TEMPORARY - The selfe netcdf file format need to be set once for good i.e. using CF-convention
-          # keeping just for reference - SELFE files should be processed to CF-convention
-          # Case of SELFE time - seconds since model start - SELFE should probably be converted to CF-convention too in the future ..
-          start_time_str = re.search('(?<=\s)\d.+$', bfile.variables['time'].units).group()   # get the file start time from units 
-          # convert to datetime
+        # get start time string
+
+        # import pdb;pdb.set_trace()
+        start_time_str = re.search('(?<=\s)\d.+$', bfile.variables['time'].units).group()   # get the file start time from the units attribute 
+        # convert reference date to datetime instance
+        try:
+          start_time = datetime.datetime.strptime(start_time_str,'%Y-%m-%d %H:%M:%S')
+        except:
           try:
-            start_time = datetime.datetime.strptime(start_time_str,'%Y-%m-%d %H:%M:%S')
-          except:
             start_time = datetime.datetime.strptime(start_time_str,'%Y-%m-%d %H:%M')
-
+          except:
+            start_time = datetime.datetime.strptime(start_time_str,'%Y-%m-%d') # internal MSL, UDS-formatted file use 1-1-1
+          # add more template here if required 
+                 
+        # identify time units,:  seconds,hours,days, and convert to NCEP/CF fraction of days as used in ERcore
+        if 'seconds' in bfile.variables['time'].units:
           deltas = [datetime.timedelta(seconds=float(t)) for t in bfile.variables['time'][:]] # deltas is incremental number of sedconds since file start    
-          time0 = [ dt2ncep(start_time+delta) for delta in deltas ]                           # convert time to fraction of days - CF-compliant
-        else:
-          # CF-compliant netcdf files
-          # time is already as fraction of days - since 1-1-1        
-          time0=bfile.variables['time'][:]
+        elif 'hours' in bfile.variables['time'].units:
+          deltas = [datetime.timedelta(hours=float(t)) for t in bfile.variables['time'][:]] # deltas is incremental number of sedconds since file start    
+        elif 'days' in bfile.variables['time'].units:
+          deltas = [datetime.timedelta(days=float(t)) for t in bfile.variables['time'][:]] # deltas is incremental number of sedconds since file start    
+        
+        time0 = [ dt2ncep(start_time+delta) for delta in deltas ]                           # convert time to fraction of days - CF-compliant
+
+          # time is already as fraction of days - since 1-1-1     as in uds    
+          # time0=bfile.variables['time'][:]
 
         if (len(self.time)>0) and (time0[0]<self.time[-1]):raise DataException('For templated time files times must be increasing - time in file %s less than preceeding file' % (bfile.filepath())) 
         self.time.extend(time0) #Add times in file to time list
