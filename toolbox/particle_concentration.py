@@ -212,7 +212,7 @@ def load_recep_d3d_nc(fname,epsg_code_from = 4326,epsg_code_to = 2193):
     return recep
 
 class ComputeConcentration(object):
-    """The function computes the suspended and deposited concentration fields 
+    """The function computes time-varying suspended and deposited concentration fields 
     for a given ERcore outputs file with particles position, for a given grid of receptors
     usage : ercore_concentration.py input_ercore_filename output_netcdf_name receptor_grid_filename epsg_code_cartesian shoreline_fname
     
@@ -631,3 +631,82 @@ class ComputeConcentration(object):
             # Write all buffered data to disk
             self.nc_dataset.sync()        
 
+
+class ComputeProbabilisticConcentration(ComputeConcentration):
+    """ComputeProbabilisticConcentration is based on the ComputeConcentration class
+    This class allows computing a probabilistic concentration field based on a large number of successive 
+    particle clouds
+    The main difference with the ComputeConcentration class is at file/particles position loading stage
+    Here we loop through a user-define set of files (using wildcards in the file name) to form a large particle cloud
+    combing outputs from many files
+    """
+
+    def __init__(self,ercore_output_fname = None,
+                    output_netcdf_fname = None,
+                    receptor_grid_fname = None,
+                    epsg_code_cartesian = 2193,
+                    levels_to_process = ['dav'],
+                    shoreline_fname = None,
+                    neighborhood_ratio = 1./20,
+                    layer_thickness = 3.0):
+
+        # super(ComputeConcentration, self).__init__()
+        self.ercore_output_fname = ercore_output_fname
+        self.output_netcdf_fname = output_netcdf_fname
+        self.receptor_grid_fname = receptor_grid_fname
+        self.epsg_code_native = 4326
+        self.epsg_code_native_str = ('epsg:%i' % (self.epsg_code_native)) 
+        self.epsg_code_cartesian = epsg_code_cartesian
+        self.epsg_cart_str = ('epsg:%i' % (epsg_code_cartesian)) 
+
+        self.levels_to_process = levels_to_process
+        self.shoreline_fname = shoreline_fname
+        self.neighborhood_ratio = neighborhood_ratio
+        self.layer_thickness=layer_thickness
+        
+        # get a list of all files matching the wildcard used in the input ercore_output_fname
+        import glob
+        filelist = glob.glob(self.ercore_output_fname)
+        self.susp = []
+        self.depos = []
+        self.time = []
+
+        for f in filelist:
+            # load all ERCORE outputs, and appends matrices 
+            t,susp,depos = read_and_convert_ascii_outputs(f,self.epsg_code_cartesian)
+            self.time.append(time)
+            self.susp.append(susp)
+            self.depos.append(depos)
+        # then continue as in ComputeConcentration.__init__
+
+        
+        # load receptor grid : recep_grid is a dictionnary
+        # 
+        # Matlab file with receptor grid info
+        if self.receptor_grid_fname[0].endswith('mat'):  
+            self.receptor_grid = load_recep_mat(self.receptor_grid,epsg_code_from = self.epsg_code_native,epsg_code_to = self.epsg_code_cartesian)
+        
+        if isinstance(self.receptor_grid_fname,list):
+            self.path, self.filename = os.path.split(self.receptor_grid_fname[0])
+        else:
+            self.path, self.filename = os.path.split(self.receptor_grid_fname)
+        
+        # Netcdf file : delft FM grid, or use grid read from a standard nc file
+        if (self.filename.endswith('nc'))  & ( self.filename[-6:-3]=='net')  : 
+            # flexible mesh generated from delft3d GUI
+            # temporary hack to be able to have depth for the delft FM grid - need to input two files
+            # [grid,file_with_depth] see load_recep_d3d_nc
+            self.receptor_grid = load_recep_d3d_nc(self.receptor_grid_fname,epsg_code_from = self.epsg_code_native,epsg_code_to = self.epsg_code_cartesian)
+        else:   # use the same grid as a netcdf file e.g. SELFE/SCHISM
+            self.receptor_grid = load_recep_nc(self.receptor_grid_fname , epsg_code_from = self.epsg_code_native,epsg_code_to = self.epsg_code_cartesian)  
+
+        
+        # load shoreline file, if applicable and flag points on land
+        # it is expected that the shoreline point coordinates is wgs84
+        self.on_land,self.shore = read_shoreline_ercore(self.shoreline_fname,self.receptor_grid['lonr'],self.receptor_grid['latr'])        
+        # initialise netcdf file
+        self.nc_dataset = self.netcdf_file_unstruct_init()
+        # subfunction looping through time, computing concentration, and wirting to file
+        self.compute_and_write_to_ncfile()
+        #close netcdf file
+        self.nc_dataset.close()

@@ -142,7 +142,7 @@ class _Material(object):
              topo=sticker.interp(self.pos,imax=1)# get depths new particles locations within the release circle         
              self.pos[:,2] = numpy.maximum.reduce([self.pos[:,2],topo[:,0] +0.1])
              self.post[:,2] = self.pos[:,2]
-             print 'Updating intial particles depths within release circle based on GriddedTopo'
+             print 'Updating initial particles depths within release circle based on GriddedTopo'
              if (self.pos[:,2]<topo[:,0]).any() : import pdb;pdb.set_trace() 
                
     if "polygon" in self.props:
@@ -159,7 +159,7 @@ class _Material(object):
            topo=sticker.interp(self.pos,imax=1)# get depths new particles locations within the release circle         
            self.pos[:,2] = numpy.maximum.reduce([self.pos[:,2],topo[:,0] +0.1])
            self.post[:,2] = self.pos[:,2]
-           print 'Updating intial particles depths within release polygon based on GriddedTopo' 
+           print 'Updating initial particles depths within release polygon based on GriddedTopo' 
            if (self.pos[:,2]<topo[:,0]).any() : import pdb;pdb.set_trace() 
  
     
