@@ -593,9 +593,10 @@ class ComputeConcentration(object):
     
     def compute_and_write_to_ncfile(self):
 
-        for t_cnt,t in enumerate(self.time[0:5]): # time loop
+        for t_cnt,t in enumerate(self.time): # time loop
 
             tt=netCDF4.num2date(t,units = self.nc_dataset.variables['time'].units)
+            # import pdb;pdb.set_trace()
             print tt.isoformat(' ')
             # Suspended particle concentration
             # 
@@ -666,19 +667,25 @@ class ComputeProbabilisticConcentration(ComputeConcentration):
         
         # get a list of all files matching the wildcard used in the input ercore_output_fname
         import glob
-        filelist = glob.glob(self.ercore_output_fname)
-        self.susp = []
-        self.depos = []
-        self.time = []
-
-        for f in filelist:
+        self.filelist = glob.glob(self.ercore_output_fname)
+           
+        for f in self.filelist:
             # load all ERCORE outputs, and appends matrices 
             t,susp,depos = read_and_convert_ascii_outputs(f,self.epsg_code_cartesian)
-            self.time.append(time)
-            self.susp.append(susp)
-            self.depos.append(depos)
-        # then continue as in ComputeConcentration.__init__
+            if not hasattr(self,'susp'): # first file : allocate
+                self.time_full = t
+                self.susp = susp
+                self.depos = depos               
+            else: # following files : stack
+                self.time_full = numpy.hstack([self.time_full,t])
+                self.susp = numpy.vstack([self.susp,susp])
+                self.depos = numpy.vstack([self.depos,depos])   
 
+        self.time = [self.time_full[0]] 
+        # the time vector is not relevant in that case - only save the first timestep for format consistency
+        #the filelist will be saved to know which files were used
+         
+        # then continue as in ComputeConcentration.__init__
         
         # load receptor grid : recep_grid is a dictionnary
         # 
@@ -699,7 +706,6 @@ class ComputeProbabilisticConcentration(ComputeConcentration):
             self.receptor_grid = load_recep_d3d_nc(self.receptor_grid_fname,epsg_code_from = self.epsg_code_native,epsg_code_to = self.epsg_code_cartesian)
         else:   # use the same grid as a netcdf file e.g. SELFE/SCHISM
             self.receptor_grid = load_recep_nc(self.receptor_grid_fname , epsg_code_from = self.epsg_code_native,epsg_code_to = self.epsg_code_cartesian)  
-
         
         # load shoreline file, if applicable and flag points on land
         # it is expected that the shoreline point coordinates is wgs84
@@ -710,3 +716,23 @@ class ComputeProbabilisticConcentration(ComputeConcentration):
         self.compute_and_write_to_ncfile()
         #close netcdf file
         self.nc_dataset.close()
+
+    def netcdf_file_unstruct_init(self):
+        """netcdf-writing subfunction for unstructured grid
+           
+           When there are more than one conc_level to store
+           variables will have different levels in dimensions
+
+        """
+        
+        dataset = ComputeConcentration.netcdf_file_unstruct_init(self)
+        # add the filelist used to compute the probabilistic concentration as global attribute
+        dataset.filelist = self.filelist
+
+        return dataset
+
+
+
+
+
+
