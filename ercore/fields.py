@@ -461,6 +461,14 @@ class GridData(FieldData):
     datout=numpy.zeros((len(p),imax))
     for id,d in enumerate(dat[:imax]):
       datout[:,id]=self.interpolator(d,p)
+    # quick fix : set any bad data returned by interp to 0
+    # a more elegant way would probably be to use mask, maybe defining from depth 
+    # if not actual masks are available in the netcdf file ?
+    if (numpy.abs(datout[:,:])>1e10).any():
+      # import pdb;pdb.set_trace()
+      id_tmp = numpy.where(numpy.abs(datout[:,0])>1e10)
+      # print "particle(s) %s : bad mover data, setting vel=0" %(id_tmp[:]) 
+      datout[id_tmp,:] = 0.0
     return datout
     
   def __str__(self):

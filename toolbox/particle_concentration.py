@@ -143,7 +143,7 @@ def load_recep_d3d_nc(fname,epsg_code_from = 4326,epsg_code_to = 2193):
        generated using the Delft3d GUI 
        The function assumes 
        - a flexible mesh netcdf file ending with <*_net.nc> as output by the GUI
-       - geographic coordinates (WGS84)
+       - geographic coordinates (WGS84) (tries to convert back if not,but not recommended)
 
        Use some function to convert the network matrix to triangle
        https://svn.oss.deltares.nl/repos/openearthtools/trunk/python/OpenEarthTools/openearthtools/io/dflowfm/
@@ -159,8 +159,7 @@ def load_recep_d3d_nc(fname,epsg_code_from = 4326,epsg_code_to = 2193):
 
     """
     import dflowfm_io
-    dataset = netCDF4.Dataset(fname[0], 'r')
-    
+    dataset = netCDF4.Dataset(fname[0], 'r')  
     lonr = dataset.variables['NetNode_x'][:]
     latr = dataset.variables['NetNode_y'][:]
     elem_network = dataset.variables['NetElemNode'][:,:]
@@ -173,8 +172,21 @@ def load_recep_d3d_nc(fname,epsg_code_from = 4326,epsg_code_to = 2193):
     elem_network6 = -1 * numpy.ones([elem_network.shape[0], 6],dtype = numpy.int32)
     elem_network6[:,:4] = elem_network[:,:]
 
-    # convert from wgs84 to cartesian coordinates
-    xr,yr = convert_xy_coords(lonr,latr,epsg_code_from = epsg_code_from ,epsg_code_to = epsg_code_to) 
+    #  check coordinates system of NetNode_x/NetNode_y
+    isgeo =  not (numpy.abs(lonr)>360).any()
+    if isgeo:
+        # convert from wgs84 to cartesian coordinates
+        xr,yr = convert_xy_coords(lonr,latr,epsg_code_from = epsg_code_from ,epsg_code_to = epsg_code_to) 
+    else:
+        # allow conversion from cartesian to wgs84 coordinates, if initial coordinates system was not wgs84
+        #  quick fix - to improve
+        print 'Grid Input : input grid should be in WGS84 coordinates'
+        print 'Converting from epsg=%s to WGS84 instead' %(epsg_code_to) 
+        xr = lonr
+        yr = latr
+        lonr,latr = convert_xy_coords(lonr,latr,epsg_code_from = epsg_code_to, epsg_code_to = 4326) 
+
+
 
     # delft3d Flexible Mesh can use triangale, quad, hexagons etc.. so the network matrix can be up to 
     #  [nb_elem x 6]
@@ -188,9 +200,16 @@ def load_recep_d3d_nc(fname,epsg_code_from = 4326,epsg_code_to = 2193):
     import scipy.interpolate
     if fname[1].endswith('nc'): #  depth info in netcdf file
         dset_dep = netCDF4.Dataset(fname[1], 'r')
-        lond = dset_dep.variables['lon'][:]
-        latd = dset_dep.variables['lat'][:]
-        zr = dset_dep.variables['dep'][:]
+        try:
+            lond = dset_dep.variables['lon'][:]
+            latd = dset_dep.variables['lat'][:]
+        except:
+            lond = dset_dep.variables['longitude'][:]
+            latd = dset_dep.variables['latitude'][:]
+        try:            
+            zr = dset_dep.variables['dep'][:]
+        except:
+            zr = dset_dep.variables['depth'][:]
         # interpolate to receptor grid 
         #  create interpolator
         points = numpy.vstack([lond , latd]).T
@@ -349,6 +368,7 @@ class ComputeConcentration(object):
         if np <3: return conc,nb_part,np
         # define convex hull of particle cloud 
         # and flag receptors outside of it to skip them
+
         conv_hull = ConvexHull(numpy.vstack([xp,yp]).T)
 
         hull = Path(numpy.vstack([xp[conv_hull.vertices],yp[conv_hull.vertices]]).T)  # matplotlib.path.Path
@@ -356,12 +376,10 @@ class ComputeConcentration(object):
 
         # loop through receptors
         for r in range(0,len(self.receptor_grid['xr'])):
-
             # skip if receptor is on land
             if self.on_land[r]: conc[r]=0.; continue
            # skip if receptor is outside of particle cloud convex hull
             if not in_hull[r]: conc[r]=0.; continue
-        
             #compute distance of every particle from receptor
             dx = numpy.abs(xp-self.receptor_grid['xr'][r])
             dy =  numpy.abs(yp-self.receptor_grid['yr'][r]);
@@ -564,8 +582,11 @@ class ComputeConcentration(object):
         # - the corresponding layer thickness
         # 
         """
-        id_time = pmatrix[:,0] == timestep
-        pmatrix_subset_time = pmatrix[id_time,:]
+        if len(self.time) > 1 :
+            id_time = pmatrix[:,0] == timestep
+            pmatrix_subset_time = pmatrix[id_time,:]
+        else: # when computing concentraion from combined particle clouds 
+            pmatrix_subset_time = pmatrix[:,:]
 
         if level2process == '': return pmatrix_subset_time # include all particles
         if level2process == 'dav': return pmatrix_subset_time # include all particles 
@@ -596,11 +617,11 @@ class ComputeConcentration(object):
         for t_cnt,t in enumerate(self.time): # time loop
 
             tt=netCDF4.num2date(t,units = self.nc_dataset.variables['time'].units)
-            # import pdb;pdb.set_trace()
             print tt.isoformat(' ')
             # Suspended particle concentration
             # 
             for lev_cnt,lev in enumerate(self.levels_to_process): # level loop
+                print lev
                 # subset particles at time t, and level lev
                 susp_subset = self.subset_particles(self.susp,t,lev)
                 # compute concentration
@@ -617,7 +638,7 @@ class ComputeConcentration(object):
                 self.nc_dataset.variables['np_total_susp'][t_cnt,lev_cnt] = np_susp_total
 
             # Deposited particle concentration
-            # 
+            print 'deposition'
             # subset particles at time t, and level lev
             depos_subset = self.subset_particles(self.depos,t) # if not lev input > subset only in time       
             # subset particles at time t, and level lev
@@ -668,6 +689,8 @@ class ComputeProbabilisticConcentration(ComputeConcentration):
         # get a list of all files matching the wildcard used in the input ercore_output_fname
         import glob
         self.filelist = glob.glob(self.ercore_output_fname)
+        
+        if not self.filelist: raise Exception('Empty filelist : check ercore_output_fname = %s' % self.ercore_output_fname)
            
         for f in self.filelist:
             # load all ERCORE outputs, and appends matrices 

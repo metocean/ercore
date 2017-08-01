@@ -287,9 +287,11 @@ class ERcore(object):
           self.fout[e.id].write(e.sfprint(t2))
           last_time = self.timestamp('write output', last_time)
           # remove particles flagged with state<=outofcompute (stuck to seabed,shoreline etc...)  outofcompute=-1
-          #ind=(e.state<0)
-          ind=(e.state<=outofcompute)  
+          #ind=(e.state<0)          
+          ind=(e.state<=outofcompute)
+          # a particle can become out of compute if it has stuck to a sticker, or moved out of the model area, or decay etc...  
           nind=ind.sum()
+          # if nind>0:import pdb;pdb.set_trace()
           if nind:e._reset(ind) #Recycle particles
           if nind>0:print '%d %s particles removed' % (nind,e.id)
       # check if the initial materials have "spawned" any children

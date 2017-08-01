@@ -533,6 +533,7 @@ class _Material(object):
       if self.unstick[cnt]<=0.: # default, particle cannot unstick  > unstick= 0.0
         self.state[self.state>1]=-1 # this way particles will be removed from computation
       elif (self.state>1).any(): # particle can unstick  , unstick= 1.0
+        # import pdb;pdb.set_trace()
         # posi is the position of intersection with shoreline
         posi[numpy.where(self.state>1),:]=self.pos[numpy.where(self.state>1),:] # set posi back to the position particles were before sticking
         self.state[numpy.where(self.state>1)]=1 # set unstuck particles back to active state=1
@@ -603,6 +604,7 @@ class PassiveTracer(_Material):
     except:
       import traceback
       raise ERRuntimeException(traceback.format_exc())
+    # if (numpy.abs(self.post[:np,0])>1e10).any(): import pdb;pdb.set_trace()
       
   def diffuse(self,t1,t2):
     if (len(self.diffusers)==0) or self.np==0:return
