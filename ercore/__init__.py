@@ -259,6 +259,8 @@ class ERcore(object):
           # the release of spawned material is taken care of further below
           if not e.props['ischild']:
             e.release(t,t2)
+            # save first time step, directly after initial release,including initial particle positions.
+            if i == 1 : self.fout[e.id].write(e.sfprint(t))
           last_time = self.timestamp('release', start_step)
           if self.geod:e.geodcalc()
           e.react(t,t2)

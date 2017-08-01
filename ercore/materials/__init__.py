@@ -336,7 +336,6 @@ class _Material(object):
     """Return string dump of all particles at specified timestep"""
     str=''
     for i in range(0,self.np):
-
       #str+="%f\t%d\t%f\t%f\t%f\t%d\t%f\t%f\n" % ((t,self.nid[i])+tuple(self.pos[i])+(self.state[i],self.age[i],self.mass[i]))
       str+="%f\t%d\t%f\t%f\t%f\t%d\t%f\t%f\t%f\t%f\n" % ((t,self.nid[i])+tuple(self.pos[i])+(self.state[i],self.age[i],self.mass[i],self.dep[i],self.elev[i]))
     return str
