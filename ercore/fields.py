@@ -81,7 +81,7 @@ class FEInterpolator(object):
       geod: Geodetic coordinates (True/False)
       lev: Levels for 3D grid
     """
-    from scipy.spatial import cKDTree
+    from scipy.spatial import cKDTree #quick nearest-neighbor lookup
     self.lon=lon
     self.lat=lat
     self.x0=min(lon)
@@ -93,7 +93,7 @@ class FEInterpolator(object):
     self.tree=cKDTree(numpy.vstack((self.lon,self.lat)).T)
     
   def __call__(self,dat,p):
-    dist,i=self.tree.query(p[:,:2],3, n_jobs=-1)
+    dist,i=self.tree.query(p[:,:2],3, n_jobs=-1) #quick nearest-neighbor lookup
     if i.max()>=dat.shape[-1]:
       raise DataException('Finite element interpolation out of range')
     dist[dist<DMIN]=DMIN
@@ -429,9 +429,15 @@ class GridData(FieldData):
         arr2 = var2[ind1][:]
         self.buf0[v]= arr1 
         self.buf1[v]= arr2
-        if numpy.any(self.mask): 
+        if numpy.any(self.mask): # mask specified in netcdf 
           self.buf0[v]=self.files[self.fileind0][v][ind0].filled()
           self.buf1[v]=self.files[self.fileind1][v][ind1].filled()
+        else:  # if no specific mask input - set "bad data" to 0.0
+          id0 = numpy.where(numpy.abs(self.buf0[v][:])>1e10) or numpy.where(numpy.abs(self.buf0[v][:]) == 999) #or self.buf0[v][:] == ncfile2.variables[v].missing_value
+          self.buf0[v][id0] = 0.0
+          id1 = numpy.where(numpy.abs(self.buf1[v][:])>1e10) or numpy.where(numpy.abs(self.buf1[v][:]) == 999) 
+          self.buf1[v][id1] = 0.0
+
 
     if (self.tind==0) and (time<self.time[0]):
       print 'Warning: model time (%s) before start time (%s) of data %s' % (ncep2dt(time), ncep2dt(self.time[0]), self.id)
@@ -467,7 +473,7 @@ class GridData(FieldData):
     if (numpy.abs(datout[:,:])>1e10).any():
       # import pdb;pdb.set_trace()
       id_tmp = numpy.where(numpy.abs(datout[:,0])>1e10)
-      # print "particle(s) %s : bad mover data, setting vel=0" %(id_tmp[:]) 
+      print "particle(s) %s : bad mover data, setting vel=0" %(id_tmp[:]) 
       datout[id_tmp,:] = 0.0
     return datout
     

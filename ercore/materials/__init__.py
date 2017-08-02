@@ -520,6 +520,7 @@ class _Material(object):
       # additional checks for GriddedTopo and Elevation cases
       if 'GriddedTopo' in sticker.__class__.__name__:
         self.dep[:self.np]=sticker.interp(posi[:self.np,:],imax=1)[:,0]
+        # import pdb;pdb.set_trace()
       if 'Elevation' in sticker.__class__.__name__:
         self.elev[:self.np]=sticker.interp(posi[:self.np,:],t2,imax=1)[:,0]
 
