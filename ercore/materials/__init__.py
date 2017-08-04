@@ -190,6 +190,12 @@ class _Material(object):
       self.unstick=[unstick[0] for _ in xrange(len(stickers))] # if unstick is a single element, replicate to fit number of stickers
     else:
       self.unstick=unstick
+    
+    # use a switch to know if an elecvation sticker was input
+    self.has_elevation_sticker = False 
+    for sticker in stickers:
+      if 'Elevation' in sticker.__class__.__name__: 
+        self.has_elevation_sticker = True
 
     self.movers=movers
     self.reactors=reactors
@@ -516,19 +522,19 @@ class _Material(object):
         posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np],t1,t2)
       # posi is the matrix of intersection positions
       # particles that intersected the sticker will be flagged with self.state==2
-
+      
       # additional checks for GriddedTopo and Elevation cases
       if 'GriddedTopo' in sticker.__class__.__name__:
         self.dep[:self.np]=sticker.interp(posi[:self.np,:],imax=1)[:,0]
         # import pdb;pdb.set_trace()
-      if 'Elevation' in sticker.__class__.__name__:
+      if 'GriddedElevation' in sticker.__class__.__name__:
         self.elev[:self.np]=sticker.interp(posi[:self.np,:],t2,imax=1)[:,0]
 
         # print self.elev[:self.np]
         # print posi[:self.np,2]
         # print self.state[:self.np]
-        # import pdb;pdb.set_trace()
-
+        
+      
       # check is material should unstick from sticker
       if self.unstick[cnt]<=0.: # default, particle cannot unstick  > unstick= 0.0
         self.state[self.state>1]=-1 # this way particles will be removed from computation
@@ -618,7 +624,11 @@ class PassiveTracer(_Material):
       diff=(6*dt*diffuser.interp(self.pos[:np],t1,self.age[:np],imax=imax))**0.5
       self.post[:np,:imax]+=numpy.random.uniform(-diff,diff,size=(np,imax))*self.mfx[:np,:imax] #self.mfx=map factors i.e. meters to lat/lon
       # correction for vertical diffusion resulting in above sea-surface Zlevel
-      self.post[:np,2]=numpy.minimum(self.post[:np,2],0.0)
+      # 
+      #  if there is an elevation sticker, do nothing:  the correction will be taken care 
+      # of in the function stick; otherwise limit particle Z to 0.0 
+      if not self.has_elevation_sticker : 
+        self.post[:np,2]=numpy.minimum(self.post[:np,2],0.0)
 
 
     

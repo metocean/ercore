@@ -682,7 +682,7 @@ def intersect_free_surface(self,pos,post,state,t1,t2):
   Returns:
     New particle positions after intersection (state modified in place)
   """
-  # import pdb; pdb.set_trace()
+  import pdb;pdb.set_trace()
   elev1=self.interp(pos,t1,imax=1)[:,0]
   elev2=self.interp(post,t2,imax=1)[:,0]
   # to ensure that outputs False if elevs are actually the same.  
