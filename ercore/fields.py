@@ -668,10 +668,10 @@ class GriddedTopo(GridData):
         pout[ind,:]=pos[ind,:]
         pout[ind,2] = dep1[ind] # reset particle depth as dep1
       else:
-        denom=(dep2[ind]-dep1[ind]+pos[ind,2]-post[ind,2])
+        denom=(dep2[ind]-dep1[ind]+pos[ind,2]-post[ind,2]) #  use Thales theorem to work out intersection point
         f=(pos[ind,2]-dep1[ind])/denom
-        pout[ind,:]=pos[ind,:]+f[:,None]*(post[ind,:]-pos[ind,:])
-        state[ind]+=1
+        pout[ind,:]=pos[ind,:]+f[:,None]*(post[ind,:]-pos[ind,:]) 
+        state[ind]+=1 # state set to 2 
     return pout
 
 def intersect_free_surface(self,pos,post,state,t1,t2):
@@ -682,7 +682,6 @@ def intersect_free_surface(self,pos,post,state,t1,t2):
   Returns:
     New particle positions after intersection (state modified in place)
   """
-  import pdb;pdb.set_trace()
   elev1=self.interp(pos,t1,imax=1)[:,0]
   elev2=self.interp(post,t2,imax=1)[:,0]
   # to ensure that outputs False if elevs are actually the same.  
@@ -696,7 +695,7 @@ def intersect_free_surface(self,pos,post,state,t1,t2):
       denom=(elev2[ind]-elev1[ind]+pos[ind,2]-post[ind,2])
       f=(pos[ind,2]-elev1[ind])/denom
       pout[ind,:]=pos[ind,:]+f[:,None]*(post[ind,:]-pos[ind,:])        
-    state[ind]=1
+    state[ind]=1 # state set to 1 i.e. keep active 
   return pout
 
 

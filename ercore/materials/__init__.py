@@ -50,6 +50,56 @@ def get_random_point_in_circle(nbuff,P0,radius):
 def eqnstate(P,T,Mg,Z=1.0):
   return R1*P*Mg/Z/(T+273)
 
+
+def check_wet_dry(self,pos_t1,pos_t2,state,t1,t2):
+  """ Copied from fields.py Class GriddedTopo.intersect
+
+  Test for intersection of particles with topo AND elevation stickers
+  The algorithm is conserved from the original function, but the depth is now dynamically 
+  estimated based on the depth and elevations at t1,t2
+  ****
+  There may be a more elegant way of doing this - create a new sticker type? or allow input of
+  GriddedElevation to GriddedTopo sticker somehow ?
+  ****
+
+  Arguments:
+    pos: previous particle positions
+    post: new particle positions
+    state: particle state
+  Returns:
+    New particle positions and depth after wetting/drying checks (state modified in place, to 2)
+
+  """
+  # compute depth and elevation at t and t+dt
+  pos_t1 = self.pos[:self.np,:] # position before advection
+  pos_t2 = self.post[:self.np,:] # position after advection
+  statei = self.state[:self.np] #
+  pos_out = pos_t2 #by default
+
+  for cnt,sticker in enumerate(self.stickers):
+    if 'GriddedTopo' in sticker.__class__.__name__:
+      dep_t1=sticker.interp(self.pos[:self.np,:],imax=1)[:,0] # at time t
+      dep_t2=sticker.interp(self.post[:self.np,:],imax=1)[:,0]  # at time t+dt
+    if 'GriddedElevation' in sticker.__class__.__name__:
+      elev_t1=sticker.interp(self.pos[:self.np,:],imax=1)[:,0] # at time t
+      elev_t2=sticker.interp(self.post[:self.np,:],imax=1)[:,0]  # at time t+dt
+
+  true_water_depth_t1 = -dep_t1 + elev_t1 # need minus sign because dpeth convention is negative down
+  true_water_depth_t2 = -dep_t2 + elev_t2
+
+  if (true_water_depth_t1<=0.1).any() :
+     # if that is the case, then the particle should NOT have moved and we should have 
+     # pos_t2 = pos_t1 at these location
+     # import pdb;pdb.set_trace()
+     pos_out[numpy.where(true_water_depth_t1<=0.1),:] = pos_t1[numpy.where(true_water_depth_t1<=0.1),:] # update position
+     pos_out[numpy.where(true_water_depth_t1<=0.1),2] = dep_t1[numpy.where(true_water_depth_t1<=0.1)] # update depth - set back to depth at t1
+
+  if (true_water_depth_t2<=0.1).any() :
+     # import pdb;pdb.set_trace()
+     pos_out[numpy.where(true_water_depth_t2<=0.1),2] = dep_t2[numpy.where(true_water_depth_t2<=0.1)] # update depth - set back to depth at t2
+  # not touching state for now - should be taken care of in main sticker check loop 
+  return pos_out
+
 #Base class for all materials - all materials must inherit from this class 
 class _Material(object):
   """Initialization:
@@ -191,11 +241,15 @@ class _Material(object):
     else:
       self.unstick=unstick
     
-    # use a switch to know if an elecvation sticker was input
+    # use a switch to know if an elevation and/or topo sticker was input
+    #  this is to ensure the order of sticker input has no importance down the track
     self.has_elevation_sticker = False 
     for sticker in stickers:
       if 'Elevation' in sticker.__class__.__name__: 
         self.has_elevation_sticker = True
+      if 'Topo' in sticker.__class__.__name__: 
+        self.has_topo_sticker = True
+    #
 
     self.movers=movers
     self.reactors=reactors
@@ -528,28 +582,28 @@ class _Material(object):
         self.dep[:self.np]=sticker.interp(posi[:self.np,:],imax=1)[:,0]
         # import pdb;pdb.set_trace()
       if 'GriddedElevation' in sticker.__class__.__name__:
-        self.elev[:self.np]=sticker.interp(posi[:self.np,:],t2,imax=1)[:,0]
-
-        # print self.elev[:self.np]
-        # print posi[:self.np,2]
-        # print self.state[:self.np]
-        
+        self.elev[:self.np]=sticker.interp(posi[:self.np,:],t2,imax=1)[:,0]        
       
       # check is material should unstick from sticker
       if self.unstick[cnt]<=0.: # default, particle cannot unstick  > unstick= 0.0
         self.state[self.state>1]=-1 # this way particles will be removed from computation
       elif (self.state>1).any(): # particle can unstick  , unstick= 1.0
         # import pdb;pdb.set_trace()
-        # posi is the position of intersection with shoreline
-        posi[numpy.where(self.state>1),:]=self.pos[numpy.where(self.state>1),:] # set posi back to the position particles were before sticking
-        self.state[numpy.where(self.state>1)]=1 # set unstuck particles back to active state=1
+        # posi is the position of intersection with shoreline or other sticker
+        id_to_unstick = numpy.where(self.state[:self.np]>1)
+        posi[id_to_unstick,:] = self.pos[id_to_unstick,:] # set posi back to the position particles were before sticking
+        self.state[id_to_unstick] = 1 # set unstuck particles back to active state=1
 
       # update particle position 
       self.post[:self.np,:]=posi[:self.np,:]
 
-    #if self.unstick<=0.:
-    # self.state[self.state>1]=-1
-    #self.post[:self.np,:]=posi[:self.np,:] 
+    # additionall wetting/drying checks if applicable
+    if hasattr(self,'dep') and hasattr(self,'elev'):
+      updated_pos_depth = check_wet_dry(self,self.pos[:self.np,:],self.post[:self.np,:],self.state,t1,t2)
+      self.post[:self.np,:] = updated_pos_depth
+
+
+
   
   def die(self,t1,t2):
     """Kill particles between times t1 and t2 and remove from simulation"""
