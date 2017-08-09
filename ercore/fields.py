@@ -94,7 +94,7 @@ class FEInterpolator(object):
     self.lev = lev
     #tree for quick nearest-neighbor lookup
     self.tree = cKDTree(numpy.vstack((self.lon,self.lat)).T)
-    # build convex hull of points for ingrid checks
+    # build convex hull of points for particle-in-mesh checks
     hull_obj = ConvexHull(numpy.vstack([self.lon,self.lat]).T)
     self.hull_path = Path(numpy.vstack([self.lon[hull_obj.vertices],self.lat[hull_obj.vertices]]).T)  # Matplotlib Path object
     self.hull = numpy.vstack([self.lon[hull_obj.vertices],self.lat[hull_obj.vertices]]).T
@@ -113,7 +113,7 @@ class FEInterpolator(object):
     else:
       datout = (fac*dat.take(i)).sum(-1)/fac.sum(-1)
     # mask out of grid points - setting velocities to 0.0
-    datout[numpy.where(~self.ingrid(p) )] = 0.0 # 
+    datout[numpy.where(~self.ingrid(p) )] = 0.0 
 
 
     return datout
@@ -489,14 +489,10 @@ class GridData(FieldData):
     datout=numpy.zeros((len(p),imax))
     for id,d in enumerate(dat[:imax]):
       datout[:,id]=self.interpolator(d,p)
-    # quick fix : set any bad data returned by interp to 0
-    # a more elegant way would probably be to use mask, maybe defining from depth 
-    # if not actual masks are available in the netcdf file ?
-    if (numpy.abs(datout[:,:])>1e10).any():
-      # import pdb;pdb.set_trace()
-      id_tmp = numpy.where(numpy.abs(datout[:,0])>1e10)
-      print "particle(s) %s : bad mover data, setting vel=0" %(id_tmp[:]) 
-      datout[id_tmp,:] = 0.0
+    # Note on masking bad data : for now, if no specific mask are avaialble in the netcdf
+    # bad data is set to 0.0 in the self.get function  
+    # there may be a more elegant way to do this ? ideally a dynamic mask including 
+    # depth and elevation (when available?)
     return datout
     
   def __str__(self):

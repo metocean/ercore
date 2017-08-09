@@ -427,11 +427,12 @@ class _Material(object):
       dt=1.
 
     elif hasattr(self,'variable_reln'): # number of released particle is defined from a file
+      # find number of particles to release at t2
       id_reln=numpy.where(numpy.abs(self.variable_reln[:,0]-t2)<=1e-6) # find correct time step
       if not id_reln[0]: 
         print 'No release number provided for t= %s - using last reln' % (t2)
         id_reln=numpy.where(numpy.abs(self.variable_reln[:,0]==self.variable_reln[-1,0]))
-      np=self.variable_reln[id_reln,1]                                 # find number of particles to release at t2
+      np=self.variable_reln[id_reln,1] 
       np=float(np)
 
     else: #Incremental release number of particle released at each time step is reln/(total_duration/timestep)
