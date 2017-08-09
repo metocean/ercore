@@ -82,33 +82,55 @@ class FEInterpolator(object):
       lev: Levels for 3D grid
     """
     from scipy.spatial import cKDTree #quick nearest-neighbor lookup
-    self.lon=lon
-    self.lat=lat
-    self.x0=min(lon)
-    self.x1=max(lon)
-    self.y0=min(lat)
-    self.y1=max(lat)
-    self.geod=geod
-    self.lev=lev
-    self.tree=cKDTree(numpy.vstack((self.lon,self.lat)).T)
-    
+    from scipy.spatial import ConvexHull # convex hull of grid points
+    from matplotlib.path import Path # convex hull of grid points
+    self.lon = lon
+    self.lat = lat
+    self.x0 = min(lon)
+    self.x1 = max(lon)
+    self.y0 = min(lat)
+    self.y1 = max(lat)
+    self.geod = geod
+    self.lev = lev
+    #tree for quick nearest-neighbor lookup
+    self.tree = cKDTree(numpy.vstack((self.lon,self.lat)).T)
+    # build convex hull of points for ingrid checks
+    hull_obj = ConvexHull(numpy.vstack([self.lon,self.lat]).T)
+    self.hull_path = Path(numpy.vstack([self.lon[hull_obj.vertices],self.lat[hull_obj.vertices]]).T)  # Matplotlib Path object
+    self.hull = numpy.vstack([self.lon[hull_obj.vertices],self.lat[hull_obj.vertices]]).T
+
   def __call__(self,dat,p):
     dist,i=self.tree.query(p[:,:2],3, n_jobs=-1) #quick nearest-neighbor lookup
+    
     if i.max()>=dat.shape[-1]:
       raise DataException('Finite element interpolation out of range')
     dist[dist<DMIN]=DMIN
     fac=(1./dist)
+    
     if dat.ndim==2:
       tmp=(fac*dat.take(i,1)).sum(-1)/fac.sum(-1)
-      return interpz(tmp.astype('f'),p[:,2],self.lev)
+      datout = interpz(tmp.astype('f'),p[:,2],self.lev)
     else:
-      return (fac*dat.take(i)).sum(-1)/fac.sum(-1)
+      datout = (fac*dat.take(i)).sum(-1)/fac.sum(-1)
+    # mask out of grid points - setting velocities to 0.0
+    datout[numpy.where(~self.ingrid(p) )] = 0.0 # 
+
+
+    return datout
     
   def ingrid(self,p):
-    inbbox=(p[:,0]>=self.x0) & (p[:,0]<=self.x1) & (p[:,1]>=self.y0) & (p[:,1]<=self.y1)
-    #inmesh=inpoly(p[inbbox,0],p[inbbox,1],self.bndx,self.bndy)
-    #inbbox[inbbox]=inmesh
-    return inbbox
+    # this checks if particle positions are within the mesh extents
+    # Note this is using the convex hull of points instead of the true mesh boundaries
+    # *** we would need infos in the netcdf itself to have bnd infos or a more evolved trimesh package ?
+    #
+    # inmesh=inpoly(p[:,0],p[:,1],self.hull[:,0],self.hull[:,1]) # this doesnt work...not sure why
+    # xp = [-1.0,1.0,1.0,-1.0,-1.0]
+    # yp = [-1.0,-1.0,1.0,1.0,-1.0]
+    # inpoly(0,0,xp,yp) yields zero ???
+
+    in_hull =self.hull_path.contains_points(p[:,:2]) # use the Path object (scipy) defined in def init
+    
+    return in_hull
     
   def grad(self,dat):
     return 0.*dat,0.*dat ##!!!!Not correct - just for testing - but this needs to be implemented
