@@ -428,6 +428,7 @@ class _Material(object):
 
     elif hasattr(self,'variable_reln'): # number of released particle is defined from a file
       # find number of particles to release at t2
+      # import pdb;pdb.set_trace()
       id_reln=numpy.where(numpy.abs(self.variable_reln[:,0]-t2)<=1e-6) # find correct time step
       if not id_reln[0]: 
         print 'No release number provided for t= %s - using last reln' % (t2)

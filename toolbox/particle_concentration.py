@@ -97,26 +97,34 @@ def load_recep_mat(fname,epsg_code_from = 4326,epsg_code_to = 2193):
 
 def load_recep_nc(fname,epsg_code_from = 4326,epsg_code_to = 2193):
     """function to load a netcdf-based receptor grid"""
-
+    if isinstance(fname,list):
+        fname = fname[0]
     dataset = netCDF4.Dataset(fname, 'r')
     if 'node' in dataset.dimensions.keys(): # unstructured grid
-        lonr = dataset.variables['lon'][:]
-        latr = dataset.variables['lat'][:]
+        try:
+            lonr = dataset.variables['lon'][:]
+            latr = dataset.variables['lat'][:]
+        except:
+            lonr = dataset.variables['longitude'][:]
+            latr = dataset.variables['latitude'][:]
         # convert from wgs84 to cartesian coordinates
         xr,yr = convert_xy_coords(lonr,latr,epsg_code_from = epsg_code_from ,epsg_code_to = epsg_code_to) 
-
+        
         if 'nv' in dataset.variables.keys(): 
             tri = dataset.variables['nv'][:,:]
-            tri = tri.T.astype(int) # format matrxi to [N_ELEM x 3]
         elif 'elem' in dataset.variables.keys():
             tri = dataset.variables['elem'][:,:]
-            tri = tri.T.astype(int) # format matrxi to [N_ELEM x 3]
+        tri = tri.astype(int)
+        if tri.shape[1] != 3 :
+            tri = tri.T # format matrix to [N_ELEM x 3]
         # add depth variable
         if 'dep' in dataset.variables.keys():           
             zr =  dataset.variables['dep'][:]
+        elif 'depth' in dataset.variables.keys():
+            zr =  dataset.variables['depth'][:]    
             # if  'positive' in dataset.variables['dep'].ncattrs():
             #     if dataset.variables['dep'].positive == 'down': 
-            #         zr = -zr # use postive down convention as in ERcore
+            #         zr = -zr # use positive down convention as in ERcore
     else : # regular grid
         lonr = dataset.variables['lon'][:]
         latr = dataset.variables['lat'][:]
