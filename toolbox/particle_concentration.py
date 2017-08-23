@@ -14,13 +14,38 @@ import netCDF4
 import datetime
 
 def read_and_convert_ascii_outputs(fname,epsg_code_to):
-    """ TO DO : >> allow to use wildcard in fname to combine several files e.g. monthly _1,_2 etc...
+    """
     # NEW FORMAT : Time    id  x   y   z   state   age mass    zbottom elev
     # OLD FORMAT : Time id  x   y   z   state   age mass  
     """
     # epsg_code_to_str = ('epsg:%i' % (epsg_code_to))
     # epsg_code_from_str = ('epsg:4326') 
+
     data = numpy.loadtxt(fname,delimiter = '\t',dtype=None,skiprows = 1)
+    # convert particles coordinates from geographic wgs84 to cartesian
+    x,y = convert_xy_coords(data[:,2],data[:,3],epsg_code_from = 4326,epsg_code_to = epsg_code_to) # ercore outputs will always be in lon/lat WGS84 coord
+    data[:,2] = x
+    data[:,3] = y
+    data_susp= data[data[:,5] == 1,:]
+    data_depos = data[data[:,5] == -1,:]
+    time = numpy.unique(data[:,0])
+    return time,data_susp,data_depos
+
+def read_and_convert_ascii_outputs_pandas(fname,epsg_code_to):
+    """
+    FASTER !!!
+    # NEW FORMAT : Time    id  x   y   z   state   age mass    zbottom elev
+    # OLD FORMAT : Time id  x   y   z   state   age mass  
+    """
+    try: 
+        import pandas
+    except:
+        print 'pandas libraries not installed - using numpy.loadtxt'
+        return
+    # epsg_code_to_str = ('epsg:%i' % (epsg_code_to))
+    # epsg_code_from_str = ('epsg:4326') 
+    data1 = pandas.read_csv(fname, delimiter = '\t', header=1)
+    data  = data1.as_matrix()
     # convert particles coordinates from geographic wgs84 to cartesian
     x,y = convert_xy_coords(data[:,2],data[:,3],epsg_code_from = 4326,epsg_code_to = epsg_code_to) # ercore outputs will always be in lon/lat WGS84 coord
     data[:,2] = x
@@ -260,6 +285,7 @@ class ComputeConcentration(object):
         'surf' : surface layer
         'mid'  : mid-depth layer
         'bot'  : bottom layer
+        'abs'  : absolute i.e : include all particles, like dav, but not depth integration 
         or combinations ['dav','surf','mid','bot']
         default is 'dav'
 
@@ -309,7 +335,11 @@ class ComputeConcentration(object):
         
 
         # load ERCORE outputs
-        self.time,self.susp,self.depos = read_and_convert_ascii_outputs(self.ercore_output_fname,self.epsg_code_cartesian)      
+        try :    
+            self.time,self.susp,self.depos = read_and_convert_ascii_outputs_pandas(self.ercore_output_fname,self.epsg_code_cartesian)      
+        except:
+            self.time,self.susp,self.depos = read_and_convert_ascii_outputs(self.ercore_output_fname,self.epsg_code_cartesian)      
+
         # load receptor grid : recep_grid is a dictionnary
         # 
         # Matlab file with receptor grid info
@@ -381,9 +411,10 @@ class ComputeConcentration(object):
 
         hull = Path(numpy.vstack([xp[conv_hull.vertices],yp[conv_hull.vertices]]).T)  # matplotlib.path.Path
         in_hull =hull.contains_points(numpy.vstack([self.receptor_grid['xr'],self.receptor_grid['yr']]).T)# path = matplotlib.path.Path(polygon)
-
+        
         # loop through receptors
         for r in range(0,len(self.receptor_grid['xr'])):
+            print(' %s / %s nodes ') %(r,len(self.receptor_grid['xr']))
             # skip if receptor is on land
             if self.on_land[r]: conc[r]=0.; continue
            # skip if receptor is outside of particle cloud convex hull
@@ -392,18 +423,26 @@ class ComputeConcentration(object):
             dx = numpy.abs(xp-self.receptor_grid['xr'][r])
             dy =  numpy.abs(yp-self.receptor_grid['yr'][r]);
             dist = numpy.sqrt(dx**2+dy**2)
-            #sort distance
-            dist_sort = numpy.sort(dist)
-            # take the neighborhood_ratio-th closest particles - the subset will be used for concentration computation
-            # **numpy.argsort  returns id that would sort `dist`
-            part2use = numpy.argsort(dist)[0:int(numpy.round(np*self.neighborhood_ratio))]
-        
+            #sort distance - not necessary
+            # dist_sort = numpy.sort(dist)
+            
+            #     take the neighborhood_ratio-th closest particles - the subset will be used for concentration computation
+            #     **numpy.argsort  returns id that would sort `dist`
+            
+            #part2use = numpy.argsort(dist)[0:int(numpy.round(np*self.neighborhood_ratio))] 
+            
+            # -------------------------------
+            # getting the self.neighborhood_ratio-th closest is equivalent to taking all distances
+            # smaller than the (self.neighborhood_ratio x 100 )th percentile of the distance
+            # ...no need to sort - could be faster ?
+            part2use = numpy.where(dist<=numpy.percentile(dist,self.neighborhood_ratio * 100))
+            # ------------------------------- 
+
             # define kernel bandwidths as per RL3 method Vitali et al. 2006:
             # for each direction x and y, the bandwidth is defined as the
             # minimum value between i) the maximum projected distance of the
             # particles within the neighbourhood and ii) twice the standard
             # deviation of the projected distances within the neighbourhood.    
-          
             lx = numpy.max(dx[part2use])
             ly = numpy.max(dy[part2use])
             lx = numpy.minimum(lx,2*numpy.std(dx[part2use]))
@@ -428,9 +467,9 @@ class ComputeConcentration(object):
                 #concentration
                 conc[r] = numpy.sum( (load[in_kernel]*Kx*Ky)/(lx*ly) )   
                 nb_part[r] = in_kernel.sum()
-                
                 # correct for land proximity - to test
                 if self.shoreline_fname :
+                    # import pdb;pdb.set_trace()
                     Ldx = numpy.abs( x_shore -self.receptor_grid['xr'][r] )
                     Ldy = numpy.abs( y_shore -self.receptor_grid['yr'][r] )
                     inear = (Ldx<=lx) & (Ldy <=ly)
@@ -584,6 +623,7 @@ class ComputeConcentration(object):
         # 'surf' : surface layer
         # 'mid'  : mid-depth layer
         # 'bot'  : bottom layer
+        # 'abs'  : absolute i.e : include all particles, like dav, but not depth integration 
         #
         #  returns :
         # - subset of the ERcore particle matrix for time = timestep and level = level2process
@@ -597,7 +637,7 @@ class ComputeConcentration(object):
             pmatrix_subset_time = pmatrix[:,:]
 
         if level2process == '': return pmatrix_subset_time # include all particles
-        if level2process == 'dav': return pmatrix_subset_time # include all particles 
+        if level2process == 'dav' or level2process == 'abs': return pmatrix_subset_time # include all particles 
         
         if not id_time.any(): 
             return pmatrix_subset_time,self.receptor_grid['zr']#
@@ -638,6 +678,8 @@ class ComputeConcentration(object):
                 # integrate concentration of suspended particles over water depth
                 if lev == 'dav': 
                     conc_susp[:] = conc_susp[:] / numpy.abs(self.receptor_grid['zr']) 
+                elif lev == 'abs':
+                    pass
                 else:
                     conc_susp[:] = conc_susp[:] / numpy.abs(self.layer_thickness)
                 # write to netcdf file
@@ -697,12 +739,20 @@ class ComputeProbabilisticConcentration(ComputeConcentration):
         # get a list of all files matching the wildcard used in the input ercore_output_fname
         import glob
         self.filelist = glob.glob(self.ercore_output_fname)
-        
         if not self.filelist: raise Exception('Empty filelist : check ercore_output_fname = %s' % self.ercore_output_fname)
-           
+        print "Loading outputs files :"
         for f in self.filelist:
+            print f
+            # import pdb;pdb.set_trace()
             # load all ERCORE outputs, and appends matrices 
-            t,susp,depos = read_and_convert_ascii_outputs(f,self.epsg_code_cartesian)
+
+            # t,susp,depos = read_and_convert_ascii_outputs(f,self.epsg_code_cartesian)
+            try :    
+                t,susp,depos = read_and_convert_ascii_outputs_pandas(f,self.epsg_code_cartesian)      
+            except:
+                t,susp,depos = read_and_convert_ascii_outputs(f,self.epsg_code_cartesian)      
+
+
             if not hasattr(self,'susp'): # first file : allocate
                 self.time_full = t
                 self.susp = susp
@@ -711,13 +761,13 @@ class ComputeProbabilisticConcentration(ComputeConcentration):
                 self.time_full = numpy.hstack([self.time_full,t])
                 self.susp = numpy.vstack([self.susp,susp])
                 self.depos = numpy.vstack([self.depos,depos])   
-
+       
         self.time = [self.time_full[0]] 
         # the time vector is not relevant in that case - only save the first timestep for format consistency
         #the filelist will be saved to know which files were used
          
         # then continue as in ComputeConcentration.__init__
-        
+        print "Load receptor grid"
         # load receptor grid : recep_grid is a dictionnary
         # 
         # Matlab file with receptor grid info
@@ -737,16 +787,19 @@ class ComputeProbabilisticConcentration(ComputeConcentration):
             self.receptor_grid = load_recep_d3d_nc(self.receptor_grid_fname,epsg_code_from = self.epsg_code_native,epsg_code_to = self.epsg_code_cartesian)
         else:   # use the same grid as a netcdf file e.g. SELFE/SCHISM
             self.receptor_grid = load_recep_nc(self.receptor_grid_fname , epsg_code_from = self.epsg_code_native,epsg_code_to = self.epsg_code_cartesian)  
-        
+        print "Read shoreline file"
         # load shoreline file, if applicable and flag points on land
         # it is expected that the shoreline point coordinates is wgs84
         self.on_land,self.shore = read_shoreline_ercore(self.shoreline_fname,self.receptor_grid['lonr'],self.receptor_grid['latr'])        
         # initialise netcdf file
+        print "Initialise netcdf file"
         self.nc_dataset = self.netcdf_file_unstruct_init()
         # subfunction looping through time, computing concentration, and wirting to file
+        print "Computing concentration ..."
         self.compute_and_write_to_ncfile()
         #close netcdf file
         self.nc_dataset.close()
+        print "Done"
 
     def netcdf_file_unstruct_init(self):
         """netcdf-writing subfunction for unstructured grid
