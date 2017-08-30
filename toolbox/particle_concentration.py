@@ -201,9 +201,13 @@ def load_recep_d3d_nc(fname,epsg_code_from = 4326,epsg_code_to = 2193):
     elem_network = elem_network -1 # Not needed  > handled within  dflowfm_io.patch2tri
 
     elem_network = numpy.where(elem_network[:]>=0,elem_network,-1)
+    # a pure triangular mesh will yield a [Nx3] matrix
+    # a mixed mesh with rectangles and traingles will yield a [Nx4] matrix
+    #     ** the 4th column of the matrix is filled with -1 for triangular elements  
+
     # pad to width 6  i.e.  [nb_elem x 6] to comply with dflowfm_io.patch2tri
     elem_network6 = -1 * numpy.ones([elem_network.shape[0], 6],dtype = numpy.int32)
-    elem_network6[:,:4] = elem_network[:,:]
+    elem_network6[:,:elem_network.shape[1]] = elem_network[:,:]
 
     #  check coordinates system of NetNode_x/NetNode_y
     isgeo =  not (numpy.abs(lonr)>360).any()
@@ -382,7 +386,6 @@ class ComputeConcentration(object):
         # neighborhood_ratio=1./20. = fraction used to define the number of particles to include in conc computation, will use nh-th closest
         # shoreline = shoreline file, optional
         """
-
         #load shoreline, if applicable
         if self.shoreline_fname :
             shoreline.read_shoreline(self.shoreline_fname)
@@ -412,6 +415,18 @@ class ComputeConcentration(object):
         hull = Path(numpy.vstack([xp[conv_hull.vertices],yp[conv_hull.vertices]]).T)  # matplotlib.path.Path
         in_hull =hull.contains_points(numpy.vstack([self.receptor_grid['xr'],self.receptor_grid['yr']]).T)# path = matplotlib.path.Path(polygon)
         
+        # #----------------
+        # import pdb;pdb.set_trace()
+        # from scipy import stats
+        # kernel = stats.gaussian_kde(numpy.vstack([xp,yp])) #build the kernel density estimator
+        # # input data has :,0:100shape (# of dims, # of data).
+        # positions = numpy.vstack([self.receptor_grid['xr'],self.receptor_grid['yr']])
+        # Z = kernel(positions).T
+        # import pdb;pdb.set_trace()
+        # numpy.savetxt('kernel.txt',numpy.vstack([self.receptor_grid['xr'],self.receptor_grid['yr'],Z]).T)
+        # #------------------
+
+
         # loop through receptors
         for r in range(0,len(self.receptor_grid['xr'])):
             print(' %s / %s nodes ') %(r,len(self.receptor_grid['xr']))
@@ -474,7 +489,7 @@ class ComputeConcentration(object):
                     Ldy = numpy.abs( y_shore -self.receptor_grid['yr'][r] )
                     inear = (Ldx<=lx) & (Ldy <=ly)
 
-                    if inear.any() & (conc[r]>0.) : 
+                    if inear.any() & (conc[r]>0.) :
                         #create local grid bandwidth
                         x1 = self.receptor_grid['xr'][r]+lx*numpy.hstack(xxu)
                         y1 = self.receptor_grid['yr'][r]+ly*numpy.hstack(yyu)

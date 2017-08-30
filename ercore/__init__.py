@@ -265,9 +265,7 @@ class ERcore(object):
             #  it is currently done
             # ****
             # save first time step to file directly after initial release at t=0
-            # uncomment below 
-            # if (i == 1 or i%iprint==0) : self.fout[e.id].write(e.sfprint(t))
-
+            if (i == 1 ) : self.fout[e.id].write(e.sfprint(t))
           last_time = self.timestamp('release', start_step)
           if self.geod:e.geodcalc()
           e.react(t,t2)
