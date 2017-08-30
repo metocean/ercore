@@ -147,7 +147,8 @@ class _Material(object):
     self.props=copy.copy(self.default_props)
     self.props['P0']=P0
     self.props['spawn']=spawn
-    if not hasattr(self.props,'ischild'):self.props['ischild']=0
+    if not hasattr(self.props,'ischild'):self.props['ischild'] = 0
+    if not hasattr(self.props,'save_initial_positions'):self.props['save_initial_positions'] = False
     self.props.update(prop)
     # import pdb;pdb.set_trace()
     # Release Options
@@ -363,35 +364,23 @@ class _Material(object):
       a[:-nind]=a[~i0]
       a[self.np:self.np+nind]=a[-1]  # backfill the locations of removed particles with new ones - here last array item
 
-
-    # ####OLD BLOCK##########################################################################################
-    # # define indices of initial particles position/depth to use to backfill the shuffled array
-    # # TO MOVE TO THE RELEASE FUNCTION -
-    # # generation of random position should happen at release time, rather than reset time >> more intuitive approach 
-    # if numpy.size(self.props['P0'][2])==2 or "circular_radius" in self.props or "polygon" in self.props or hasattr(self, 'polygon'): #then release depth is random within a range
-    #   # generate nind array indices, picked randomly within the range [self.np+nind:end]
-    #   fill_id=numpy.random.randint(self.np+nind, len(self.pos[:,0]), nind) 
-    # else:
-    #   # generate nind array indices, picked within the range [self.np+nind:end]
-    #   #fill_id=numpy.arange(len(self.pos[:,0])-nind+1,len(self.pos[:,0]),1,'int')
-    #   fill_id=-1 # using -1 replicate the last particle position/depth of the arrays - i.e. a[-1]
-    # for a in self.arrays:
-    #   if len(a)!=self.npmax+1: continue # in case of variable reln or poly
-    #   # shuffle arrays removing the dead particles 
-    #   a[:-nind]=a[~i0]
-    #   a[self.np:self.np+nind]=a[fill_id]  # fill the locations of removed particles with new ones - indices fill_id defined above depending on release type (fixed or within vertical range)    
-    #   #a[self.np:self.np+nind]=a[-1]  # in ercore_nc branch
-    #   #a[self.np:self.np+nind]=a[-nind-1:-1] # in master branch
-    #   # these dont work properly in case of random release within a poly and/or vertical range
-    # # print self.pos[self.np:self.np+nind,2]
-    #  ##############################################################################################
     return True
     
   def fheader(self):
     """Return file header for output"""
     #return 'Time\tid\tx\ty\tz\tstate\tage\tmass\n'
     return 'Time\tid\tx\ty\tz\tstate\tage\tmass\tzbottom\telev\n'
-   
+
+  def sfprint_initial_positions(self,t):
+    """Return string dump including positions and age etc...of particles after their first release,
+    and before any dispersion at specified timestep"""
+    str='' 
+    id_part = numpy.where(self.age[0:self.np] == 0)# find particles that just got released i.e. active but age==0
+    for cnt,id_to_write in enumerate(id_part[0]):
+      #str+="%f\t%d\t%f\t%f\t%f\t%d\t%f\t%f\n" % ((t,self.nid[i])+tuple(self.pos[i])+(self.state[i],self.age[i],self.mass[i]))
+      str+="%f\t%d\t%f\t%f\t%f\t%d\t%f\t%f\t%f\t%f\n" % ((t,self.nid[id_to_write])+tuple(self.pos[id_to_write])+(self.state[id_to_write],self.age[id_to_write],self.mass[id_to_write],self.dep[id_to_write],self.elev[id_to_write]))
+    return str   
+
   def sfprint(self,t):
     """Return string dump of all particles at specified timestep"""
     str=''

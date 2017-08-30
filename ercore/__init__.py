@@ -259,13 +259,16 @@ class ERcore(object):
           # the release of spawned material is taken care of further below
           if not e.props['ischild']:
             e.release(t,t2)
-            # *** 
-            #  Particle matrix should be saved here if we want to get the initial particles positions
-            #  i.e. particle matrix is saved at release time before the advection , rather than after as 
-            #  it is currently done
-            # ****
-            # save first time step to file directly after initial release at t=0
-            if (i == 1 ) : self.fout[e.id].write(e.sfprint(t))
+            # save initial positions of particles to file 
+            # Note this is called regardless of actual output time step; this is to ensure we keep the 
+            # information about all initial positions of particles.
+            # this could become an option on/off ..because it will probably slow the model runs since file is written 
+            # every time step...
+            if e.props['save_initial_positions']:
+              if e.np > 0:
+                import pdb;pdb.set_trace()
+                self.fout[e.id].write(e.sfprint_initial_positions(t))
+
           last_time = self.timestamp('release', start_step)
           if self.geod:e.geodcalc()
           e.react(t,t2)
