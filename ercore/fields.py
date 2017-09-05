@@ -15,8 +15,9 @@ ARAD=R2D/6367456.
 DMIN=1.e-10
 ALMOST_ZERO = 1.e-6
 
+
 def slope_correction(p,topo,uu):
-    '''Vertical velocity correction for slope'''
+    '''Vertical velocity correction for slope of seabed'''
     frac = numpy.ones(topo.shape[0])
     ind = (topo[:,0]!=0)
     frac[ind] = numpy.minimum(abs(p[ind,2]/topo[ind,0]),1)
@@ -62,6 +63,9 @@ class RectInterpolator(object):
     return inbbox
     
   def grad(self,dat):
+    # compute gradient - used when called in GriddedTopo to work out vertical velocity term
+    # allowing nice seabed-following particles motions near the seabed
+    # 
     dhdy,dhdx=numpy.gradient(dat)
     dhdy*=self.idy
     dhdx*=self.idx
@@ -73,7 +77,7 @@ class RectInterpolator(object):
       
 class FEInterpolator(object):
   """Interpolation class for Finite element grids"""
-  def __init__(self,lon,lat,lev=None,geod=True):
+  def __init__(self,lon,lat,tri,lev=None,geod=True):
     """Constructor for interpolator
     Arguments:
       lon: Array of longitudes for each node
@@ -98,6 +102,8 @@ class FEInterpolator(object):
     hull_obj = ConvexHull(numpy.vstack([self.lon,self.lat]).T)
     self.hull_path = Path(numpy.vstack([self.lon[hull_obj.vertices],self.lat[hull_obj.vertices]]).T)  # Matplotlib Path object
     self.hull = numpy.vstack([self.lon[hull_obj.vertices],self.lat[hull_obj.vertices]]).T
+    # save triangles - these will be needed to compute the depth gradient
+    self.tri = tri
 
   def __call__(self,dat,p):
     dist,i=self.tree.query(p[:,:2],3, n_jobs=-1) #quick nearest-neighbor lookup
@@ -133,7 +139,63 @@ class FEInterpolator(object):
     return in_hull
     
   def grad(self,dat):
-    return 0.*dat,0.*dat ##!!!!Not correct - just for testing - but this needs to be implemented
+    # gradient computation of a scalar field on a triangular mesh 
+    # 
+    # based on example here, uisng matplotlib :
+    # https://matplotlib.org/examples/pylab_examples/trigradient_demo.html
+    # http://www.edwilliams.org/avform.htm#Dist
+    from matplotlib.tri import Triangulation,CubicTriInterpolator
+    import matplotlib.cm as cm
+    import math
+    # need to access the scalar data e.g. depth
+    # triangle connectivity
+    # then apply map factors
+    # then implement proper use in code to work out 
+    # a vertical velocity allowing nice seabed-following motions near the seabed
+    if False:
+      print 'Computing bathy gradients from triangular mesh'
+      # convert lon/lat to true x,y
+      if False: # some test using different appraoch for the computation of map factors
+        lat_rad=numpy.pi*self.lat/180 # latitude in radians
+        deg_in_m_lat=111132.92-559.82 * numpy.cos(2* lat_rad)+1.175*numpy.cos(4*lat_rad)
+        deg_in_m_lon=111412.84 * numpy.cos(lat_rad)- 93.5 * numpy.cos(3*lat_rad)
+        #https://knowledge.safe.com/articles/725/calculating-accurate-length-in-meters-for-lat-long.html
+        # see also http://www.edwilliams.org/avform.htm
+        x = self.lon * deg_in_m_lon
+        y = self.lat * deg_in_m_lat
+        # convert grid lon/lat to cartesian coordinates for the gradient computation - see geodcalc in /materials/__init__.py
+        # mfx,mfy allows converting meters to degrees
+        mfy = numpy.tile(ARAD,self.lat.shape[0]) #self.mfx[:,1]=numpy.tile(ARAD,self.npmax+1)
+        mfx = mfy / numpy.cos(D2R*self.lat)#  self.mfx[:,0]=self.mfx[:,1]/numpy.cos(D2R*self.pos[:,1])
+        x1 = self.lon / mfx
+        y1 = self.lat / mfy
+
+      # convert grid lon/lat to cartesian coordinates for the gradient computation - see geodcalc in /materials/__init__.py
+      # mfx,mfy allows converting meters to degrees
+      mfy = numpy.tile(ARAD,self.lat.shape[0]) #self.mfx[:,1]=numpy.tile(ARAD,self.npmax+1)
+      mfx = mfy / numpy.cos(D2R*self.lat)#  self.mfx[:,0]=self.mfx[:,1]/numpy.cos(D2R*self.pos[:,1])
+      # get triangulation connectivty
+      self.tri_id = self.tri - 1 # switch to index-based traingle connectivty , index=0 refers to  node number 1       
+      #create the triangulation 
+      triang = Triangulation(self.lon,self.lat,self.tri_id) # use triangle data connectivity from netcdf file
+      # # create the interpolator
+      data = CubicTriInterpolator(triang, dat)
+      # # compute depth gradients at mesh nodes, but could be anywhere else
+      # NOTE : here the <depth> field is already negative down; this yields positive depth gradient when the
+      # seabed gets shallower, which is what we want
+      # (e.g. particle goes from -5m to -3m : dz = -3 -(-5) = +2 >> dz/dx >0      
+      (dhdx,dhdy) = data.gradient(self.lon,self.lat)
+      # NOTE : at this stage, gradients dh/dx, dh/dy are [meter/degrees]
+      # so these should be used on particle displacement in [degrees] (rather than [meters]).
+
+      # switch to absolute gradient - consistent with approach for regular grid...
+      # still not sure this is right...
+      dhdx *= mfx
+      dhdy *= mfy
+      import pdb;pdb.set_trace()
+      return dhdx,dhdy
+    else:
+      return 0.*dat,0.*dat ##!!!!Not correct - just for testing - but this needs to be implemented
 
 
 class FieldData:
@@ -272,6 +334,7 @@ class GridData(FieldData):
     for var in ['nv', 'elem', 'ele']:
       if var in cfile.keys():
         self.nv = True
+        self.tri = cfile[var][:,:]
         break
       else:
         self.nv = False
@@ -311,8 +374,8 @@ class GridData(FieldData):
         lon=lon.take(self.mask)
         lat=lat.take(self.mask)
       else:
-        self.mask=None 
-      self.interpolator=FEInterpolator(lon,lat,self.lev,self.geod)
+        self.mask=None
+      self.interpolator=FEInterpolator(lon,lat,self.tri,self.lev,self.geod)
     elif lat and lon:
       self.mask=None # Mask not implemented for standard grids yet
       self.interpolator=RectInterpolator(lon[0],lat[0],lon[-1],lat[-1],
@@ -616,7 +679,10 @@ class ConstantMover(ConstantData):
         uu[:,:2]=uu[:,:2]*(numpy.log(dz/self.z0))/(numpy.log(topo/self.z0)-1)
       if (imax==3):  #Vertical velocity correction for slope
         w1=slope_correction(p,topo,uu)
-        uu[:,2]+=w1
+        # uu[:,2]+=w1
+        # the below is probably not right...need to include dhdx/ dhdy see infos here
+        # C:\metocean\Google Drive\R&D\ercore_dev\bathys_gradients
+        uu[:,2]=0.0
     return uu
 
 class ConstantReactor(ConstantData):
@@ -678,18 +744,31 @@ class GriddedTopo(GridData):
     dep2=self.interp(post,imax=1)[:,0] # particle depths at t2
     # -1* to ensure that outputs False if deps are actually the same.
     # identify active particles (state=1) that will reach the seabed at t2 (post)
-    ind=((post[:,2]-dep2 < -1*ALMOST_ZERO) & (state>0)) 
+    
+    ind=((post[:,2]-dep2 < -1*ALMOST_ZERO) & (state>0)) # index of particles that would go below seabed
     pout=post[:,:]
-    if ind.sum():
-      if (pos[ind,2] < dep1[ind]).any():
-        # particles were already under bathy at t1 
-        pout[ind,:]=pos[ind,:]
-        pout[ind,2] = dep1[ind] # reset particle depth as dep1
-      else:
-        denom=(dep2[ind]-dep1[ind]+pos[ind,2]-post[ind,2]) #  use Thales theorem to work out intersection point
-        f=(pos[ind,2]-dep1[ind])/denom
-        pout[ind,:]=pos[ind,:]+f[:,None]*(post[ind,:]-pos[ind,:]) 
-        state[ind]+=1 # state set to 2 
+    if ind.sum(): # some particles would go below seabed from t1 to t2
+    # find where they would intersect
+      #---not necessary anymore----------------------------------
+      # first check if there were any particles that were ALREADY below seabed at t1
+      #  
+      # id_check1 = (pos[:,2]-dep1 < -1*ALMOST_ZERO)
+      # pout[id_check1,:]=pos[id_check1,:] # if they were, they couldnt have moved - set back to pos
+      # pout[id_check1,2]=pos[id_check1,2] # reset particle depth as dep1
+      #-------------------------------------
+      
+      denom=(dep2[ind]-dep1[ind]+pos[ind,2]-post[ind,2]) #  use Thales theorem to work out intersection point
+      f=(pos[ind,2]-dep1[ind])/denom 
+      f[denom == 0.0] = 0.0 # stay at same position
+      pout[ind,:]=pos[ind,:]+f[:,None]*(post[ind,:]-pos[ind,:]) 
+      state[ind]+=1 # state set to 2 to identify it is on seabed
+      print '%s particle(s) intersected seabed' %(ind.sum())
+      # import pdb;pdb.set_trace()
+      pout[ind,2] = numpy.maximum(dep2[ind],pout[ind,2]) # ensure that particle depth is not below seabed
+      # the line pos[ind,:]+f[:,None]*(post[ind,:]-pos[ind,:]) may not work if
+      # post[ind,2] == pos[ind,2] as for the case of passive tracer, with no diffz
+      # 
+      # This issue should be fixed when we have terms accounting for bathy gradients
     return pout
 
 def intersect_free_surface(self,pos,post,state,t1,t2):
@@ -698,7 +777,8 @@ def intersect_free_surface(self,pos,post,state,t1,t2):
     pos: previous particle positions
     post: new particle positions
   Returns:
-    New particle positions after intersection (state modified in place)
+    New particle positions after intersection (state of particles that intersected the surface
+    is set back to 1 
   """
   elev1=self.interp(pos,t1,imax=1)[:,0]
   elev2=self.interp(post,t2,imax=1)[:,0]
@@ -706,14 +786,19 @@ def intersect_free_surface(self,pos,post,state,t1,t2):
   ind=((post[:,2]-elev2 > ALMOST_ZERO) & (state>0))
   pout=post[:,:]
   if ind.sum():
-    if (pos[ind,2] > elev1[ind]).any(): # already above free surface
-      pout[ind,:] = pos[ind,:]
-      pout[ind,2] = elev1[ind]
-    else:
-      denom=(elev2[ind]-elev1[ind]+pos[ind,2]-post[ind,2])
-      f=(pos[ind,2]-elev1[ind])/denom
-      pout[ind,:]=pos[ind,:]+f[:,None]*(post[ind,:]-pos[ind,:])        
-    state[ind]=1 # state set to 1 i.e. keep active 
+    # using https://github.com/metocean/ercore/blob/ercore_nc/ercore/fields.py
+    # import pdb;pdb.set_trace()  
+    pout[ind,2] = elev2[ind] # simply set new elevation to elev2
+    state[ind]=1 # state set to 1 i.e. keep active
+    
+    # note we could use something of the type below - looking for the actual intersection, see here
+    #  but this is probably overkill given the small slopes expected for the sea surface
+    # https://github.com/metocean/ercore/blob/ercore_nc_tests/ercore/fields.py
+    #   denom=(elev2[ind]-elev1[ind]+pos[ind,2]-post[ind,2])
+    #   f=(pos[ind,2]-elev1[ind])/denom
+    #   pout[ind,:]=pos[ind,:]+f[:,None]*(post[ind,:]-pos[ind,:])     
+ 
+
   return pout
 
 
@@ -748,14 +833,16 @@ class GriddedMover(GridData):
     #Correct for vertical motion   
     if self.topo:
       topo=self.topo.interp(p,None,3)
-      #import pdb;pdb.set_trace()
       dz=numpy.maximum(p[:,2]-topo[:,0],self.z0) # particle depth above seabed (positive)
       if (not self.is3d) and (self.z0>0.0):#Log profile for 2D depth averaged currents
         # use of standard log profile to extrapolate depth-averaged current to particls depths p[:,2]
         uu[:,:2]=uu[:,:2]*(numpy.log(dz[:,numpy.newaxis]/self.z0))/(numpy.log(abs(topo[:,0:1])/self.z0)-1)
-      if (imax==3):  #Vertical velocity correction for slope
+      if (imax==3):  #Vertical velocity correction for bathymetric gradients
+        # the below is probably not right...need to include dhdx/ dhdy see infos here
+        # C:\metocean\Google Drive\R&D\ercore_dev\bathys_gradients
         w1=slope_correction(p,topo,uu)
-        uu[:,2]+=w1
+        # uu[:,2]+=w1
+        uu[:,2]=0.0
       # we should probably apply a log profile for the 3D case for the region from the last wet bin to bottom ? 
     return uu
 

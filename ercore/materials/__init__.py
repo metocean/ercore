@@ -90,13 +90,16 @@ def check_wet_dry(self,pos_t1,pos_t2,state,t1,t2):
   if (true_water_depth_t1<=0.1).any() :
      # if that is the case, then the particle should NOT have moved and we should have 
      # pos_t2 = pos_t1 at these location
-     # import pdb;pdb.set_trace()
+     #if (dep_t1[numpy.where(true_water_depth_t1<=0.1)]<-5.0).any():import pdb;pdb.set_trace()
+     import pdb;pdb.set_trace()
      pos_out[numpy.where(true_water_depth_t1<=0.1),:] = pos_t1[numpy.where(true_water_depth_t1<=0.1),:] # update position
      pos_out[numpy.where(true_water_depth_t1<=0.1),2] = dep_t1[numpy.where(true_water_depth_t1<=0.1)] # update depth - set back to depth at t1
-
+     # print 'particles on dry areas : setting %s particles depths to %s' % ( (true_water_depth_t1<=0.1).sum(),dep_t1[numpy.where(true_water_depth_t1<=0.1)] )
   if (true_water_depth_t2<=0.1).any() :
-     # import pdb;pdb.set_trace()
+     #if (dep_t2[numpy.where(true_water_depth_t2<=0.1)]<-5.0).any():import pdb;pdb.set_trace()
      pos_out[numpy.where(true_water_depth_t2<=0.1),2] = dep_t2[numpy.where(true_water_depth_t2<=0.1)] # update depth - set back to depth at t2
+     # print 'particles on dry areas : setting %s particles depths to %s' % ( (true_water_depth_t2<=0.1).sum(),dep_t2[numpy.where(true_water_depth_t1<=0.1)] )
+
   # not touching state for now - should be taken care of in main sticker check loop 
   return pos_out
 
@@ -305,10 +308,12 @@ class _Material(object):
   
   def geodcalc(self,init=False):
     """Calculate the map factors for geodetic coordinates"""
-    if init:
+    if init: # if called at initialisation
       self.mfx[:,1]=numpy.tile(ARAD,self.npmax+1)
       self.mfx[:,0]=self.mfx[:,1]/numpy.cos(D2R*self.pos[:,1])
       self.geod=True
+    # if call during model run 
+    # this updates mfx[:,0] based on effective particle positions at time t
     self.mfx[:self.np,0]=self.mfx[:self.np,1]/numpy.cos(D2R*self.pos[:self.np,1])
      
   def __str__(self):
@@ -498,17 +503,28 @@ class _Material(object):
       # release in a time-varying polygon shape is defined from a file 
       #e.g. variable_poly='variable_poly.txt'
       id_poly=numpy.where(numpy.abs(self.variable_poly[:,0]-t2)<=1e-6) # find correct time step
-      # format the polygon coordinates into [[x1,y1],[x2,y2], ...] for shapeluy Polygon
-      if not id_poly[0]: 
-        print 'No polygon provided for t= %s - using last available polygon' % (t2)
-        id_poly=numpy.where(numpy.abs(self.variable_poly[:,0]==self.variable_poly[-1,0]))
-
-      poly_tmp=self.variable_poly[id_poly,1:].squeeze()
-      poly=[[ poly_tmp[0] , poly_tmp[1] ]]
-      for ii in range(2,poly_tmp.shape[0],2):
-        poly+=[ [poly_tmp[ii],poly_tmp[ii+1]]  ]
-      self.polygon=Polygon(poly)
+      # format the polygon coordinates into [[x1,y1],[x2,y2], ...] for shapely Polygon
+      if id_poly[0] and self.variable_poly[id_poly,1:].squeeze()[0] != 0.0 : # adding the condition on 0.0 for now
+        poly_tmp=self.variable_poly[id_poly,1:].squeeze()
+        poly=[[ poly_tmp[0] , poly_tmp[1] ]]
+        for ii in range(2,poly_tmp.shape[0],2): poly+=[ [poly_tmp[ii],poly_tmp[ii+1]]  ]
+        self.polygon=Polygon(poly)
+        print 'Using polygon provided for t= %s' % (t2) #
+      else:
+        if hasattr(self, 'polygon'): # use last poly used
+          print 'No polygon provided for t= %s - keeping last available polygon' % (t2) # re-use self.polygon
+        else: # find previous "good" poly available
+          while self.variable_poly[id_poly[0],1] == 0.0 :
+            id_poly[0][0]-=1
+          poly_tmp=self.variable_poly[id_poly,1:].squeeze()
+          poly=[[ poly_tmp[0] , poly_tmp[1] ]]
+          for ii in range(2,poly_tmp.shape[0],2): poly+=[ [poly_tmp[ii],poly_tmp[ii+1]]  ]
+          self.polygon=Polygon(poly)
+          print 'No polygon provided for t= %s - using polygon provided for t= %s' % (t2,self.variable_poly[id_poly[0],0]) #            
+      
+      # import pdb;pdb.set_trace()
       point_in_poly = get_random_point_in_polygon(np,self.polygon)
+      
       self.pos[self.np:np1,0] = point_in_poly[:,0]
       self.pos[self.np:np1,1] = point_in_poly[:,1]
       self.post[self.np:np1,0]=self.pos[self.np:np1,0]
@@ -561,6 +577,11 @@ class _Material(object):
     posi=numpy.where(self.state[:np,None]<0,self.pos[:np,:],self.post[:np,:])
     # check for intersection with stickers
     for cnt,sticker in enumerate(self.stickers): # shoreline or boundary sticker
+      # print sticker.__class__.__name__
+      # print 'before'
+      # print numpy.min(self.pos[:self.np,2])
+      # print numpy.min(self.post[:self.np,2])  
+
       if ('Shoreline' in  sticker.__class__.__name__) or ('Boundary' in  sticker.__class__.__name__):
         posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np])
       else: # 2D sticker - GriddedTopo, GriddedElevation
@@ -582,14 +603,21 @@ class _Material(object):
         # import pdb;pdb.set_trace()
         # posi is the position of intersection with shoreline or other sticker
         id_to_unstick = numpy.where(self.state[:self.np]>1)
-        posi[id_to_unstick,:] = self.pos[id_to_unstick,:] # set posi back to the position particles were before sticking
+        # set posi back to the position particles were before sticking
+        # NO NEED ! this was taken care of previously
+        # posi[id_to_unstick,:] = self.pos[id_to_unstick,:] 
         self.state[id_to_unstick] = 1 # set unstuck particles back to active state=1
 
       # update particle position 
       self.post[:self.np,:]=posi[:self.np,:]
 
-    # additionall wetting/drying checks if applicable
-    if hasattr(self,'dep') and hasattr(self,'elev'):
+      # print 'after'
+      # print numpy.min(self.pos[:self.np,2])
+      # print numpy.min(self.post[:self.np,2])  
+      # if numpy.min(self.pos[:self.np,2])<-1.8: import pdb;pdb.set_trace()
+    
+    # additional checks on wetting/drying if applicable
+    if 'GriddedTopo' in self.stickers and 'GriddedElevation' in self.stickers:
       updated_pos_depth = check_wet_dry(self,self.pos[:self.np,:],self.post[:self.np,:],self.state,t1,t2)
       self.post[:self.np,:] = updated_pos_depth
 
@@ -668,6 +696,7 @@ class PassiveTracer(_Material):
       # Lonin, S.A., 1999. Lagrangian model for oil spill diffusion at sea. Spill Science and Technology Bulletin, 5(5): 331-336 
       diff=(6*dt*diffuser.interp(self.pos[:np],t1,self.age[:np],imax=imax))**0.5
       self.post[:np,:imax]+=numpy.random.uniform(-diff,diff,size=(np,imax))*self.mfx[:np,:imax] #self.mfx=map factors i.e. meters to lat/lon
+      # 
       # correction for vertical diffusion resulting in above sea-surface Zlevel
       # 
       #  if there is an elevation sticker, do nothing:  the correction will be taken care 
