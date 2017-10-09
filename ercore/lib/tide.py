@@ -215,11 +215,16 @@ def get_astro(icons,t0=datetime.datetime.now(),lat=None):
     astro,ader=astro_args(t0)
     shallow=any([(len(CONS_STR[ic])==2 if CONS_STR.has_key(ic) else False)for ic in icons ])
     v=[]
+
     for ic in icons:
       cic=ic.strip()
-      cic = ic.replace("\x00", "")#added simon 10/11/2014
+      cic = ic.replace("\x00", "")  #added simon 10/11/2014
+      cic = cic.replace("\x01", "")
+      cic = cic.replace("\x80", "")
+      # cic = ic.replace("\x00", "").replace("\x01", "").replace("\x80", "")
       if cic in CONS_STR:
         v.append(PI2* ((numpy.vdot(CONS_STR[cic][1:7],astro)+CONS_STR[cic][7]) % 1.) if len(CONS_STR[cic])>3 else 0.)
+    
     if lat:
         if lat<5 and lat>=0:lat=5
         if lat>-5 and lat<0:lat=-5
@@ -296,6 +301,7 @@ class TideStr:
         self.freq=get_freqs(self.cons)
         self.t0=t0
         self.v0,self.u0,self.f=get_astro(self.cons,t0,lat)
+        import pdb;pdb.set_trace()
         self.V=self.v0+self.u0
     
     #Return a timeseries of tidal quantity
