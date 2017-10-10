@@ -412,8 +412,6 @@ class GridData(FieldData):
         # Note the reference date "since XXXX" could be any date.
 
         # get start time string
-
-        # import pdb;pdb.set_trace()
         start_time_str = re.search('(?<=\s)\d.+$', bfile.variables['time'].units).group()   # get the file start time from the units attribute 
         # convert reference date to datetime instance
         try:
@@ -422,9 +420,12 @@ class GridData(FieldData):
           try:
             start_time = datetime.datetime.strptime(start_time_str,'%Y-%m-%d %H:%M')
           except:
-            start_time = datetime.datetime.strptime(start_time_str,'%Y-%m-%d') # internal MSL, UDS-formatted file use 1-1-1
+            # import pdb;pdb.set_trace()
+            start_time = datetime.datetime.strptime(start_time_str,'%Y-%m-%d')  # internal MSL, UDS-formatted file use 1-1-1
+              
+
           # add more template here if required 
-                 
+        import pdb;pdb.set_trace()         
         # identify time units,:  seconds,hours,days, and convert to NCEP/CF fraction of days as used in ERcore
         if 'seconds' in bfile.variables['time'].units:
           deltas = [datetime.timedelta(seconds=float(t)) for t in bfile.variables['time'][:]] # deltas is incremental number of sedconds since file start    
@@ -432,8 +433,10 @@ class GridData(FieldData):
           deltas = [datetime.timedelta(hours=float(t)) for t in bfile.variables['time'][:]] # deltas is incremental number of sedconds since file start    
         elif 'days' in bfile.variables['time'].units:
           deltas = [datetime.timedelta(days=float(t)) for t in bfile.variables['time'][:]] # deltas is incremental number of sedconds since file start    
-        
-        time0 = [ dt2ncep(start_time+delta) for delta in deltas ]                           # convert time to fraction of days - CF-compliant
+          import pdb;pdb.set_trace()
+          # there may be a bug when netcdf files are already ion fraction of days - to double check
+          
+        time0 = [ dt2ncep(start_time+delta) for delta in deltas ] # convert time to fraction of days - CF-compliant
 
           # time is already as fraction of days - since 1-1-1     as in uds    
           # time0=bfile.variables['time'][:]
