@@ -192,8 +192,8 @@ SAT_FAC['amprat']=numpy.array([0.0003,0.0058,0.1885,0.0004,0.0029,0.0004,0.0064,
 SAT_FAC['phcorr']=numpy.array([0.25,0.5,0,0.25,0.75,0.25,0.5,0.5,0,0.5,0.5,0.75,0.5,0.5,0,0.75,0.25,0.75,0,0.5,0,0.5,0.25,0.25,0.5,0,0,0.5,0.75,0.75,0,0.5,0.25,0.75,0.75,0,0,0.5,0,0.5,0.5,0.5,0,0.75,0,0.75,0.75,0.5,0,0,])
 SAT_FAC['ilatfac']=numpy.array([1,0,0,1,1,1,0,0,0,0,0,1,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0,2,2,0,0,2,2,2,0,0,0,0,0,0,0,0,2,0,2,2,0,0,0,])
 SAT_FAC['deldood']=numpy.array([[-1,0,0,1,1,1,2,2,0,0,0,1,2,2,-2,-1,-1,-1,0,0,0,0,1,1,-2,-1,0,0,-1,-1,0,0,1,1,1,2,2,0,2,2,2,2,0,1,2,-1,-1,0,0,0,],
-		[0,-2,-1,-1,0,1,0,1,-2,-1,0,0,0,1,-1,-1,0,1,-2,-1,1,2,0,1,-2,0,-2,-1,-1,0,-2,-1,-1,0,1,0,1,-1,-1,0,1,2,-1,0,0,0,1,-1,1,2,],
-		[0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,]])
+        [0,-2,-1,-1,0,1,0,1,-2,-1,0,0,0,1,-1,-1,0,1,-2,-1,1,2,0,1,-2,0,-2,-1,-1,0,-2,-1,-1,0,1,0,1,-1,-1,0,1,2,-1,0,0,0,1,-1,1,2,],
+        [0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,]])
 
 
 def astro_args(t):
@@ -255,21 +255,30 @@ def get_astro(icons,t0=datetime.datetime.now(),lat=None):
         for ic,cc in enumerate(icons):
           if CONS_STR.has_key(cc):
             if len(CONS_STR[cc])==2:
-		    for isfac in CONS_STR[cc][1]:
-			  vsind=S_CONS.index(isfac)
-			  fac=CONS_STR[cc][1][isfac]
-			  v[ic]+=vs[vsind]*fac
-			  if lat:
-				u[ic]+=us[vsind]*fac
-				f[ic]*=math.pow(fs[vsind],fac)
-		    v[ic]=PI2*(v[ic] % 1.)
+              for isfac in CONS_STR[cc][1]:
+                vsind=S_CONS.index(isfac)
+                fac=CONS_STR[cc][1][isfac]
+                v[ic]+=vs[vsind]*fac
+                if lat:
+                  u[ic]+=us[vsind]*fac
+                  f[ic]*=math.pow(fs[vsind],fac)
+                v[ic]=PI2*(v[ic] % 1.)
     return v,u,f
         
 
 def get_freqs(icons):
     #return [CONS_STR.get(ic.strip(),[None])[0] for ic in icons]
-    return [CONS_STR.get(ic.replace("\x00", ""),[None])[0] for ic in icons] #Modif s.weppe 10/11/2014
-    
+    # return [CONS_STR.get(ic.replace("\x00", ""),[None])[0] for ic in icons] #Modif s.weppe 10/11/2014
+    # convert coded string to "readable" format 
+    freq = numpy.zeros(len(icons))
+    for cnt,ic in enumerate(icons):
+        cic = ic.replace("\x00", "")  #added simon 10/11/2014
+        cic = cic.replace("\x01", "")
+        cic = cic.replace("\x80", "")
+       
+        freq[cnt] =CONS_STR.get(cic,[None])[0]
+    return freq
+
 def ap2ep(u,v):
     u = u.amp*numpy.ma.exp(-1.j*u.pha)
     v = v.amp*numpy.ma.exp(-1.j*v.pha)
@@ -294,38 +303,37 @@ def ap2ep(u,v):
 #Base tidal data class
 class TideStr:
     def __init__(self,amp,pha,icons=DEFAULT_CONS,t0=datetime.datetime.now(),lat=0.):
-	if (amp.shape[0]<>pha.shape[0]) or (amp.shape[0]<>len(icons)):raise ValueError('Amplitude, phase and constituent arguments must have same number of members')
+        if (amp.shape[0]<>pha.shape[0]) or (amp.shape[0]<>len(icons)):raise ValueError('Amplitude, phase and constituent arguments must have same number of members')
         self.cons=[ic.strip().upper() for ic in icons]
         self.amp=amp
         self.pha=pha
         self.freq=get_freqs(self.cons)
         self.t0=t0
         self.v0,self.u0,self.f=get_astro(self.cons,t0,lat)
-        import pdb;pdb.set_trace()
         self.V=self.v0+self.u0
     
     #Return a timeseries of tidal quantity
     def ts(self,times,datum='msl'):
-	  if isinstance(times,datetime.datetime):times=[times]
-	  if isinstance(times,list):
-	    t1=numpy.array([(t-self.t0).days+(t-self.t0).seconds/86400. for t in times])
-	  elif isinstance(times,Times):
-	    t1=numpy.array(times.decdays(self.t0))
-	  else:
-	    return None
-	  ts1=numpy.ma.zeros((len(t1),)+self.amp.shape[1:])
-	  ndim=len(ts1.shape)
-	  one1=numpy.ones(ts1.shape)
-	  for i,f in enumerate(self.freq):
-		ph1=self.pha[i]*one1
-		f1=f*one1
-		if ndim==3:
-		    ts1+=self.f[i]*self.amp[i]*numpy.ma.cos(f1*t1[:,numpy.newaxis,numpy.newaxis]-ph1+self.V[i])
-		elif ndim==2:
-		    ts1+=self.f[i]*self.amp[i]*numpy.ma.cos(f1*t1[:,numpy.newaxis]-ph1+self.V[i])
-		else:
-		    ts1+=self.f[i]*self.amp[i]*numpy.ma.cos(f1*t1-ph1+self.V[i])
-		if (datum.lower()=='lat')and (f>0.):ts1+=self.amp[i]
-	  return ts1
+        if isinstance(times,datetime.datetime):times=[times]
+        if isinstance(times,list):
+            t1=numpy.array([(t-self.t0).days+(t-self.t0).seconds/86400. for t in times])
+        elif isinstance(times,Times):
+            t1=numpy.array(times.decdays(self.t0))
+        else:
+            return None
+        ts1=numpy.ma.zeros((len(t1),)+self.amp.shape[1:])
+        ndim=len(ts1.shape)
+        one1=numpy.ones(ts1.shape)
+        for i,f in enumerate(self.freq):
+            ph1=self.pha[i]*one1
+            f1=f*one1
+            if ndim==3:
+                ts1+=self.f[i]*self.amp[i]*numpy.ma.cos(f1*t1[:,numpy.newaxis,numpy.newaxis]-ph1+self.V[i])
+            elif ndim==2:
+                ts1+=self.f[i]*self.amp[i]*numpy.ma.cos(f1*t1[:,numpy.newaxis]-ph1+self.V[i])
+            else:
+                ts1+=self.f[i]*self.amp[i]*numpy.ma.cos(f1*t1-ph1+self.V[i])
+            if (datum.lower()=='lat')and (f>0.):ts1+=self.amp[i]
+        return ts1
     
     
