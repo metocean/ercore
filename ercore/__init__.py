@@ -289,6 +289,7 @@ class ERcore(object):
           nind=ind.sum()
           if nind:e._reset(ind) #Recycle particles
           if nind>0:print '%d %s particles removed' % (nind,e.id)
+      print 'advect time', self.summary['advect']
       for e in self.materials:
         if dt>0:
           for spw in e.children:
