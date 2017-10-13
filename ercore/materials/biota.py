@@ -93,13 +93,14 @@ class Plankton(BuoyantTracer):
   def spawn(self,t1,t2):#Become something else or spawn
     if self.props['spawnclass']:
       # if particles are dead, sticked or floating and reached 'spawnage', 'spawn'
-      ind=((self.state==-2)+(self.state==-1)+(self.state==1)) &\
-          (self.age>=self.props['spawnage']-(t2-t1))
-      nind=ind.sum()
+      ind=((self.state==-1)+(self.state>=1)) &\
+          (self.age>=self.props['spawnage']-(t2-t1-0.001))  
+      nind = ind.sum()
       if nind:
         if self.props['maxage']==self.props['spawnage']:
           #Has become next life stage
           self.children[self.props['spawnclass']]={'pos':self.post[ind,:],'mass':self.props['spawnratio']*self.mass[ind],'nprel':nind}
+          print 'Life-stage time reached for %s into %s for %d particles' % (self.id, self.props['spawnclass'], nind)
           self.state[ind]=-3 
         else:
           #Has spawned offspring
