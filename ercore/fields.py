@@ -8,6 +8,9 @@ import netCDF4 as nc
 import glob
 import re
 import shelve
+import datetime
+from ercore.lib.tide import TideStr
+
 
 
 R2D=180./numpy.pi
@@ -208,35 +211,48 @@ class GridData(FieldData):
     self.vars=vars if isinstance(vars,list) else [vars]
     self.time=[]
     ncfile = nc.Dataset(self.filelist[0])
-    cfile=ncfile.variables
-    if cfile.has_key('time'):
+    variables=ncfile.variables
+    if variables.has_key('time'):
       self.time=[]
       self.buf1={}
       self.bufstore={}
     else:
       self.time=None
-
-    for v in self.vars:
-      if not cfile[v]:raise DataException('Variable %s not found in grid file %s' % (v,self.filename))
-      if self.time is not None and cfile[v].shape[0] == cfile['time'].shape[0]:
-        self.buf0[v]=None
-        self.buf1[v]=None
-      else:
-        self.buf0[v]=cfile[v][:]
+    minLon, maxLon, minLat, maxLat = options.get('bnd', [None,None,None,None])
 
     for vlon,vlat in [('lon','lat'),('longitude','latitude')]:
-      if vlon in cfile.keys() and vlat in cfile.keys():
-        lon, lat = cfile[vlon], cfile[vlat]
+      if vlon in variables.keys() and vlat in variables.keys():
+        lon, lat = variables[vlon][:], variables[vlat][:]
+        if minLon is not None:
+          bnd_lon_index, = numpy.where((lon>=minLon) & (lon<=maxLon))
+          bnd_lat_index, = numpy.where((lat>=minLat) & (lat<=maxLat))
+          self.spatial_index = bnd_lat_index[numpy.in1d(bnd_lat_index,bnd_lon_index)]
+          print 'Using Boundary'
+          if not numpy.any(self.spatial_index):
+            raise ERConfigException('Boundary outside of domain for %s' % id)
+        else:
+          self.spatial_index = None
         break
       else:
         raise DataException('Dataset needs lon, lat variables')
 
+    for v in self.vars:
+      if not variables[v]:raise DataException('Variable %s not found in grid file %s' % (v,self.filename))
+      if self.time is not None and variables[v].shape[0] == variables['time'].shape[0]:
+        self.buf0[v]=None
+        self.buf1[v]=None
+      else:
+        if numpy.any(self.spatial_index):
+          self.buf0[v]=variables[v][:].take(self.spatial_index,-1)
+        else:
+          self.buf0[v]=variables[v][:]
+
     # Check for nv variables for finite elements grids
-    self.nv = True if 'nv' in cfile.keys() else None
+    self.nv = True if 'nv' in variables.keys() else None
 
     for var in ['zlevels', 'lev', 'levels', 'level']:
-      if var in cfile.keys():
-        self.lev = cfile[var][:]
+      if var in variables.keys():
+        self.lev = variables[var][:]
         self.is3d = True
         break
       else:
@@ -246,20 +262,15 @@ class GridData(FieldData):
     if options.pop('zcoord','up')=='down':
       if self.is3d: self.lev=-self.lev
       self.zinvert=True
-
+    
+    
     if self.nv:
       # Is finite element grid
-      lon=lon[:]
-      lat=lat[:]
-      # if cfile.has_key('mask'):
-      #   self.mask=numpy.where(cfile['mask'][:] != False )[0]
-      #   lon=lon.take(self.mask)
-      #   lat=lat.take(self.mask)
-      # else:
-      self.mask=None
+      lon=lon[self.spatial_index]
+      lat=lat[self.spatial_index]
+
       self.interpolator=FEInterpolator(lon,lat,self.lev,self.geod)
     elif lat and lon:
-      self.mask=None # Mask not implemented for standard grids yet
       self.interpolator=RectInterpolator(lon[0],lat[0],lon[-1],lat[-1],
                                         (lon[1]-lon[0]) if len(lon)>1 else 0,
                                         (lat[1]-lat[0]) if len(lat)>1 else 0,
@@ -267,8 +278,6 @@ class GridData(FieldData):
                                         lat if self.geod else None)
     else:
       raise DataException('Gridded file %s structure not understood' % (self.filename))
-
-    self.res=min(self.interpolator.x1-self.interpolator.x0,self.interpolator.y1-self.interpolator.y0)
 
     self.__dict__.update(options)
 
@@ -293,7 +302,7 @@ class GridData(FieldData):
         self.time.extend(time0) #Add times in file to time list
         self.flen.append(len(time0))
         self.timeindex.append(len(self.time)) #Add start time index of next file
-        self.load_keystore(filepath)
+        #self.load_keystore(filepath)
       self.flen.append(self.flen[-1])
       self.reset()
 
@@ -366,15 +375,13 @@ class GridData(FieldData):
         ncfile2 = self.files[self.fileind1]
         var1 = ncfile1.variables[v]
         var2 = ncfile2.variables[v]
-        arr1 = var1[ind0][:]
-        arr2 = var2[ind1][:]
-        key1 = self.get_key(self.fileind0, v)
-        key2 = self.get_key(self.fileind1, v)
-        self.buf0[v]= decrypt_var(var1, key1, arr1)
-        self.buf1[v]= decrypt_var(var2, key2, arr2)
-        if numpy.any(self.mask):
-          self.buf0[v]=self.buf0[v].take(self.mask,-1)
-          self.buf1[v]=self.buf1[v].take(self.mask,-1)
+        if numpy.any(self.spatial_index):
+          self.buf0[v] = var1[ind0][:].take(self.spatial_index, -1)
+          self.buf1[v] = var2[ind1][:].take(self.spatial_index, -1)
+        else:
+          self.buf0[v] = var1[ind0][:]
+          self.buf1[v] = var2[ind1][:]
+
     if (self.tind==0) and (time<self.time[0]):
       print 'Warning: model time (%s) before start time (%s) of data %s' % (ncep2dt(time), ncep2dt(self.time[0]), self.id)
     elif (self.tind==len(self.time)-1) and (time>self.time[-1]):
@@ -447,8 +454,6 @@ class ConstantTide(ConstantData):
 
 class GriddedTide(GridData):
   def __init__(self,id,vars,**options):
-    from ercore.lib.tide import TideStr
-    import datetime
     GridData.__init__(self,id,[vars[0]+'_amp'],**options)
     self.vars=vars
     fcons=[cons.tostring().rstrip().rstrip('\x00').upper() for cons in self.files[0].variables['cons'][:]]
@@ -475,15 +480,12 @@ class GriddedTide(GridData):
       ncfile = self.files[0]
       varamp = ncfile.variables[vamp]
       varpha = ncfile.variables[vpha]
-      arramp = varamp[consindex,:]
-      arrpha = varpha[consindex,:]
-      keyamp = self.get_key(0, vamp)
-      keypha = self.get_key(0, vpha)
-      arramp = decrypt_var(varamp, keyamp, arramp)
-      arrpha = decrypt_var(varpha, keypha, arrpha)
-      if numpy.any(self.mask):
-        arramp = arramp.take(self.mask, -1)
-        arrpha = arrpha.take(self.mask, -1)
+      if numpy.any(self.spatial_index):
+        arramp = varamp[consindex,:].take(self.spatial_index, -1)
+        arrpha = varpha[consindex,:].take(self.spatial_index, -1)
+      else:
+        arramp = varamp[consindex,:]
+        arrpha = varpha[consindex,:]
       self.amp[v]=arramp
       self.phac[v]=numpy.cos(arrpha)
       self.phas[v]=numpy.sin(arrpha)
