@@ -4,7 +4,7 @@ import copy
 from ercore import dt2ncep,parsetime,ObjectList,ERRuntimeException
 from ercore.lib import pres,temppot,dens
 from ercore._flib_ercore import slipvel
-from shapely.geometry import Point,Polygon
+#from shapely.geometry import Point,Polygon
 
 R2D=180./numpy.pi
 D2R=1/R2D
@@ -264,7 +264,7 @@ class _Material(object):
     self.children={}
     self.outfile=outfile if outfile else 'ercore.'+self.id+'.out'
     self.relsumt=0.
-    if self.tstart!=self.tend:self._npt=1.*self.reln/abs(self.tend-self.tstart)
+    if self.tstart!=self.tend:self._npt=1.*self.reln/abs(self.tend-self.tstart) # particles released per day
     
   def yamlstr(self):
     str="""
@@ -412,7 +412,8 @@ class _Material(object):
 
     # Release types
     # 
-    # 
+    #
+
     if k.has_key('nprel'): # Prescribed release size 
       np=k['nprel']
 
@@ -437,18 +438,16 @@ class _Material(object):
 
     # staged release 
     if self.tstep_release>0.0:
-      dt1=t2-self.tstart #time since start of model start
+      dt1=t2-self.tstart #time since start of model start 
       if abs(((dt1*24)/self.tstep_release)-round(((dt1*24)/self.tstep_release)))<1e-3:
         #checks if current time is a true multiple of the tstep_release
         #if yes : release particles , if no : no release
-        # 
         # Note : the number of particles released every tstep_release, will be equivalent to the number 
         # of particles that would have been released in case of continuous release, over the tstep_release interval
         # In that sense, the reln parameter (total nb of part released over simulation) is still relevant
-        nb_rel=self.tstep_release/(dt*24) # = how many timesteps in between each release
+        nb_rel=numpy.round( self.tstep_release/(dt*24) ) # = how many timesteps in between each release
         #so np should be
-        np=int(nb_rel*np)
-        # import pdb;pdb.set_trace()
+        np=int(nb_rel*np)       
       else: #then no release
         # import pdb;pdb.set_trace()
         np=0
@@ -722,7 +721,6 @@ class BuoyantTracer(PassiveTracer):
     if self.np==0:return
     PassiveTracer.advect(self,t1,t2,order)
     self.post[:self.np,2]+=86400.*(t2-t1)*self.w0[:self.np]
-    
     
 class Drifter(PassiveTracer):
   #Reactors:wind
