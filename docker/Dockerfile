@@ -10,7 +10,7 @@ RUN echo "-----------------Install Ercore-----------------" &&\
     ln -s $REPOS/ercore/erbio /usr/local/bin/ &&\
     ln -s $REPOS/ercore/eroil /usr/local/bin/ &&\
     ln -s $REPOS/ercore/ersar /usr/local/bin/ &&\
-    ln -s $REPOS/ercore/erall /usr/local/bin/ &&\
+    ln -s $REPOS/ercore/erall /usr/local/bin/
 
 
 
