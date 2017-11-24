@@ -4,7 +4,7 @@ import copy
 from ercore import dt2ncep,parsetime,ObjectList,ERRuntimeException
 from ercore.lib import pres,temppot,dens
 from ercore._flib_ercore import slipvel
-#from shapely.geometry import Point,Polygon
+from shapely.geometry import Point,Polygon
 
 R2D=180./numpy.pi
 D2R=1/R2D
@@ -737,7 +737,8 @@ class Drifter(PassiveTracer):
     if len(self.reactors)==0:return
     np=self.np
     dt=86400.*(t2-t1)
-    ul#Windage with cross and down-wind ranges
+    # import pdb;pdb.set_trace()
+    #Windage with cross and down-wind ranges
     wvec=0.5*(self.reactors[0].interp(self.pos[:np],t1,imax=2)+self.reactors[0].interp(self.post[:np],t2,imax=2))
     wsp=((wvec**2).sum(1))**0.5
     wdir=numpy.arctan2(wvec[:,1],wvec[:,0])

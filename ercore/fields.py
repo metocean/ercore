@@ -436,8 +436,14 @@ class GridData(FieldData):
           deltas = [datetime.timedelta(days=float(t)) for t in bfile.variables['time'][:]] # deltas is incremental number of sedconds since file start    
           # there may be a bug when netcdf files are already ion fraction of days - to double check
         time0 = [ dt2ncep(start_time+delta) for delta in deltas ] # convert time to fraction of days - CF-compliant
-          # if time is already as fraction of days - since 1-1-1     as in uds    
-          # time0=bfile.variables['time'][:]
+        
+        # if time is already as fraction of days - since 1-1-1 as output from the UDS
+        # the approach above will mess up the time vector..not sure why..    
+        
+        if start_time == datetime.datetime(1,1,1,0,0,0):
+          import pdb;pdb.set_trace()
+          print 'using raw time vector from Netcdf file :  %s'  % (bfile.variables['time'].units)
+          time0=bfile.variables['time'][:]
 
         if (len(self.time)>0) and (time0[0]<self.time[-1]):raise DataException('For templated time files times must be increasing - time in file %s less than preceeding file' % (bfile.filepath())) 
         self.time.extend(time0) #Add times in file to time list
