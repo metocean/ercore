@@ -134,8 +134,13 @@ class FEInterpolator(object):
     # yp = [-1.0,-1.0,1.0,1.0,-1.0]
     # inpoly(0,0,xp,yp) yields zero ???
 
-    in_hull =self.hull_path.contains_points(p[:,:2]) # use the Path object (scipy) defined in def init
-    
+    if hasattr(self.hull_path,'contains_points'): 
+        in_hull =self.hull_path.contains_points(p[:,:2]) # use the Path object (scipy) defined in def init
+    else: # old matplotlib version - need to loop ourselves
+        in_hull = numpy.ones(len(p[:,0]),dtype=bool)
+        for kk,xy in enumerate(p[:,0]):
+            in_hull[kk] =self.hull_path.contains_point(p[kk,:2]) 
+                
     return in_hull
     
   def grad(self,dat):
