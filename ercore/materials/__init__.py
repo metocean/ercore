@@ -433,12 +433,13 @@ class _Material(object):
 
     else: #Incremental release number of particle released at each time step is reln/(total_duration/timestep)
       self.relsumt+=abs(dt)
-      np=k.get('nprel',abs(int(self.relsumt*self._npt)))
+      np=k.get('nprel',abs( int ( numpy.round(self.relsumt*self._npt) ) ) )
       if np>0:self.relsumt-=1.0*np/self._npt
 
     # staged release 
     if self.tstep_release>0.0:
-      dt1=t2-self.tstart #time since start of model start 
+      dt1=t2-self.tstart #time since start of model start
+      print dt1*24 
       if abs(((dt1*24)/self.tstep_release)-round(((dt1*24)/self.tstep_release)))<1e-3:
         #checks if current time is a true multiple of the tstep_release
         #if yes : release particles , if no : no release
@@ -447,7 +448,7 @@ class _Material(object):
         # In that sense, the reln parameter (total nb of part released over simulation) is still relevant
         nb_rel=numpy.round( self.tstep_release/(dt*24) ) # = how many timesteps in between each release
         #so np should be
-        np=int(nb_rel*np)       
+        np=int(nb_rel*np)
       else: #then no release
         # import pdb;pdb.set_trace()
         np=0
