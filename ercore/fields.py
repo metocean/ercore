@@ -446,7 +446,7 @@ class GridData(FieldData):
         # the approach above will mess up the time vector..not sure why..    
         
         if start_time == datetime.datetime(1,1,1,0,0,0):
-          import pdb;pdb.set_trace()
+          # import pdb;pdb.set_trace()
           print 'using raw time vector from Netcdf file :  %s'  % (bfile.variables['time'].units)
           time0=bfile.variables['time'][:]
 
