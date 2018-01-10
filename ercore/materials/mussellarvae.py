@@ -51,29 +51,47 @@ class MusselLarvae(PassiveTracer):
       if 'GriddedElevation' in sticker.__class__.__name__:
         self.elev[:self.np]=sticker.interp(posi[:self.np,:],t2,imax=1)[:,0] 
 
-      
-      # check is material should unstick from sticker based on its age
-      # 
-      # if particles are younger than the critical age - they will always be recirculated,
-      # if they are older than the critical age, they will stick , and be removed from the model.
-      # import pdb;pdb.set_trace()      
-      id_to_unstick = numpy.where(self.age[:self.np]<=self.props.get('critical_age'))
-      self.state[id_to_unstick] = 1 # set state of particles we want to unstick, back to an active state=1
-
-      # update particle position 
+      # update particle positions to intersection points 
       self.post[:self.np,:]=posi[:self.np,:]
 
-      # note : posi was already back to the position particles were before sticking so no need to re-change it
 
-      # print 'after'
-      # print numpy.min(self.pos[:self.np,2])
-      # print numpy.min(self.post[:self.np,2])  
-      # if numpy.min(self.pos[:self.np,2])<-1.8: import pdb;pdb.set_trace()
+    # After the sticker loop was done, check if particles should unstick from "sticker" based on its age
+    # 
+    # if particles are younger than the critical age - they will always be recirculated,
+    # if they are older than the critical age, they will stick , and be removed from the model.
+    # 
+    if (self.state>1).any(): # some particles intersected land - need to check if we recirculate or remove
+      # import pdb;pdb.set_trace()
+
+      # self.pos[self.state>1] # last position before intersection
+      # self.post[self.state>1] # position on land 
+      # posi[self.state[:self.np]>1] # intersection point // note len(posi)=self.np, while len(self.pos) = nbuff 
+      
+      # identify particles that were set to be removed (i.e. state==2), but that should be recirculated i.e. age<critical age
+      id_to_unstick = numpy.where( (self.state > 1) & (self.age<=self.props.get('critical_age'))  ) 
+      print 'ID to unstick %s ' % (id_to_unstick)
+      print 'recirculating %s particles' % (len(id_to_unstick[0]))
+      print 'ages : %s ' % (self.age[id_to_unstick[0]])
+      print 'MAX age : %s ' % (max(self.age))
+      # set state of thos particles we want to unstick, back to an active state=1
+      self.state[id_to_unstick] = 1 
+      # move those particles back to the last position before sticking (rather than intertsection points in Material class)
+      self.post[id_to_unstick,:] = self.pos[id_to_unstick,:]
+      # print self.post[id_to_unstick,:]
+      # print self.pos[id_to_unstick,:]
+      id_to_keep_stuck = numpy.where( (self.state > 1) & (self.age>self.props.get('critical_age'))  )
+      self.state[id_to_keep_stuck] = -1 # this would be done anyways in the main loop , but we explicitely do it here for clarity 
+      if self.state[id_to_keep_stuck].any():
+        print 'Removing %s particles with age>critical_age' % (len(id_to_keep_stuck[0]))
+
+     
+    # For the particles whose state was set to 2 , but are not younger than critical_age : no change, they will be removed
+
     
-    # additional checks on wetting/drying if applicable
-    if 'GriddedTopo' in self.stickers and 'GriddedElevation' in self.stickers:
-      updated_pos_depth = check_wet_dry(self,self.pos[:self.np,:],self.post[:self.np,:],self.state,t1,t2)
-      self.post[:self.np,:] = updated_pos_depth
+    # # additional checks on wetting/drying if applicable
+    # if 'GriddedTopo' in self.stickers and 'GriddedElevation' in self.stickers:
+    #   updated_pos_depth = check_wet_dry(self,self.pos[:self.np,:],self.post[:self.np,:],self.state,t1,t2)
+    #   self.post[:self.np,:] = updated_pos_depth
 
   def react(self,t1,t2):
     """ Here we can add reactions with temp/salt etc.. if applicable"""
@@ -82,10 +100,15 @@ class MusselLarvae(PassiveTracer):
   def die(self,t1,t2):
     """Kill particles between times t1 and t2 and remove from simulation"""
     if self.np==0:return
-    #dead=(self.age>self.props.get('maxage',1.e20)) | (self.mass<=0.0001*self.mass0)
-    #self.state[dead]=-2
+    # print max( self.age[:self.np])
+    # if ( self.age[:self.np] > self.props.get('maxage',1.e20) ).any() :
+      # import pdb;pdb.set_trace()
+
     dead = ( self.age[:self.np] > self.props.get('maxage',1.e20) )
-    self.state[:self.np][dead]=-2
+    self.state[:self.np][dead] = -2
+
+    # Not sure this is working ....check 
+
 
   # def diffuse(self,t1,t2):
   #   """Do diffusion for t1 to t2"""

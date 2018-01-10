@@ -773,7 +773,9 @@ class GriddedTopo(GridData):
       f=(pos[ind,2]-dep1[ind])/denom 
       f[denom == 0.0] = 0.0 # stay at same position
       pout[ind,:]=pos[ind,:]+f[:,None]*(post[ind,:]-pos[ind,:]) 
-      state[ind]+=1 # state set to 2 to identify it is on seabed
+      # WAS : state[ind]+=1 # state set to 2 to identify it is on seabed
+      state[ind] = 2 # state set to 2 to identify it is on seabed 
+      # modified because the incrementation += results in state > 2, in case of GriddedDataGroup (because it loops through various GriddedTopo)
       print '%s particle(s) intersected seabed' %(ind.sum())
       # import pdb;pdb.set_trace()
       pout[ind,2] = numpy.maximum(dep2[ind],pout[ind,2]) # ensure that particle depth is not below seabed

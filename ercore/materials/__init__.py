@@ -609,7 +609,7 @@ class _Material(object):
         # posi[id_to_unstick,:] = self.pos[id_to_unstick,:] 
         self.state[id_to_unstick] = 1 # set unstuck particles back to active state=1
 
-      # update particle position 
+      # update particle positions to intersection points 
       self.post[:self.np,:]=posi[:self.np,:]
 
       # print 'after'
