@@ -69,11 +69,13 @@ class MusselLarvae(PassiveTracer):
       
       # identify particles that were set to be removed (i.e. state==2), but that should be recirculated i.e. age<critical age
       id_to_unstick = numpy.where( (self.state > 1) & (self.age<=self.props.get('critical_age'))  ) 
-      print 'ID to unstick %s ' % (id_to_unstick)
-      print 'recirculating %s particles' % (len(id_to_unstick[0]))
-      print 'ages : %s ' % (self.age[id_to_unstick[0]])
-      print 'MAX age : %s ' % (max(self.age))
-      # set state of thos particles we want to unstick, back to an active state=1
+      
+      # print 'ID to unstick %s ' % (id_to_unstick)
+      # print 'recirculating %s particles' % (len(id_to_unstick[0]))
+      # print 'ages : %s ' % (self.age[id_to_unstick[0]])
+      # print 'MAX age : %s ' % (max(self.age))
+
+      # set state of those particles we want to unstick, back to an active state=1
       self.state[id_to_unstick] = 1 
       # move those particles back to the last position before sticking (rather than intertsection points in Material class)
       self.post[id_to_unstick,:] = self.pos[id_to_unstick,:]

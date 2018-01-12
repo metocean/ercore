@@ -689,11 +689,12 @@ class ConstantMover(ConstantData):
       topo=self.topo.interp(p,None,3)
       if (not self.is3d) and (self.z0>0):#Log profile for 2D case
         uu[:,:2]=uu[:,:2]*(numpy.log(dz/self.z0))/(numpy.log(topo/self.z0)-1)
-      if (imax==3):  #Vertical velocity correction for slope
-        w1=slope_correction(p,topo,uu)
-        # uu[:,2]+=w1
+      if (imax==3): #Vertical velocity correction for bathymetric gradients
         # the below is probably not right...need to include dhdx/ dhdy see infos here
         # C:\metocean\Google Drive\R&D\ercore_dev\bathys_gradients
+        # 
+        # w1=slope_correction(p,topo,uu) Not using for now, this needs to be reviewed
+        # uu[:,2]+=w1
         uu[:,2]=0.0
     return uu
 
@@ -832,7 +833,6 @@ class TidalElevation(GriddedTide):
   def intersect(self,pos,post,state,t1,t2):
     return intersect_free_surface(self,pos,post,state,t1,t2)
 
-
 class GriddedMover(GridData):
   z0=0.001 # setting default z0 to 0.001 m - must be >0 otherwise the log profile is not used  
   topo=None
@@ -853,7 +853,7 @@ class GriddedMover(GridData):
       if (imax==3):  #Vertical velocity correction for bathymetric gradients
         # the below is probably not right...need to include dhdx/ dhdy see infos here
         # C:\metocean\Google Drive\R&D\ercore_dev\bathys_gradients
-        w1=slope_correction(p,topo,uu)
+        # w1=slope_correction(p,topo,uu) Not using for now, this needs to be reviewed
         # uu[:,2]+=w1
         uu[:,2]=0.0
       # we should probably apply a log profile for the 3D case for the region from the last wet bin to bottom ? 
@@ -871,9 +871,13 @@ class TidalMover(GriddedTide):
       dz=numpy.maximum(p[:,2]-topo[:,0],self.z0)
       if (not self.is3d) and (self.z0>0.0):#Log profile for 2D case
         uu[:,:2]=uu[:,:2]*(numpy.log(dz[:,numpy.newaxis]/self.z0))/(numpy.log(abs(topo[:,0:1])/self.z0)-1)
-      if (imax==3): #Vertical velocity correction for slope
-        w1=slope_correction(p,topo,uu)
-        uu[:,2]+=w1
+      if (imax==3): #Vertical velocity correction for bathymetric gradients
+        # the below is probably not right...need to include dhdx/ dhdy see infos here
+        # C:\metocean\Google Drive\R&D\ercore_dev\bathys_gradients
+        # 
+        # w1=slope_correction(p,topo,uu) Not using for now, this needs to be reviewed
+        # uu[:,2]+=w1
+        uu[:,2]=0.0
     return uu
 
 class GriddedReactor(GridData):
