@@ -297,7 +297,8 @@ class ERcore(object):
           # a particle can become out of compute if it has stuck to a sticker, or moved out of the model area, or decay etc...  
           nind=ind.sum()
           # if nind>0:import pdb;pdb.set_trace()
-          if nind:e._reset(ind) #Recycle particles
+          if nind:
+            e._reset(ind) #Recycle particles
           if nind>0:print '%d %s particles removed' % (nind,e.id)
       # check if the initial materials have "spawned" any children
       for e in self.materials:

@@ -339,9 +339,10 @@ class _Material(object):
     return Particle(self.pos[ind,:],self.state[ind],self.age[ind],self.mass[ind],self.props)
     
   def _reset(self,i0):
-    """Reset and shuffle arrays after particles removed
+    """Reset and shuffle arrays after particles c
     i0 is a boolean array which is True for active particles / False otherwise
     """
+
     if len(self.arrays)==0:
       for a in dir(self):
         if isinstance(getattr(self,a),numpy.ndarray):

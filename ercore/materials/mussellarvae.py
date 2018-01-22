@@ -84,6 +84,7 @@ class MusselLarvae(PassiveTracer):
       id_to_keep_stuck = numpy.where( (self.state > 1) & (self.age>self.props.get('critical_age'))  )
       self.state[id_to_keep_stuck] = -1 # this would be done anyways in the main loop , but we explicitely do it here for clarity 
       if self.state[id_to_keep_stuck].any():
+        #import pdb;pdb.set_trace()
         print 'Removing %s particles with age>critical_age' % (len(id_to_keep_stuck[0]))
 
      

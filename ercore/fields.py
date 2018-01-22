@@ -57,6 +57,7 @@ class RectInterpolator(object):
       return interp3d(dat,p[:,0],p[:,1],p[:,2],self.x0,self.y0,self.idx,self.idy,self.lev)
     else:
       return interph(dat,p[:,0],p[:,1],self.x0,self.y0,self.idx,self.idy)
+
     
   def ingrid(self,p):
     inbbox=(p[:,0]>=self.x0) & (p[:,0]<=self.x1) & (p[:,1]>=self.y0) & (p[:,1]<=self.y1)
@@ -530,10 +531,22 @@ class GridData(FieldData):
           self.buf0[v]=self.files[self.fileind0][v][ind0].filled()
           self.buf1[v]=self.files[self.fileind1][v][ind1].filled()
         else:  # if no specific mask input - set "bad data" to 0.0
-          id0 = numpy.where(numpy.abs(self.buf0[v][:])>1e10) or numpy.where(numpy.abs(self.buf0[v][:]) == 999) #or self.buf0[v][:] == ncfile2.variables[v].missing_value
+          
+          id0 = numpy.where(numpy.abs(self.buf0[v][:])>1e10) or numpy.where(numpy.abs(self.buf0[v][:]) == 999) #or numpy.where(numpy.abs(self.buf0[v][:]) == 999)
           self.buf0[v][id0] = 0.0
           id1 = numpy.where(numpy.abs(self.buf1[v][:])>1e10) or numpy.where(numpy.abs(self.buf1[v][:]) == 999) 
           self.buf1[v][id1] = 0.0
+          # check if missing_value attribute exist, if it does, set bad data to 0.0 accordingly
+          if hasattr(var1,'fill_value'):
+            id0 = numpy.where(numpy.abs(self.buf0[v][:]) == var1.fill_value)
+            self.buf0[v][id0] = 0.0
+            id1 = numpy.where(numpy.abs(self.buf1[v][:]) == var1.fill_value) 
+            self.buf1[v][id1] = 0.0
+          if hasattr(var1,'missing_value'):
+            id0 = numpy.where(numpy.abs(self.buf0[v][:]) == var1.missing_value)
+            self.buf0[v][id0] = 0.0
+            id1 = numpy.where(numpy.abs(self.buf1[v][:]) == var1.missing_value) 
+            self.buf1[v][id1] = 0.0
 
 
     if (self.tind==0) and (time<self.time[0]):
@@ -564,7 +577,7 @@ class GridData(FieldData):
     datout=numpy.zeros((len(p),imax))
     for id,d in enumerate(dat[:imax]):
       datout[:,id]=self.interpolator(d,p)
-    # Note on masking bad data : for now, if no specific mask are avaialble in the netcdf
+    # Note on masking bad data : for now, if no specific mask are available in the netcdf
     # bad data is set to 0.0 in the self.get function  
     # there may be a more elegant way to do this ? ideally a dynamic mask including 
     # depth and elevation (when available?)
@@ -622,6 +635,7 @@ class GriddedTide(GridData): # Tidal consituent grid
     consindex=[]
     self.cons=[]
     consreq=options.get('cons',fcons)
+    
     for icons,cons in enumerate(fcons):
       if cons in consreq:
          consindex.append(icons)
@@ -652,12 +666,23 @@ class GriddedTide(GridData): # Tidal consituent grid
       #keypha = self.get_key(0, vpha)
       #arramp = decrypt_var(varamp, keyamp, arramp)
       #arrpha = decrypt_var(varpha, keypha, arrpha)
+      
+       #remove bad data if present
       if numpy.any(self.mask):
         arramp = arramp.take(self.mask, -1)
         arrpha = arrpha.take(self.mask, -1)
+      
+      if hasattr(arramp,'mask'):
+        # in case of masked numpy array 
+        arramp.data[arramp.mask] = 0.0
+      else :
+        # standard array
+        arramp[numpy.abs(arramp)>=99.0] = 0.0
+
       self.amp[v]=arramp
       self.phac[v]=numpy.cos(arrpha)
       self.phas[v]=numpy.sin(arrpha) 
+      
       if (self.amp[v].shape[0]<>self.ncons) or (self.phac[v].shape[0]<>self.ncons):
         raise ConfigException('First dimension of amplitudes and phases must match number of constituents')
   
