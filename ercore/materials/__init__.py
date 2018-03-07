@@ -578,6 +578,7 @@ class _Material(object):
     posi=numpy.where(self.state[:np,None]<0,self.pos[:np,:],self.post[:np,:])
     # check for intersection with stickers
     for cnt,sticker in enumerate(self.stickers): # shoreline or boundary sticker
+      isgroup = hasattr(sticker,'members') # is this a group of sticker or single sticker
       # print sticker.__class__.__name__
       # print 'before'
       # print numpy.min(self.pos[:self.np,2])
@@ -590,14 +591,20 @@ class _Material(object):
       # posi is the matrix of intersection positions
       # particles that intersected the sticker will be flagged with self.state==2
       
-      # additional checks for GriddedTopo and Elevation cases
-      if 'GriddedTopo' in sticker.__class__.__name__:
-        self.dep[:self.np]=sticker.interp(posi[:self.np,:],imax=1)[:,0]
-        # print self.dep[:self.np]
-        # import pdb;pdb.set_trace()
-      if 'GriddedElevation' in sticker.__class__.__name__:
-        self.elev[:self.np]=sticker.interp(posi[:self.np,:],t2,imax=1)[:,0]        
-      
+      if not isgroup : 
+        # additional checks for GriddedTopo and Elevation cases
+        if 'GriddedTopo' in sticker.__class__.__name__:
+          self.dep[:self.np]=sticker.interp(posi[:self.np,:],imax=1)[:,0]
+          # print self.dep[:self.np]
+        if 'GriddedElevation' in sticker.__class__.__name__:
+          self.elev[:self.np]=sticker.interp(posi[:self.np,:],t2,imax=1)[:,0]  
+      else : # quick fix
+        if 'GriddedTopo' in sticker.members[0].__class__.__name__ :
+          self.dep[:self.np]=sticker.interp(posi[:self.np,:],imax=1)[:,0]
+          # print self.dep[:self.np]
+        if 'GriddedElevation' in sticker.members[0].__class__.__name__ :
+          self.elev[:self.np]=sticker.interp(posi[:self.np,:],t2,imax=1)[:,0] 
+
       # check is material should unstick from sticker
       if self.unstick[cnt]<=0.: # default, particle cannot unstick  > unstick= 0.0
         self.state[self.state>1]=-1 # this way particles will be removed from computation
@@ -622,9 +629,6 @@ class _Material(object):
     if 'GriddedTopo' in self.stickers and 'GriddedElevation' in self.stickers:
       updated_pos_depth = check_wet_dry(self,self.pos[:self.np,:],self.post[:self.np,:],self.state,t1,t2)
       self.post[:self.np,:] = updated_pos_depth
-
-
-
   
   def die(self,t1,t2):
     """Kill particles between times t1 and t2 and remove from simulation"""
