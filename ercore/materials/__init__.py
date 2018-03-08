@@ -590,6 +590,14 @@ class _Material(object):
         posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np],t1,t2)
       # posi is the matrix of intersection positions
       # particles that intersected the sticker will be flagged with self.state==2
+
+      # NOTE - WHEN USING A GROUP OF GRIDDEDTOPO
+      # for some reason, the self.state[:self.np] is not correctly updated, when particles intersect the seabed,
+      # even though the intersection is correctly identified in individual sticker.members[x].intersect() subclasses
+      # is this because sticker.intersect actually re-call the intersect() function "behind the hood"
+      # i.e. loops through the different member that make up sticker (which is a group), and then call intersect() subclass
+      # of each members..is this messing up the "state" modification somehow ? 
+
       
       if not isgroup : 
         # additional checks for GriddedTopo and Elevation cases
