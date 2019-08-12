@@ -228,6 +228,16 @@ class _Material(object):
       # load file - the number of columns depends on the max poly length  [time(CF-compliant days since 1-1-1) x1,y1,x2,y2 etc...]
       self.variable_poly=numpy.loadtxt(self.props['variable_poly'])
 
+    if "variable_radius" in self.props:
+      # time-varying radius to use for particle release - prescribed in a file
+      # load file - [time(CF-compliant days since 1-1-1) x0,y0,R]
+      self.variable_circle=numpy.loadtxt(self.props['variable_radius'])
+
+    if "variable_depth" in self.props:
+      # time-varying depth to use for particle release - prescribed in a file
+      # load file [time(CF-compliant days since 1-1-1) depth]
+      self.variable_depth=numpy.loadtxt(self.props['variable_depth'])
+
 
     #Could add same code for range of X,Y ?
     # e.g. if numpy.size(P0[0])==2 & numpy.size(P0[1])==2 
@@ -532,6 +542,31 @@ class _Material(object):
       self.post[self.np:np1,1]=self.pos[self.np:np1,1]
       # not correcting for topo here because sticker function will do that afterwards
     
+    # random release within a variable circle
+    if hasattr(self, 'variable_circle'):
+      id_circ=numpy.where(numpy.abs(self.variable_circle[:,0]-t2)<=1e-6) # find correct time step
+      # 
+      if id_circ[0] and self.variable_circle[id_circ,1:].squeeze()[0] != 0.0 : # adding the condition on 0.0 for now
+        circ_tmp=self.variable_circle[id_circ,1:].squeeze()
+        xy=[ circ_tmp[0] , circ_tmp[1] ]
+	R=circ_tmp[2]
+        print 'Using circle provided for t= %s' % (t2) #
+      else:
+         while self.variable_circle[id_circ[0],1] == 0.0 :
+            id_circ[0][0]-=1
+         circ_tmp=self.variable_circle[id_circ,1:].squeeze()
+         xy=[ circ_tmp[0] , circ_tmp[1] ]
+         R=circ_tmp[2]
+         print 'No circle provided for t= %s - using circle provided for t= %s' % (t2,self.variable_circle[id_circ[0],0]) #
+
+      point_in_circle = get_random_point_in_circle(np,xy,R)
+      self.pos[self.np:np1,0]=point_in_circle[:,0]
+      self.pos[self.np:np1,1]=point_in_circle[:,1]
+      self.post[self.np:np1,0]=self.pos[self.np:np1,0]
+      self.post[self.np:np1,1]=self.pos[self.np:np1,1]
+
+
+
     # random release within a circle
     if "circular_radius" in self.props:
       #release in a circle rather than at a single X,Y point location
@@ -541,8 +576,34 @@ class _Material(object):
       self.post[self.np:np1,0]=self.pos[self.np:np1,0]
       self.post[self.np:np1,1]=self.pos[self.np:np1,1]     
 
+
+    if hasattr(self, 'variable_depth'):
+      id_depth=numpy.where(numpy.abs(self.variable_depth[:,0]-t2)<=1e-6) # find correct time step
+      # 
+      if id_depth[0] and self.variable_depth[id_depth,1:].squeeze()[0] != 0.0 : # adding the condition on 0.0 for now
+        D=self.variable_depth[id_depth,1:].squeeze()
+	Dmin=D[0]
+	Dmax=D[1]
+        print 'Using depth provided for t= %s' % (t2) #
+      else:
+         while self.variable_depth[id_depth[0],1] == 0.0 :
+            id_depth[0][0]-=1
+         D=self.variable_circle[id_depth,1:].squeeze()
+         Dmin=D[0]
+         Dmax=D[1]
+         print 'No depth provided for t= %s - using depth provided for t= %s' % (t2,self.variable_depth[id_depth[0],0]) #
+      
+      dz=abs(Dmax-Dmin)
+      #zz=numpy.random.random(np)
+      zz= numpy.random.uniform(low=Dmax, high=Dmin, size=(np,))
+      
+      # generate random levels within the specified band
+      self.pos[self.np:np1,2]=zz #Dmax+dz*zz
+      self.post[self.np:np1,2]=zz #Dmax+dz*zz
+
+
     #random release with depth band      
-    if numpy.size(self.props['P0'][2])==2:
+    elif numpy.size(self.props['P0'][2])==2:
       #thickness of z layer
       dz=abs(self.props['P0'][2][0]-self.props['P0'][2][1])
       # depth are supposed to be negative
@@ -550,6 +611,9 @@ class _Material(object):
       # generate random levels within the specified band
       self.pos[self.np:np1,2]=min(self.props['P0'][2])+dz*zz
       self.post[self.np:np1,2]=min(self.props['P0'][2])+dz*zz
+    
+#    print 'depth min: %.3f, max: %.3f, radius= %f' % (Dmin,Dmax,R)
+
     # update total number of particles
     self.np=np1
 
@@ -708,7 +772,11 @@ class PassiveTracer(_Material):
       # Diffusion references:
       # Garcia-Martinez and Tovar, 1999 - Computer Modeling of Oil Spill Trajectories With a High Accuracy Method
       # Lonin, S.A., 1999. Lagrangian model for oil spill diffusion at sea. Spill Science and Technology Bulletin, 5(5): 331-336 
-      diff=(6*dt*diffuser.interp(self.pos[:np],t1,self.age[:np],imax=imax))**0.5
+      try:
+        diff=(6*dt*diffuser.interp(self.pos[:np],t1,self.age[:np],imax=imax))**0.5
+      except:
+        diff=(6*dt*diffuser.interp(self.pos[:np],t1,imax=imax))**0.5
+	
       self.post[:np,:imax]+=numpy.random.uniform(-diff,diff,size=(np,imax))*self.mfx[:np,:imax] #self.mfx=map factors i.e. meters to lat/lon
       # 
       # correction for vertical diffusion resulting in above sea-surface Zlevel
