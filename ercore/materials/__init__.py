@@ -580,18 +580,24 @@ class _Material(object):
     if hasattr(self, 'variable_depth'):
       id_depth=numpy.where(numpy.abs(self.variable_depth[:,0]-t2)<=1e-6) # find correct time step
       # can't be any 0 condition for the depth 
-#     if id_depth[0] and self.variable_depth[id_depth,1:].squeeze()[0] != 0.0 : # adding the condition on 0.0 for now
-      D=self.variable_depth[id_depth,1:].squeeze()
-      Dmin=D[0]
-      Dmax=D[1]
-      print 'Using depth provided for t= %s' % (t2) #
-      #else:
-      #   while self.variable_depth[id_depth[0],1] == 0.0 :
-      #      id_depth[0][0]-=1
-      #   D=self.variable_depth[id_depth,1:].squeeze()
-      #   Dmin=D[0]
-      #   Dmax=D[1]
-      #   print 'No depth provided for t= %s - using depth provided for t= %s' % (t2,self.variable_depth[id_depth[0],0]) #
+      if id_depth[0] and self.variable_depth[id_depth,1:].squeeze()[0] != 0.0 : # adding the condition on 0.0 for now
+         D=self.variable_depth[id_depth,1:].squeeze()
+         Dmin=D[0]
+         Dmax=D[1]
+         self.D=D # saving in case there is no timestep
+         print 'Using depth provided for t= %s' % (t2) #
+      else:
+         if hasattr(self,'D'):
+            Dmin=self.D[0]
+            Dmax=self.D[1]
+            print 'No depth provided for t= %s - keeping last available depth' % (t2) # re-use Dmin et Dmax
+         else:
+            while self.variable_depth[id_depth[0],1] == 9999.0 :
+               id_depth[0][0]-=1
+            D=self.variable_depth[id_depth,1:].squeeze()
+	    Dmin=D[0]
+            Dmax=D[1]
+            print 'No depth provided for t= %s - using depth provided for t= %s' % (t2,self.variable_depth[id_depth[0],0]) #
       
       dz=abs(Dmax-Dmin)
       #zz=numpy.random.random(np)
