@@ -8,36 +8,6 @@ _NCEPT0_=730120.99999
 ncep2dt=lambda t:_DT0_+datetime.timedelta(t-_NCEPT0_)
 dt2ncep=lambda t: (1.+t.toordinal()+t.hour/24.+t.minute/1440.+t.second/86400.) if isinstance(t,datetime.datetime) else t
 
-from cryptography.fernet import Fernet
-from cryptography.hazmat import backends
-
-try:
-    from cryptography.hazmat.backends.commoncrypto.backend import backend as be_cc
-except ImportError:
-    be_cc = None
-
-try:
-    from cryptography.hazmat.backends.openssl.backend import backend as be_ossl
-except ImportError:
-    be_ossl = None
-
-backends._available_backends_list = [
-    be for be in (be_cc, be_ossl) if be is not None
-]
-
-__FKEY__ = 'qSueR6IykLXOi1DUhhdyiTurKTpoQoAQNBinvSBcbic='
-
-
-def decrypt_var(var, key, array=None):
-    if isinstance(array, numpy.ndarray):
-        array = array
-    else:
-        array = var[:]
-    if numpy.any(key) and hasattr(var,'is_encrypted') and var.is_encrypted:
-        return array[:]/(key*10**-1)
-    else:
-        return array
-
 def get_summary_report(summary, dt, tout, outdir, materials):
   total_nrel = sum([m.reln for m in materials])
   materials_id = ','.join(['%d - %s (%s)' % (m.reln,m.id, m.__class__.__name__) for m in materials])

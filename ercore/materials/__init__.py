@@ -247,11 +247,13 @@ class _Material(object):
     posi=numpy.where(self.state[:np,None]<0,self.pos[:np,:],self.post[:np,:])
     for sticker in self.stickers:      
       if 'GriddedTopo' in sticker.__class__.__name__:
-        posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np],t1,t2,
+        posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,
+                                           self.state[:self.np],t1,t2,
                                            unstick=self.unstick)
-        self.dep[:self.np]=sticker.interp(posi[:self.np,:],imax=1)[:,0]
+        self.dep[:self.np] = sticker.interp(posi[:self.np,:],imax=1)[:,0]
       else:
-        posi[:self.np,:]=sticker.intersect(self.pos[:self.np,:],posi,self.state[:self.np],t1,t2) 
+        posi[:self.np,:] = sticker.intersect(self.pos[:self.np,:],posi,
+                                             self.state[:self.np],t1,t2) 
     if self.unstick<=0.:
       self.state[self.state>1]=-1
     self.post[:self.np,:]=posi[:self.np,:]

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import os
 import numpy
-from ercore import ERCoreException,ERConfigException,copydoc,ncep2dt,dt2ncep, decrypt_var, __FKEY__, Fernet
+from ercore import ERCoreException,ERConfigException,copydoc,ncep2dt,dt2ncep
 from _flib_ercore import interph,interp3d,interpz,inpoly
 import datetime
 import netCDF4 as nc
@@ -302,23 +302,10 @@ class GridData(FieldData):
         self.time.extend(time0) #Add times in file to time list
         self.flen.append(len(time0))
         self.timeindex.append(len(self.time)) #Add start time index of next file
-        #self.load_keystore(filepath)
       self.flen.append(self.flen[-1])
       self.reset()
 
-  def load_keystore(self, filepath):
-    fernet = Fernet(__FKEY__)
-    keystorepath = os.path.join(os.path.dirname(filepath), 'keystore')
-    storename, __ = os.path.splitext(os.path.basename(filepath))
-    if os.path.exists(keystorepath):
-      keystore = shelve.open(keystorepath, flag='r')
-      if storename in keystore:
-          keys = keystore[storename]
-          dkeys = {}
-          for var, key in keys.items():
-            dkeys[var] = numpy.fromstring(fernet.decrypt(key), dtype='int64')
-          self.keystore.append(dkeys)
-
+  
   def load_files(self, cfile):
     files = []
     if isinstance(cfile, list):
